@@ -8,18 +8,20 @@ class ReadQuery {
   private $offset = null;
   private $joins = null;
 
-  const QUERY_SEPERATOR = "\n";
+  const QUERY_SEPERATOR = " ";
 
   public function __construct($tablename) {
     $this->table = $tablename;
   }
-  private static function JsonLogicToSQL($arr) {
+  private static function JsonLogicToSQL($arr, $prepStmt = false, &$values = []) {
     $op = array_keys($arr)[0];
     $opLC = strtolower($op);
     // Compare Operators
     if (in_array($opLC, ['=', '>', '<', '>=', '<=', '<>', '!=', 'nin', 'like'])) {
       $col = $arr[$op][0];
-      $val = $arr[$op][1];
+      $pname = ':p' . count($values); // param-name
+      $val = $prepStmt ? $pname : $arr[$op][1];
+      $values[$pname] = $arr[$op][1];
       // Convert Operator
       if ($opLC == 'nin') $op = 'NOT IN';
       // Result
@@ -30,7 +32,7 @@ class ReadQuery {
       $comps = $arr[$op];
       $tmp = [];
       foreach ($comps as $comp) {
-        $tmp[] = self::JsonLogicToSQL($comp);
+        $tmp[] = self::JsonLogicToSQL($comp, $prepStmt, $values);
       }
       if (!in_array(null, $tmp, true))
         return "(" . implode(" ".strtoupper($op)." ", $tmp) . ")";
@@ -38,8 +40,19 @@ class ReadQuery {
     return null;
   }
   public function getSQL() {
-    return
-    "SELECT * ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter().$this->getSorting().$this->getLimit().";";
+    return "SELECT * ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter().$this->getSorting().$this->getLimit().";";
+  }
+  public function getStatement() {
+    return "SELECT * ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).$this->getSorting().$this->getLimit().";";
+  }
+  public function getCountStmtWOLimits() {
+    return "SELECT COUNT(*) ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).";";
+  }
+  public function getValues() {
+    if (is_null($this->filter)) return [];
+    $values = [];
+    self::JsonLogicToSQL($this->filter, true, $values);
+    return $values;
   }
   //--- Joins
   public function addJoin($from, $to) {
@@ -64,8 +77,10 @@ class ReadQuery {
   public function setFilter($strFilter) {
     $this->filter = json_decode($strFilter, true);
   }
-  private function getFilter() {
-    return is_null($this->filter) ? "" : self::QUERY_SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter);
+  private function getFilter($prep = false) {
+    if (is_null($this->filter)) return "";
+    if ($prep) return self::QUERY_SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter, true);
+    return self::QUERY_SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter);
   }
   //--- Order
   public function setSorting($column, $direction = "ASC") {

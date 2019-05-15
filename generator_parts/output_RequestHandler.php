@@ -192,7 +192,7 @@
     private function isValidFilterStruct($input) {
       return !is_null($input) && is_array($input) && (array_key_exists('all', $input) || array_key_exists('columns', $input));
     }
-    private function fmtCell($dtype, $inp, $test) {      
+    private function fmtCell($dtype, $inp) {      
       //echo $dtype." (".$test.")\n";
       // TIME, DATE, DATETIME, FLOAT, VAR_STRING
       switch ($dtype) {
@@ -211,53 +211,6 @@
           return (string)$inp;
           break;
       }
-    }
-    private function parseResultData($stmt) {
-      $result = [];
-      while($row = $stmt->fetch(PDO::FETCH_NUM)) {
-        $r = [];
-        $x = [];
-        foreach($row as $idx => $val) {
-          $meta = $stmt->getColumnMeta($idx);
-          $table = $meta["table"];
-          $col = $meta["name"];
-          $dtype = $meta['native_type'];
-          $test = implode(' - ', [$meta['len'], $meta['precision']]);
-          //echo "$table.$col -> $val<br>";
-          // Split Table and place into correct place in origin
-          if (strpos($table, '_____') !== FALSE) {
-            // Foreign Table or nested Foreign Table
-            $splited = explode('_____', $table);
-            if (count($splited) == 2) {
-              // Layer 1
-              if (is_array($x[$splited[1]]))
-                $x[$splited[1]][$col] = $this->fmtCell($dtype, $val, $test); // Append
-              else {
-                // Convert to array
-                $x[$splited[1]] = array();
-                $x[$splited[1]][$col] = $this->fmtCell($dtype, $val, $test); // Append
-              }
-            }
-            elseif (count($splited) == 3) {
-              // Layer 2
-              if (is_array($x[$splited[1]][$splited[2]] ))
-                $x[$splited[1]][$splited[2]][$col] = $this->fmtCell($dtype, $val, $test); // Append
-              else {
-                // Convert to array
-                $x[$splited[1]][$splited[2]] = array();
-                $x[$splited[1]][$splited[2]][$col] = $this->fmtCell($dtype, $val, $test); // Append
-              }
-            }
-          } else {
-            // Origin Table
-            $x[$col] = $this->fmtCell($dtype, $val, $test);
-          }
-          $r[$table][$col] = $this->fmtCell($dtype, $val, $test);
-        }
-        $result[] = $x;
-      }
-      // Return 
-      return $result;
     }
     private function getFormCreate($param) {
       $tablename = $param["table"];
@@ -316,7 +269,7 @@
       $config = json_decode(Config::getConfig(), true);
       $result = [];
       $result['config'] = $config[$tablename];
-      $result['count'] = json_decode($this->count($param), true)[0]['cnt'];
+      $result['count'] = 0; // TODO: Remove //json_decode($this->count($param), true)[0]['cnt'];
       $result['formcreate'] = $this->getFormCreate($param);
       $result['sm_states'] = $SE->getStates();
       $result['sm_rules'] = $SE->getLinks();
@@ -342,6 +295,61 @@
     }
 
     // [GET] Reading
+    private function parseResultData($stmt) {
+      $result = [];
+      while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
+        $row = [];
+        $subrow = [];
+        // Loop Cell
+        foreach($singleRow as $i => $value) {
+          $meta = $stmt->getColumnMeta($i);
+          $path = $meta["table"];
+          $col = $meta["name"];
+          $val = $this->fmtCell($meta['native_type'], $value);
+
+          $parts = explode('/', $path);
+          array_shift($parts); // Remove Root Element
+          // Has Sub-Elements
+          if (count($parts) > 0) {
+            // More Layers
+            $tmp = &$subrow;
+            foreach ($parts as $part) {
+              $tmp = &$tmp[$part][0];
+            }
+            $tmp[$col] = $val;
+          }
+          else {
+            // First Layer
+            $row[$col] = $val;
+          }
+        }
+        $row += $subrow;
+        // Add to Table
+        $result[] = $row;
+      }
+      // Remove duplicates
+      /*
+      array_walk($result, function(&$data, $key) {
+        echo $key . ' -> ' . var_export($data, true);
+        foreach ($data as &$a) {
+          $a = array_values(array_unique($a));
+        }
+      });
+      */
+      /*
+      $a = $result;
+      */
+      /*
+      $b = $result;
+      $tempArr = array_unique(array_column($result, 'employee_id'));
+      $r = array_intersect_key($result, $tempArr);
+      $result = array_merge_recursive($result, $r);
+      */
+      //$result = array_intersect_key($result, array_unique(array_map('serialize', $result)));
+      // Deliver
+      return $result;
+    }
+
     public function read($param) {
       //--------------------- Check Params
       $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter'/*, 'page'*/];
@@ -389,13 +397,41 @@
         else die(fmtError("AscDesc has no valid value (value has to be empty, ASC or DESC)!"));
       }
       //--- Filter
-      if ($this->isValidFilterStruct($filter))
-        $filter = json_encode($filter);
+      //if ($this->isValidFilterStruct($filter))
+      $filter = json_encode($filter);
 
-      // Prepare Structure
-      $p = ['name' => 'sp_'.$tablename, 'inputs' => [$token_uid, $filter, $orderby, $ascdesc, $limitStart, $limitSize]];
-      return $this->call($p);
+      //================================================ New Version:
+
+      // Build a new Read Query Object
+      $rq = new ReadQuery($tablename);
+      //$rq->setLimit(5);
+      //$rq->setFilter('{"=":["`employee/store`.store_id", 4]}');
+      //$rq->setSorting('connections.id', 'DESC');  
+      //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // 1st level
+      $rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
+      $rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
+
+      //$rq->addJoin('connections.test_id', 'testtableA.test_id'); // 1st level    
+      //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
+      //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
+      //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
+      
+      $pdo = DB::getInstance()->getConnection();
+      // Retrieve Number of Entries
+      $stmtCnt = $pdo->prepare($rq->getCountStmtWOLimits());
+      $stmtCnt->execute($rq->getValues());
+      $row = $stmtCnt->fetch();
+      $count = (int)$row[0];
+      // Retrieve Entries
+      $stmt = $pdo->prepare($rq->getStatement());
+      $res = $stmt->execute($rq->getValues());
+      $r = $this->parseResultData($stmt);
+      // Return Result set
+      $result = ["count" => $count, "records" => $r];
+      return json_encode($result, true);
     }
+
+    // TODO: Merge with read 
     public function count($param) {
       //--------------------- Check Params
       $validParams = ['table', 'filter'];
