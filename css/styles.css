@@ -1,0 +1,80 @@
+.bpm-server-connect {
+      border: 1px solid darkslategrey;
+      padding: 25px 20px;
+      margin-bottom: 50px;
+      position: relative;
+}
+
+.title {
+      position: absolute;
+      top: -35px;
+      background: #fff;
+      text-transform: uppercase;
+}
+
+.bpm-server-connect .fa {
+      font-size: 35px;
+      display: inline-block;
+}
+
+.fa-check {
+      color: forestgreen;
+}
+
+.fa-minus-circle, .fa-trash-o {
+      color: darkred;
+}
+.fa-trash-o {
+      font-size: 20px;
+      float: right;
+      padding-left: 10px;
+      border-left: 1px solid black;
+}
+
+#sqlDatabases {
+      display: inline-block;
+      width: 33.3333%;
+      margin-bottom: 30px;
+}
+
+.bpm-checkboxes {
+      /*display: block;*/
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 0 30px;
+      display: none;
+}
+.bpm-active{
+      display: block;
+}
+
+.bpm-db-table {
+      display: inline-block;
+      vertical-align: top;
+      text-transform: none;
+      /*font-weight: 600;*/
+}
+.bpm-options{
+      display: inline-block;
+      width: 33.3%;
+      margin-bottom: 5px;
+}
+#code{
+      position: relative;
+      overflow: hidden;
+      padding: 0px;
+      margin: 30px 0 0;
+
+}
+#code:hover .bpm-copy{
+      top: 0px;
+      /*display: block;*/
+      transition: 0.3s;
+}
+.bpm-copy{
+      position: absolute;
+      /*display: none;*/
+      top: -33px;
+      width: 100%;
+      border-radius: 0 ;
+}

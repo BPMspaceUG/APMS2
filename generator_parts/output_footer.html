@@ -1,0 +1,36 @@
+  <!--  Footer -->
+  <footer class="footer">
+    <div class="container">
+      <ul class="list-inline text-muted m-0 p-0">
+        <li class="list-inline-item"><b>replaceDBName</b> is using</li>
+        <li class="list-inline-item"><a target="_blank" href="http://php.net/">PHP</a></li>
+        <li class="list-inline-item"><a target="_blank" href="http://getbootstrap.com/">Bootstrap4</a></li>
+        <li class="list-inline-item"><a target="_blank" href="https://jquery.com/">jQuery</a></li>
+        <li class="list-inline-item"><a target="_blank" href="http://visjs.org/">visjs</a></li>
+        <li class="list-inline-item"><a target="_blank" href="https://quilljs.com/">Quill</a></li>
+      </ul>
+    </div>
+  </footer>
+  <!-- JS -->
+  <script src="js/main.js"></script>
+  <script>
+    $(document).ready(function() {
+      DB.API_URL = 'api.php';
+      // Create objects
+      DB.loadConfig(function(config){
+        Object.keys(config).forEach(tablename => {
+          let tmp = new Table(tablename, 0);
+          tmp.GUIOptions.showWorkflowButton = true;
+          tmp.loadRows(function(){
+            tmp.renderHTML('.table_'+tablename);
+          })
+        });
+      });
+      // Loading disable
+      $('.initloadingtext').hide();
+      $('.mainapp').show();
+    });
+  </script>
+  <script src="js/custom.js"></script>
+</body>
+</html>
