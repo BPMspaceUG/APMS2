@@ -192,7 +192,8 @@
     private function isValidFilterStruct($input) {
       return !is_null($input) && is_array($input) && (array_key_exists('all', $input) || array_key_exists('columns', $input));
     }
-    private function fmtCell($dtype, $inp) {      
+    private function fmtCell($dtype, $inp) {
+      if (is_null($inp)) return null;
       //echo $dtype." (".$test.")\n";
       // TIME, DATE, DATETIME, FLOAT, VAR_STRING
       switch ($dtype) {
@@ -294,53 +295,40 @@
       return json_encode($result);
     }
 
-    // TODO:
-    /*
-    private static function setRowVal(&$row, $path, $col, $value) {
-      // input(row, 'tablename/b/c.a') => data[a][b][c][a] = val
-      $parts = explode('/', $path);
-      echo $path.": $col -> $value \n";
-      //echo $parts[0]."\n";
-      //return;
-      $first = $parts[0];
-      if (count($parts) == 1) {
-        // Last Layer
-        if ($first != $tablename) {
-          // ForeignKey
-          if (!is_array($row[$first])) $row[$first] = []; // overwrite element with empty array
-          $row[$first][$col] = $value; // Append Value
-        } else {
-          // Normal Key
-          $row[$col] = $value;
-        }
-      }
-      elseif (count($parts) > 1) {
-        // More Layers to come
-        //$store = $parts[0];
-        $deeper = $parts[1];
-        array_shift($parts);
-        $newpath = implode('/', $parts);
-        self::setRowVal($tablename, $row[$deeper], $newpath, $col, $value);
-      }
-    }
-    */
-
     private static function rowPath2Tree(&$row, $path, $value) {
       $parts = explode("/", $path);
       if (count($parts) > 1) {
         $first = $parts[0];
         array_shift($parts);
         $path = implode("/", $parts);
-
         if (!array_key_exists($first, $row) || !is_array($row[$first])) // overwrite
           $row[$first] = [];
-
         self::rowPath2Tree($row[$first], $path, $value); // go deeper
-      } else {
+      }
+      else {
         $row[$path] = $value;
       }
     }
-
+    private static function arr_multi_compare($array1, $array2){
+      $result = array();
+      foreach ($array1 as $key => $value) {
+        if (!is_array($array2) || !array_key_exists($key, $array2)) {
+          $result[$key] = $value;
+          continue;
+        }
+        if (is_array($value)) {
+          $recursiveArrayDiff = static::arr_multi_compare($value, $array2[$key]);
+          if (count($recursiveArrayDiff)) {
+              $result[$key] = $recursiveArrayDiff;
+          }
+          continue;
+        }
+        if ($value != $array2[$key]) {
+          $result[$key] = $value;
+        }
+      }
+      return $result;
+    }
     // [GET] Reading
     private function parseResultData($tablename, $stmt) {
       $priColname = Config::getPrimaryColNameByTablename($tablename);
@@ -353,16 +341,32 @@
           $parts = explode('/', $meta["table"]);
           array_shift($parts);
           $parts[] = $meta["name"];
-          $path = implode('/', $parts);
           $val = $this->fmtCell($meta['native_type'], $value);
 
-          //$row[$path] = $val;
-          self::rowPath2Tree($row, $path, $val);
+          if (!is_null($val)) {
+            //--- TODO: Trick for merging! (has many)
+            if (!Config::doesColExistInTable($tablename, $parts[0]))
+              $parts[0] .= '/0';
+            //---
+            $path = implode('/', $parts);
+            //----------------------------
+            //$row[$path] = $val;
+            self::rowPath2Tree($row, $path, $val);
+          }
         }
-
-        // TODO: Merge here
-        //$result = array_merge_recursive($result, $row);
-        $result[] = $row;
+        // Only append the differences
+        $found = false;
+        foreach ($result as $key => $rw) {
+          if ($rw[$priColname] == $row[$priColname]) {
+            // Already exists
+            $found = true;
+            $diff = self::arr_multi_compare($row, $rw);
+            $result[$key] = array_merge_recursive($rw, $diff);
+            break;
+          }
+        }
+        if (!$found)
+          $result[] = $row;
       }
       // Deliver
       return $result;
@@ -424,24 +428,26 @@
       $rq = new ReadQuery($tablename);
       //$rq->setLimit(5);
       //$rq->setFilter('{"=":["`employee/store`.store_id", 4]}');
-      //$rq->setSorting('connections.id', 'DESC');  
-
+      //$rq->setSorting('name', 'DESC');  
       //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
-      $rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)
-      $rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)
-      $rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // has 1 (NOT PrimaryKEY!)
+
+      //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)
+      //$rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)
+      //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // has 1 (NOT PrimaryKEY!)
+      //$rq->addJoin($tablename.'/product_store.store_id', 'store.store_id'); // has 1 (NOT PrimaryKEY!)
+
+      //$rq->addJoin($tablename.'.storechef_id', 'employee.chef', true); // has 1 (NOT PrimaryKEY!)
+
 
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
       //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
-
       //$rq->addJoin('connections.test_id', 'testtableA.test_id'); // 1st level    
       //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
       //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
-      
-      /*header('Content-Type: text/plain; charset=utf-8');
-      echo $rq->getSQL();
-      return;*/
+
+      // DEBUG
+      //echo $rq->getSQL();
 
       $pdo = DB::getInstance()->getConnection();
       // Retrieve Number of Entries
