@@ -294,58 +294,54 @@
       return json_encode($result);
     }
 
+    // TODO:
+    private static function setRowVal($tablename, &$row, $path, $col, $value) {
+      // input(row, 'tablename/b/c.a') => data[a][b][c][a] = val
+      $parts = explode('/', $path);
+      echo $path.": $col -> $value \n";
+      //echo $parts[0]."\n";
+      //return;
+      $first = $parts[0];
+      if (count($parts) == 1) {
+        // Last Layer
+        if ($first != $tablename) {
+          // ForeignKey
+          if (!is_array($row[$first])) $row[$first] = []; // overwrite element with empty array
+          $row[$first][$col] = $value; // Append Value
+        } else {
+          // Normal Key
+          $row[$col] = $value;
+        }
+      }
+      elseif (count($parts) > 1) {
+        // More Layers to come
+        //$store = $parts[0];
+        $deeper = $parts[1];
+        array_shift($parts);
+        $newpath = implode('/', $parts);
+        self::setRowVal($tablename, $row[$deeper], $newpath, $col, $value);
+      }
+    }
+
     // [GET] Reading
-    private function parseResultData($stmt) {
+    private function parseResultData($tablename, $stmt) {
+      $priColname = Config::getPrimaryColNameByTablename($tablename);
       $result = [];
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
         $row = [];
-        $subrow = [];
         // Loop Cell
         foreach($singleRow as $i => $value) {
           $meta = $stmt->getColumnMeta($i);
-          $path = $meta["table"];
-          $col = $meta["name"];
+          $parts = explode('/', $meta["table"]);
+          array_shift($parts);
+          $parts[] = $meta["name"];
+          $path = implode('/', $parts);
           $val = $this->fmtCell($meta['native_type'], $value);
-
-          $parts = explode('/', $path);
-          array_shift($parts); // Remove Root Element
-          // Has Sub-Elements
-          if (count($parts) > 0) {
-            // More Layers
-            $tmp = &$subrow;
-            foreach ($parts as $part) {
-              $tmp = &$tmp[$part][0];
-            }
-            $tmp[$col] = $val;
-          }
-          else {
-            // First Layer
-            $row[$col] = $val;
-          }
+          //self::setRowVal($tablename, $row, $path, $col, $value);
+          $row[$path] = $val;
         }
-        $row += $subrow;
-        // Add to Table
         $result[] = $row;
       }
-      // Remove duplicates
-      /*
-      array_walk($result, function(&$data, $key) {
-        echo $key . ' -> ' . var_export($data, true);
-        foreach ($data as &$a) {
-          $a = array_values(array_unique($a));
-        }
-      });
-      */
-      /*
-      $a = $result;
-      */
-      /*
-      $b = $result;
-      $tempArr = array_unique(array_column($result, 'employee_id'));
-      $r = array_intersect_key($result, $tempArr);
-      $result = array_merge_recursive($result, $r);
-      */
-      //$result = array_intersect_key($result, array_unique(array_map('serialize', $result)));
       // Deliver
       return $result;
     }
@@ -407,15 +403,24 @@
       //$rq->setLimit(5);
       //$rq->setFilter('{"=":["`employee/store`.store_id", 4]}');
       //$rq->setSorting('connections.id', 'DESC');  
-      //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // 1st level
-      $rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
-      $rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
+
+      //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
+      $rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)
+      $rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)
+      $rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // has 1 (NOT PrimaryKEY!)
+
+      //$rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
+      //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
 
       //$rq->addJoin('connections.test_id', 'testtableA.test_id'); // 1st level    
       //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
       //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
       
+      /*header('Content-Type: text/plain; charset=utf-8');
+      echo $rq->getSQL();
+      return;*/
+
       $pdo = DB::getInstance()->getConnection();
       // Retrieve Number of Entries
       $stmtCnt = $pdo->prepare($rq->getCountStmtWOLimits());
@@ -425,7 +430,7 @@
       // Retrieve Entries
       $stmt = $pdo->prepare($rq->getStatement());
       $res = $stmt->execute($rq->getValues());
-      $r = $this->parseResultData($stmt);
+      $r = $this->parseResultData($tablename, $stmt);
       // Return Result set
       $result = ["count" => $count, "records" => $r];
       return json_encode($result, true);

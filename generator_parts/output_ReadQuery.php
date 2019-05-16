@@ -55,13 +55,17 @@ class ReadQuery {
     return $values;
   }
   //--- Joins
-  public function addJoin($from, $to) {
+  public function addJoin($from, $to, $hasMany = false) {
     $arrFrom = explode(".", $from);
     $arrTo = explode(".", $to);
-    $this->joins[] = [$arrFrom[0], $arrFrom[1], $arrTo[0], $arrTo[1]];
+    $this->joins[] = [$arrFrom[0], $arrFrom[1], $arrTo[0], $arrTo[1], $hasMany];
   }
   private function getJoin($j) {
+    $hasMany = $j[4];
     $alias = implode('/', [$j[0], $j[2]]);
+    if (!$hasMany) {
+      $alias = implode('/', [$j[0], $j[1]]);
+    }
     $path = $j[0];
     return self::QUERY_SEPERATOR."LEFT JOIN ".$j[2]." AS `".$alias."` ON `".$path."`.".$j[1]." = `".$alias."`.".$j[3];
   }
