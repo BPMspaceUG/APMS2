@@ -295,7 +295,8 @@
     }
 
     // TODO:
-    private static function setRowVal($tablename, &$row, $path, $col, $value) {
+    /*
+    private static function setRowVal(&$row, $path, $col, $value) {
       // input(row, 'tablename/b/c.a') => data[a][b][c][a] = val
       $parts = explode('/', $path);
       echo $path.": $col -> $value \n";
@@ -322,6 +323,23 @@
         self::setRowVal($tablename, $row[$deeper], $newpath, $col, $value);
       }
     }
+    */
+
+    private static function rowPath2Tree(&$row, $path, $value) {
+      $parts = explode("/", $path);
+      if (count($parts) > 1) {
+        $first = $parts[0];
+        array_shift($parts);
+        $path = implode("/", $parts);
+
+        if (!array_key_exists($first, $row) || !is_array($row[$first])) // overwrite
+          $row[$first] = [];
+
+        self::rowPath2Tree($row[$first], $path, $value); // go deeper
+      } else {
+        $row[$path] = $value;
+      }
+    }
 
     // [GET] Reading
     private function parseResultData($tablename, $stmt) {
@@ -337,9 +355,13 @@
           $parts[] = $meta["name"];
           $path = implode('/', $parts);
           $val = $this->fmtCell($meta['native_type'], $value);
-          //self::setRowVal($tablename, $row, $path, $col, $value);
-          $row[$path] = $val;
+
+          //$row[$path] = $val;
+          self::rowPath2Tree($row, $path, $val);
         }
+
+        // TODO: Merge here
+        //$result = array_merge_recursive($result, $row);
         $result[] = $row;
       }
       // Deliver
