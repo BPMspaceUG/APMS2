@@ -283,7 +283,8 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     tbl.order = newIndex
   }
   $scope.openProject = function(e){ // Build new URL and execute in new Tab
-    url = window.location.href.replace("APMS", "APMS_test")
+    // TODO: Needs improvement
+    const url = window.location.href.replace("APMS2", "APMS_test")
     window.open(url + $scope.dbNames.model+"/")
   }
   $scope.toggle_kids = function(tbl) {

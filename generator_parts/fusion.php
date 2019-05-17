@@ -1,4 +1,5 @@
 <?php
+  // Helper Methods
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
@@ -9,10 +10,14 @@
     return $content;
   }
 
+  // Global Variables
+  $queries1 = '';
+  $content = "";
+
 	// Load data from Angular
-  if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST)) {
+  if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
     $_REQUEST = json_decode(file_get_contents('php://input'), true);
-  }  
+  
   // Parameters
   $db_server = $_REQUEST['host']; //.':'.$_REQUEST['port'];
   $db_user = $_REQUEST['user'];
@@ -33,8 +38,7 @@
   uasort($data, "cmp");
   //--------------------------------------
 
-  // check if LIAM is present and create a Directory if not exists
-  $content = "";
+  // check if LIAM is present and create a Directory if not exists  
   $content = @file_get_contents("../../.git/config");
   echo "Looking for LIAM...\n";
   if (!empty($content) && strpos($content,"https://github.com/BPMspaceUG/LIAM.git")) {
@@ -160,6 +164,7 @@
 
     //==================================================================== STORED PROCEDURE
     //--- Create a stored procedure for each Table
+    /*
     $sp_name = 'sp_'.$tablename;
     $con->exec('DROP PROCEDURE IF EXISTS `'.$sp_name.'`'); // TODO: Ask user if it should be overwritten
 
@@ -275,13 +280,11 @@
     if (count($joincolsubst) > 0) $select .= ",\n".implode(",\n", $joincolsubst);
     //--- order by text
     $orderByText = '';
-    // Template: 
-    /*
-    case when @sortDir <> 'ASC' then 0 when @sortCol = 'a.Role_id' then a.Role_id end ASC,
-    case when @sortDir <> 'ASC' then 0 when @sortCol = 'a.Role_name' then a.Role_name end ASC,
-    case when @sortDir <> 'DESC' then 0 when @sortCol = 'a.Role_id' then a.Role_id end DESC,
-    case when @sortDir <> 'DESC' then 0 when @sortCol = 'a.Role_name' then a.Role_name end DESC
-    */
+    // Template:     
+    //case when @sortDir <> 'ASC' then 0 when @sortCol = 'a.Role_id' then a.Role_id end ASC,
+    //case when @sortDir <> 'ASC' then 0 when @sortCol = 'a.Role_name' then a.Role_name end ASC,
+    //case when @sortDir <> 'DESC' then 0 when @sortCol = 'a.Role_id' then a.Role_id end DESC,
+    //case when @sortDir <> 'DESC' then 0 when @sortCol = 'a.Role_name' then a.Role_name end DESC
 
     foreach ($colnamesWOforeignKeys as $col => $realColname) {
       $orderByText .= 
@@ -354,10 +357,10 @@ END";
 
     // STORED PROECEDURE END
     //===========================================================
+*/
 
     //--- Create StateMachine
     if ($se_active) {
-
       // ------- StateMachine Creation
       $SM = new StateMachine($con);
       $SM->createDatabaseStructure();
@@ -405,15 +408,13 @@ END";
           }
         }
       }
-
       // Exclude the following Columns:
       $excludeKeys = Config::getPrimaryColsByTablename($tablename, $data);
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData
       $vcols = Config::getVirtualColnames($tablename, $data);
       foreach ($vcols as $vc) {
         $excludeKeys[] = $vc;
-      }
-      
+      }      
       $queries1 = '';
       $queries1 = $SM->getQueryLog();
       // Clean up

@@ -53,9 +53,6 @@
       $cols = $data[$tablename]["columns"];      
       return $cols;
     }
-    public static function getColNamesByTablename($tablename) {
-      // = string[]
-    }
     public static function getPrimaryColsByTablename($tablename, $data = null) {
       $res = array();
       $cols = Config::getColsByTablename($tablename, $data);
@@ -136,7 +133,7 @@
       $cols = Config::getColsByTablename($tablename);
       // Find primary columns
       foreach ($cols as $colname => $col) {
-        if ($col["foreignKey"]['table'] != '')
+        if (array_key_exists('foreignKey', $col) && $col["foreignKey"]['table'] != '')
           $res[] = array(
             'table' => $col["foreignKey"]['table'],
             'col_id' => $col["foreignKey"]['col_id'],
@@ -270,7 +267,7 @@
       $config = json_decode(Config::getConfig(), true);
       $result = [];
       $result['config'] = $config[$tablename];
-      $result['count'] = 0; // TODO: Remove //json_decode($this->count($param), true)[0]['cnt'];
+      //$result['count'] = 0; // TODO: Remove //json_decode($this->count($param), true)[0]['cnt'];
       $result['formcreate'] = $this->getFormCreate($param);
       $result['sm_states'] = $SE->getStates();
       $result['sm_rules'] = $SE->getLinks();
@@ -295,6 +292,7 @@
       return json_encode($result);
     }
 
+    // Helper functions for Tree rendering
     private static function rowPath2Tree(&$row, $path, $value) {
       $parts = explode("/", $path);
       if (count($parts) > 1) {
@@ -329,7 +327,6 @@
       }
       return $result;
     }
-    // [GET] Reading
     private function parseResultData($tablename, $stmt) {
       $priColname = Config::getPrimaryColNameByTablename($tablename);
       $result = [];
@@ -372,6 +369,7 @@
       return $result;
     }
 
+    // [GET] Reading
     public function read($param) {
       //--------------------- Check Params
       $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter'/*, 'page'*/];
@@ -385,6 +383,7 @@
       @$ascdesc = isset($param["ascdesc"]) ? $param["ascdesc"] : null; 
       @$orderby = isset($param["orderby"]) ? $param["orderby"] : null; // has to be a column name
       @$filter = isset($param["filter"]) ? $param["filter"] : null;
+      @$search = isset($param["search"]) ? $param["search"] : null; // all columns in OR
 
       // Identify via Token
       global $token;
@@ -402,9 +401,9 @@
         if (!is_numeric($limitStart)) die(fmtError("LimitStart is not numeric!"));
         if (!is_numeric($limitSize)) die(fmtError("LimitSize is not numeric!"));
       } else {
-        // default: 1000 rows
-        $limitStart = 0;
-        $limitSize = 1000;
+        // default:
+        $limitStart = null;
+        $limitSize = null;
       }
       //--- OrderBy
       if (!is_null($ascdesc) && is_null($orderby)) die(fmtError("AscDesc can not be set without OrderBy!"));
@@ -426,28 +425,50 @@
 
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
-      //$rq->setLimit(5);
-      //$rq->setFilter('{"=":["`employee/store`.store_id", 4]}');
-      //$rq->setSorting('name', 'DESC');  
-      //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
+      $rq->setLimit($limitSize, $limitStart);
+      $rq->setSorting($orderby, $ascdesc);
 
+
+      // Filter
+      //$rq->setFilter('{"like":["`'.$tablename.'`.store_id", "%daniel%"]}');
+      // TODO: !!
+      /*
+      $search = "%daniel%";
+      $els = [];
+      $cols = Config::getColsByTablename($tablename);
+      foreach ($cols as $colname => $col) {
+        $els[] = "{\"like\": [\"`$colname`\", \"$search\"]}";
+      }      
+      $term = '{"or":['. implode(',', $els) .']}';
+      $rq->setFilter($term);
+      */
+      
+      //echo $rq->getStatement();
+      //echo $rq->
+      //return;
+
+      // Add Joins from Config
+      $joins = Config::getJoinedCols($tablename);
+      // TODO: Multilayered JOINS
+      foreach ($joins as $key => $value) {
+        $localCol = $value["col_id"];
+        $extCol = $value["replace"];
+        $extTable = $value["table"];
+        $rq->addJoin($tablename.'.'.$localCol, $extTable.'.'.$extCol);
+      }
+
+      //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
       //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)
       //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'/product_store.store_id', 'store.store_id'); // has 1 (NOT PrimaryKEY!)
-
       //$rq->addJoin($tablename.'.storechef_id', 'employee.chef', true); // has 1 (NOT PrimaryKEY!)
-
-
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
       //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
       //$rq->addJoin('connections.test_id', 'testtableA.test_id'); // 1st level    
       //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
       //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
-
-      // DEBUG
-      //echo $rq->getSQL();
 
       $pdo = DB::getInstance()->getConnection();
       // Retrieve Number of Entries
@@ -457,38 +478,18 @@
       $count = (int)$row[0];
       // Retrieve Entries
       $stmt = $pdo->prepare($rq->getStatement());
-      $res = $stmt->execute($rq->getValues());
-      $r = $this->parseResultData($tablename, $stmt);
-      // Return Result set
-      $result = ["count" => $count, "records" => $r];
-      return json_encode($result, true);
-    }
-
-    // TODO: Merge with read 
-    public function count($param) {
-      //--------------------- Check Params
-      $validParams = ['table', 'filter'];
-      $hasValidParams = $this->validateParamStruct($validParams, $param);
-      if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
-      // TODO !!!
-      $tablename = $param["table"];
-      $filter = isset($param["filter"]) ? $param["filter"] : null;
-      $filter = json_encode($filter);
-      // Identify via Token
-      global $token;
-      $token_uid = -1;
-      if (property_exists($token, 'uid'))
-        $token_uid = $token->uid;
-
-      //--- Filter
-      if ($this->isValidFilterStruct($filter))
-        $filter = json_encode($filter);
-      // Prepare Structure
-      $p = ['name' => 'sp_'.$tablename, 'inputs' => [$token_uid, $filter, '', 'ASC', 0, 1000000]];
-      $res = $this->call($p);
-      // Parse result
-      $data = json_decode($res, true);
-      return json_encode(array(array('cnt' => count($data))));
+      if ($stmt->execute($rq->getValues())) {
+        // Success -> Return Result set
+        $r = $this->parseResultData($tablename, $stmt);
+        $result = ["count" => $count, "records" => $r];
+        return json_encode($result, true);
+      } else {
+        // Error -> Return Error
+        echo $stmt->queryString."<br>";
+        echo json_encode($vals)."<br>";
+        var_dump($stmt->errorInfo());
+        exit();
+      }
     }
 
     // Stored Procedure can be Read and Write (GET and POST)
@@ -750,7 +751,6 @@
     }
     // TODO => this function merges update + makeTransition
     public function change($param) {
-
     }
 
     // [DELETE] Deleting
@@ -775,10 +775,10 @@
       $success = ($pdo->rowCount() > 0);
       // Output
       return $success ? "1" : "0";
-    }
-  
+    }  
 
     //---------------------------------- File Handling (check Token) ... [GET]
+    /*
     public function getFile($param) {
       // Download File from Server
 
@@ -806,4 +806,5 @@
       } else
         die(fmtError("error"));
     }
+    */
   }

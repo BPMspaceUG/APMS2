@@ -64,9 +64,9 @@ class ReadQuery {
     $hasMany = $j[4];
     $alias = implode('/', [$j[0], $j[2]]);
     // has 1 FK
-    if (!$hasMany) $alias = implode('/', [$j[0], $j[1]]);
+    if (!$hasMany) $alias = implode('/', [$j[0], $j[3]]);
     $path = $j[0];
-    return self::QUERY_SEPERATOR."LEFT JOIN ".$j[2]." AS `".$alias."` ON `".$path."`.".$j[1]." = `".$alias."`.".$j[3];
+    return self::QUERY_SEPERATOR."LEFT JOIN ".$j[2]." AS `".$alias."` ON `".$path."`.".$j[3]." = `".$alias."`.".$j[1];
   }
   private function getJoins() {
     if (is_null($this->joins)) return "";

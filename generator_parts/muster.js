@@ -222,7 +222,7 @@ class StateMachine {
         // Workaround to get the color from css file
         let tmp = document.createElement('div');
         tmp.classList.add('state' + stateID);
-        document.getElementsByTagName('body')[0].append(tmp);
+        document.getElementsByTagName('body')[0].appendChild(tmp);
         const style = window.getComputedStyle(tmp);
         const colBG = style.backgroundColor;
         const colFont = style.color;
@@ -333,14 +333,16 @@ class RawTable {
         this.resetFilter();
     }
     createRow(data, callback) {
-        DB.request('create', { table: this.tablename, row: data }, function (r) { callback(r); });
+        DB.request('create', { table: this.tablename, row: data }, function (r) {
+            callback(r);
+        });
     }
     deleteRow(RowID, callback) {
         let me = this;
         let data = {};
         data[this.PrimaryColumn] = RowID;
         DB.request('delete', { table: this.tablename, row: data }, function (response) {
-            me.countRows(function () {
+            me.loadRows(function () {
                 callback(response);
             });
         });
@@ -364,24 +366,12 @@ class RawTable {
             callback(response);
         });
     }
-    // Call this function only at [init] and then only on [create] and [delete] and at [filter]
-    countRows(callback) {
-        let me = this;
-        let data = {
-            table: this.tablename,
-            filter: this.Filter
-        };
-        DB.request('count', data, function (r) {
-            me.actRowCount = parseInt(r[0].cnt);
-            callback();
-        });
-    }
     loadRow(RowID, callback) {
         let data = { table: this.tablename, limitStart: 0, limitSize: 1, filter: { columns: {} } };
         data.filter.columns[this.PrimaryColumn] = RowID;
         // HTTP Request
         DB.request('read', data, function (response) {
-            const row = response[0];
+            const row = response.records[0];
             callback(row);
         });
     }
@@ -397,7 +387,8 @@ class RawTable {
         };
         // HTTP Request
         DB.request('read', data, function (response) {
-            me.Rows = response; // Cache
+            me.Rows = response.records; // Cache
+            me.actRowCount = response.count; // Cache
             callback(response);
         });
     }
@@ -463,7 +454,6 @@ class Table extends RawTable {
         // Save Form Data
         let resp = JSON.parse(JSON.stringify(DB.Config[tablename])); // Deep Copy!
         me.TableConfig = resp['config'];
-        me.actRowCount = resp['count'];
         me.diffFormCreateObject = JSON.parse(resp['formcreate']);
         me.Columns = me.TableConfig.columns;
         me.ReadOnly = me.TableConfig.mode == 'ro';
@@ -818,18 +808,16 @@ class Table extends RawTable {
                             // Reload Data from Table
                             me.lastModifiedRowID = msg.element_id;
                             // load rows and render Table
-                            me.countRows(function () {
-                                me.loadRows(function () {
-                                    me.renderContent();
-                                    me.renderFooter();
-                                    me.renderHeader();
-                                    me.onEntriesModified.trigger();
-                                    // Reopen Modal
-                                    if (reOpenModal)
-                                        me.modifyRow(me.lastModifiedRowID, M);
-                                    else
-                                        M.close();
-                                });
+                            me.loadRows(function () {
+                                me.renderContent();
+                                me.renderFooter();
+                                me.renderHeader();
+                                me.onEntriesModified.trigger();
+                                // Reopen Modal
+                                if (reOpenModal)
+                                    me.modifyRow(me.lastModifiedRowID, M);
+                                else
+                                    M.close();
                             });
                         }
                     }
@@ -844,14 +832,12 @@ class Table extends RawTable {
                         // Reload Data from Table
                         me.lastModifiedRowID = msg.element_id;
                         // load rows and render Table
-                        me.countRows(function () {
-                            me.loadRows(function () {
-                                me.renderContent();
-                                me.renderFooter();
-                                me.renderHeader();
-                                me.onEntriesModified.trigger();
-                                M.close();
-                            });
+                        me.loadRows(function () {
+                            me.renderContent();
+                            me.renderFooter();
+                            me.renderHeader();
+                            me.onEntriesModified.trigger();
+                            M.close();
                         });
                     }
                     counter++;
@@ -1161,6 +1147,10 @@ class Table extends RawTable {
     }
     getHeader() {
         let t = this;
+        const hasEntries = t.Rows && (t.Rows.length > 0);
+        let NoText = 'No Objects';
+        if (t.TableType != TableType.obj)
+            NoText = 'No Relations';
         // TODO: 
         // Pre-Selected Row
         if (t.selectedRow) {
@@ -1172,10 +1162,6 @@ class Table extends RawTable {
             // Filter was set
             t.FilterText = t.getFilter().all;
         }
-        const hasEntries = t.Rows && (t.Rows.length > 0);
-        let NoText = 'No Objects';
-        if (t.TableType != TableType.obj)
-            NoText = 'No Relations';
         return `<form class="tbl_header form-inline">
     <div class="form-group m-0 p-0${t.selType == SelectType.Single ? ' w-50' : ''}">
       <input type="text" ${(!hasEntries ? 'readonly disabled ' : '')}class="form-control${(!hasEntries ? '-plaintext' : '')} mr-1 w-100 filterText"
@@ -1216,11 +1202,7 @@ class Table extends RawTable {
                 t.loadRows(function () {
                     return __awaiter(this, void 0, void 0, function* () {
                         if (t.Rows.length == t.PageLimit) {
-                            t.countRows(function () {
-                                return __awaiter(this, void 0, void 0, function* () {
-                                    yield t.renderFooter();
-                                });
-                            });
+                            yield t.renderFooter();
                         }
                         else {
                             t.actRowCount = t.Rows.length;
@@ -1705,6 +1687,7 @@ class FormGenerator {
         }
     }
 }
+//==================================================================== Global Helper Methods
 // Show the actual Tab in the URL and also open Tab by URL
 $(function () {
     let hash = window.location.hash;

@@ -233,7 +233,7 @@ class StateMachine {
     // Workaround to get the color from css file
     let tmp = document.createElement('div');
     tmp.classList.add('state' + stateID);
-    document.getElementsByTagName('body')[0].append(tmp);
+    document.getElementsByTagName('body')[0].appendChild(tmp);
     const style = window.getComputedStyle(tmp);
     const colBG = style.backgroundColor;
     const colFont = style.color;
@@ -364,15 +364,17 @@ class RawTable {
     this.resetFilter();
   }
   public createRow(data: any, callback) {
-    DB.request('create', {table: this.tablename, row: data}, function(r){ callback(r); });
+    DB.request('create', {table: this.tablename, row: data}, function(r){
+      callback(r);
+    });
   }
   public deleteRow(RowID: number, callback) {
     let me = this;
     let data = {}
     data[this.PrimaryColumn] = RowID
     DB.request('delete', {table: this.tablename, row: data}, function(response) {
-      me.countRows(function(){
-        callback(response)
+      me.loadRows(function(){
+        callback(response);
       })
     })
   }
@@ -380,7 +382,7 @@ class RawTable {
     let data = new_data
     data[this.PrimaryColumn] = RowID
     DB.request('update', {table: this.tablename, row: new_data}, function(response) {
-      callback(response)
+      callback(response);
     })
   }
   public transitRow(RowID: number, TargetStateID: number, trans_data: any = null, callback) {
@@ -391,19 +393,7 @@ class RawTable {
     data[this.PrimaryColumn] = RowID
     data.state_id = TargetStateID
     DB.request('makeTransition', {table: this.tablename, row: data}, function(response) {
-      callback(response)
-    })
-  }
-  // Call this function only at [init] and then only on [create] and [delete] and at [filter]
-  public countRows(callback) {
-    let me = this;
-    let data = {
-      table: this.tablename,
-      filter: this.Filter
-    }
-    DB.request('count', data, function(r){
-      me.actRowCount = parseInt(r[0].cnt);
-      callback();
+      callback(response);
     })
   }
   public loadRow(RowID: number, callback) {
@@ -411,7 +401,7 @@ class RawTable {
     data.filter.columns[this.PrimaryColumn] = RowID;
     // HTTP Request
     DB.request('read', data, function(response){
-      const row = response[0];
+      const row = response.records[0];
       callback(row);
     });
   }
@@ -427,7 +417,8 @@ class RawTable {
     }
     // HTTP Request
     DB.request('read', data, function(response){
-      me.Rows = response; // Cache
+      me.Rows = response.records; // Cache
+      me.actRowCount = response.count; // Cache
       callback(response);
     })
   }
@@ -501,7 +492,6 @@ class Table extends RawTable {
     // Save Form Data
     let resp = JSON.parse(JSON.stringify(DB.Config[tablename])); // Deep Copy!
     me.TableConfig = resp['config'];
-    me.actRowCount = resp['count'];
     me.diffFormCreateObject = JSON.parse(resp['formcreate']);
     me.Columns = me.TableConfig.columns;
     me.ReadOnly = me.TableConfig.mode == 'ro';
@@ -842,18 +832,16 @@ class Table extends RawTable {
               // Reload Data from Table
               me.lastModifiedRowID = msg.element_id              
               // load rows and render Table
-              me.countRows(function(){
-                me.loadRows(function(){
-                  me.renderContent();
-                  me.renderFooter();
-                  me.renderHeader();
-                  me.onEntriesModified.trigger();
-                  // Reopen Modal
-                  if (reOpenModal)
-                    me.modifyRow(me.lastModifiedRowID, M);
-                  else
-                    M.close();
-                })
+              me.loadRows(function(){
+                me.renderContent();
+                me.renderFooter();
+                me.renderHeader();
+                me.onEntriesModified.trigger();
+                // Reopen Modal
+                if (reOpenModal)
+                  me.modifyRow(me.lastModifiedRowID, M);
+                else
+                  M.close();
               })
             }
           }
@@ -868,14 +856,12 @@ class Table extends RawTable {
             // Reload Data from Table
             me.lastModifiedRowID = msg.element_id
             // load rows and render Table
-            me.countRows(function(){
-              me.loadRows(function(){
-                me.renderContent();
-                me.renderFooter();
-                me.renderHeader();
-                me.onEntriesModified.trigger();
-                M.close();
-              })
+            me.loadRows(function(){
+              me.renderContent();
+              me.renderFooter();
+              me.renderHeader();
+              me.onEntriesModified.trigger();
+              M.close();
             })
           }
           counter++;
@@ -1187,6 +1173,9 @@ class Table extends RawTable {
   }
   private getHeader() {
     let t = this
+    const hasEntries = t.Rows && (t.Rows.length > 0);
+    let NoText: string = 'No Objects';
+    if (t.TableType != TableType.obj) NoText = 'No Relations';
 
     // TODO: 
     // Pre-Selected Row
@@ -1198,10 +1187,6 @@ class Table extends RawTable {
       // Filter was set
       t.FilterText = t.getFilter().all;
     }
-
-    const hasEntries = t.Rows && (t.Rows.length > 0);
-    let NoText: string = 'No Objects';
-    if (t.TableType != TableType.obj) NoText = 'No Relations';
 
     return `<form class="tbl_header form-inline">
     <div class="form-group m-0 p-0${t.selType == SelectType.Single ? ' w-50' : ''}">
@@ -1243,10 +1228,9 @@ class Table extends RawTable {
       t.setGlobalFilter(filterText);
       t.loadRows(async function(){
         if (t.Rows.length == t.PageLimit) {
-          t.countRows(async function(){
-            await t.renderFooter();
-          });
-        } else {
+          await t.renderFooter();
+        }
+        else {
           t.actRowCount = t.Rows.length;
           await t.renderFooter();
         }
@@ -1729,6 +1713,9 @@ class FormGenerator {
     }
   }
 }
+
+//==================================================================== Global Helper Methods
+
 // Show the actual Tab in the URL and also open Tab by URL
 $(function(){
   let hash = window.location.hash;
