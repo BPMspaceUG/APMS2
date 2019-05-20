@@ -385,7 +385,6 @@ class RawTable {
 class Table extends RawTable {
     constructor(tablename, SelType = SelectType.NoSelect) {
         super(tablename);
-        this.FilterText = '';
         this.SM = null;
         this.isExpanded = true;
         this.defaultValues = {};
@@ -448,9 +447,7 @@ class Table extends RawTable {
         let me = this;
         this.OrderBy = ColumnName;
         this.AscDesc = (this.AscDesc == SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC;
-        this.loadRows(function () {
-            me.renderContent();
-        });
+        this.loadRows(() => { me.renderContent(); });
     }
     setPageIndex(targetIndex) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -681,7 +678,7 @@ class Table extends RawTable {
                 let data = fCreate.getValues();
                 const reOpenModal = btn.classList.contains('andReopen');
                 me.createRow(data, function (r) {
-                    let msgs = [];
+                    let msgs = r;
                     let counter = 0;
                     msgs.forEach(msg => {
                         if (msg.show_message) {
@@ -698,6 +695,7 @@ class Table extends RawTable {
                         }
                         if (msg.element_id) {
                             if (msg.element_id > 0) {
+                                console.info('Element created! ID:', msg.element_id);
                                 me.lastModifiedRowID = msg.element_id;
                                 me.loadRows(function () {
                                     me.renderContent();
@@ -986,9 +984,9 @@ class Table extends RawTable {
                 }
             }
         });
-        return `<div class="tbl_content pt-1 ${((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
+        return `<div class="tbl_content ${((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
       ${(t.Rows && t.Rows.length > 0) ?
-            `<div class="tablewrapper border table-responsive-md">
+            `<div class="tablewrapper border table-responsive-md mt-1">
         <table class="table table-striped table-hover m-0 table-sm datatbl">
           <thead>
             <tr>${ths}</tr>
@@ -1414,11 +1412,12 @@ class FormGenerator {
         for (const key of Object.keys(t.editors)) {
             const options = t.editors[key];
             const QuillID = '#' + options.id;
-            if (options.mode == 'ro')
-                t.editors[key]['objQuill'] = new Quill(QuillID, { theme: 'snow', modules: { toolbar: false }, readOnly: true });
-            else {
-                t.editors[key]['objQuill'] = new Quill(QuillID, { theme: 'snow' });
+            let QuillOptions = { theme: 'snow' };
+            if (options.mode == 'ro') {
+                QuillOptions['readOnly'] = true;
+                QuillOptions['modules'] = { toolbar: false };
             }
+            t.editors[key]['objQuill'] = new Quill(QuillID, QuillOptions);
             t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
         }
         let elements = document.querySelectorAll('.modal input[type=number]');

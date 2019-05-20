@@ -1,5 +1,5 @@
 // Plugins (only declared to remove TS Errors)
-declare var $: any;
+declare var $: any; // TODO: Remove
 declare var vis: any;
 declare var Quill: any;
 
@@ -447,15 +447,14 @@ class RawTable {
 class Table extends RawTable {
   private TableConfig: any;
   private lastModifiedRowID: number;
-  private FilterText: string = ''; // TODO: Remove
   private GUID: string;
   private SM: StateMachine = null;
   private isExpanded: boolean = true;
   private selType: SelectType;
-  public ReadOnly: boolean;
   private selectedRow: any;
-  private defaultValues = {}; // Default Values in Create-Form TODO: Remove
+  private defaultValues = {}; // Default Values for Create-Form
   private diffFormCreateObject: any = {};
+  public ReadOnly: boolean;
   public GUIOptions = {
     maxCellLength: 30,
     showControlColumn: true,
@@ -523,9 +522,7 @@ class Table extends RawTable {
     this.OrderBy = ColumnName;
     this.AscDesc = (this.AscDesc == SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC
     // Refresh
-    this.loadRows(function(){
-      me.renderContent();
-    })
+    this.loadRows(() => { me.renderContent(); });
   }
   private async setPageIndex(targetIndex: number) {
     let me = this
@@ -790,7 +787,8 @@ class Table extends RawTable {
         const reOpenModal = btn.classList.contains('andReopen');
   
         me.createRow(data, function(r){
-          let msgs = [];        
+
+          let msgs = r;
           // Handle Transition Feedback
           let counter = 0; // 0 = trans, 1 = in -- but only at Create!
           msgs.forEach(msg => {
@@ -809,8 +807,9 @@ class Table extends RawTable {
             if (msg.element_id) {
               // Success?
               if (msg.element_id > 0) {
+                console.info('Element created! ID:', msg.element_id);
                 // Reload Data from Table
-                me.lastModifiedRowID = msg.element_id              
+                me.lastModifiedRowID = msg.element_id;
                 // load rows and render Table
                 me.loadRows(function(){
                   me.renderContent();
@@ -847,6 +846,8 @@ class Table extends RawTable {
             }
             counter++;
           });
+
+
         });
       })
     }
@@ -1159,9 +1160,9 @@ class Table extends RawTable {
         }
       }
     })
-    return `<div class="tbl_content pt-1 ${ ((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
+    return `<div class="tbl_content ${ ((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
       ${ (t.Rows && t.Rows.length > 0) ?
-      `<div class="tablewrapper border table-responsive-md">
+      `<div class="tablewrapper border table-responsive-md mt-1">
         <table class="table table-striped table-hover m-0 table-sm datatbl">
           <thead>
             <tr>${ths}</tr>
@@ -1651,11 +1652,12 @@ class FormGenerator {
     for (const key of Object.keys(t.editors)) {
       const options = t.editors[key];
       const QuillID = '#' + options.id;
-      if (options.mode == 'ro')
-        t.editors[key]['objQuill'] = new Quill(QuillID, {theme: 'snow', modules: {toolbar: false}, readOnly: true});
-      else {
-        t.editors[key]['objQuill']  = new Quill(QuillID, {theme: 'snow'});
+      let QuillOptions = {theme: 'snow'};
+      if (options.mode == 'ro') {
+        QuillOptions['readOnly'] = true;
+        QuillOptions['modules'] = {toolbar: false};
       }
+      t.editors[key]['objQuill']  = new Quill(QuillID, QuillOptions);
       t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
     }
     // Live-Validate Number Inputs
@@ -1692,6 +1694,9 @@ class FormGenerator {
     }
   }
 }
+
+
+
 //==================================================================== Global Helper Methods
 
 // Show the actual Tab in the URL and also open Tab by URL
