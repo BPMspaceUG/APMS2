@@ -153,15 +153,15 @@
     if ($table["mode"] != 'hi') {
       // Tabs
       $content_tabs .= "            ".
-            "<li class=\"nav-item\">
-              <a class=\"nav-link\" href=\"#$tablename\" data-toggle=\"tab\">
-                ".$table["table_icon"]."<span class=\"table_alias ml-2\">".$table["table_alias"]."</span>
-              </a>
-            </li>\n";
+        "<li class=\"nav-item\">
+          <a class=\"nav-link\" href=\"#$tablename\" data-toggle=\"tab\">
+            ".$table["table_icon"]."<span class=\"table_alias ml-2\">".$table["table_alias"]."</span>
+          </a>
+        </li>\n";
       // TabPanes
       $content_tabpanels .= "            ".
         "<div role=\"tabpanel\" class=\"tab-pane\" id=\"$tablename\">".
-        "<div class=\"table_$tablename\"></div></div>\n";
+        "<div id=\"table_$tablename\"></div></div>\n";
     }
     //---/Create HTML Content
 
@@ -260,6 +260,8 @@
     }
   }
 
+
+  // TODO: Remove!
   // Generate a machine token
   $token_data = array();
   $token_data['uid'] = 1337;
@@ -267,6 +269,7 @@
   $token_data['lastname'] = 'Machine';
   $token = JWT::encode($token_data, $secretKey);
   $machine_token = $token;
+
 
   // Generate URLs
   $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
@@ -278,6 +281,7 @@
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
+
 
 
   $AccountHandler = '<div class="collapse navbar-collapse" id="navbarText">
@@ -294,6 +298,7 @@
       </li>
     </ul>
   </div>';
+  
 
   // ------------------- Load complete Project
   $class_StateEngine = loadFile("./output_StateEngine.php");
@@ -400,7 +405,7 @@
     createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user,$db_pass,$db_server,$db_name,$API_url,$LOGIN_url,$secretKey,$machine_token));
     createFile($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig('','','','','','','','')); // Example
     createFile($project_dir."/".$db_name."-config.inc.json", $json);
-    // Git
+    // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       createFile($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
 

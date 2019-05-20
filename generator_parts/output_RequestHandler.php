@@ -53,6 +53,22 @@
       $cols = $data[$tablename]["columns"];      
       return $cols;
     }
+    public static function getColnamesByTablename($tablename) {
+      $cols = self::getColsByTablename($tablename);
+      $result = [];
+      foreach ($cols as $colname => $col) {
+        if (array_key_exists('foreignKey', $col)) {
+          /*$t = $col['foreignKey']['table'];
+          $c = $col['foreignKey']['col_id'];
+          $alias = implode('/', [$t, $c]);
+          $result[] = '`' . $alias . '`.' . $colname;*/
+        }
+        else {
+          $result[] = "`$tablename`.`$colname`";
+        }
+      }
+      return $result;
+    }
     public static function getPrimaryColsByTablename($tablename, $data = null) {
       $res = array();
       $cols = Config::getColsByTablename($tablename, $data);
@@ -372,7 +388,7 @@
     // [GET] Reading
     public function read($param) {
       //--------------------- Check Params
-      $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter'/*, 'page'*/];
+      $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter', 'search'];
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       // Parameters and default values
@@ -428,24 +444,24 @@
       $rq->setLimit($limitSize, $limitStart);
       $rq->setSorting($orderby, $ascdesc);
 
-
       // Filter
-      //$rq->setFilter('{"like":["`'.$tablename.'`.store_id", "%daniel%"]}');
-      // TODO: !!
-      /*
-      $search = "%daniel%";
-      $els = [];
-      $cols = Config::getColsByTablename($tablename);
-      foreach ($cols as $colname => $col) {
-        $els[] = "{\"like\": [\"`$colname`\", \"$search\"]}";
-      }      
-      $term = '{"or":['. implode(',', $els) .']}';
-      $rq->setFilter($term);
-      */
-      
-      //echo $rq->getStatement();
-      //echo $rq->
-      //return;
+      $rq->setFilter('{"=":[1,1]}'); // inital Filter
+      // add Search for all columns
+      if (!is_null($search)) {
+        $search = "%".$search."%";
+        $els = [];
+        $cols = Config::getColnamesByTablename($tablename);
+        foreach ($cols as $colname) {
+          $els[] = "{\"like\": [\"$colname\", \"$search\"]}";
+        }      
+        $term = '{"or":['. implode(',', $els) .']}';
+        $rq->addFilter($term);
+      }
+      // add Custom Filter
+      if (!is_null($filter)) {
+        //$rq->addFilter($filter);
+      }
+
 
       // Add Joins from Config
       $joins = Config::getJoinedCols($tablename);
@@ -486,7 +502,7 @@
       } else {
         // Error -> Return Error
         echo $stmt->queryString."<br>";
-        echo json_encode($vals)."<br>";
+        echo json_encode($rq->getValues())."<br>";
         var_dump($stmt->errorInfo());
         exit();
       }

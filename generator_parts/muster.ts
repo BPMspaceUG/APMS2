@@ -1,4 +1,5 @@
 // Plugins (only declared to remove TS Errors)
+declare var $: any;
 declare var vis: any;
 declare var Quill: any;
 
@@ -345,8 +346,9 @@ class RawTable {
   protected tablename: string;
   public Columns: any;
   protected PrimaryColumn: string;
-  private Filter: any;
   protected OrderBy: string;
+  private Search: string = '';
+  private Filter: string;
   protected AscDesc: SortOrder = SortOrder.DESC;
   protected PageLimit: number;
   protected PageIndex: number = 0;
@@ -393,8 +395,8 @@ class RawTable {
     })
   }
   public loadRow(RowID: number, callback) {
-    let data = {table: this.tablename, limitStart: 0, limitSize: 1, filter: {columns: {}}};
-    data.filter.columns[this.PrimaryColumn] = RowID;
+    let data = {table: this.tablename, limitStart: 0, limitSize: 1, filter: {}};
+    data.filter = '{"=": ["'+ this.PrimaryColumn +'", ' + RowID + ']}';
     // HTTP Request
     DB.request('read', data, function(response){
       const row = response.records[0];
@@ -408,9 +410,10 @@ class RawTable {
       limitStart: me.PageIndex * me.PageLimit,
       limitSize: me.PageLimit,
       orderby: me.OrderBy,
-      ascdesc: me.AscDesc,
-      filter: me.Filter
+      ascdesc: me.AscDesc
     }
+    if (me.Filter && me.Filter !== '') data['filter'] = me.Filter;
+    if (me.Search && me.Search !== '') data['search'] = me.Search;
     // HTTP Request
     DB.request('read', data, function(response){
       me.Rows = response.records; // Cache
@@ -425,17 +428,17 @@ class RawTable {
   public getTablename(): string {
     return this.tablename;
   }
-  public setGlobalFilter(filterText: string) {
-    this.Filter.all = filterText;
+  public setSearch(searchText: string) {
+    this.Search = searchText;
   }
-  public getFilter(): any {
-    return this.Filter;
+  public getSearch(): string {
+    return this.Search;
   }
   public setColumnFilter(columnName: string, filterText: string) {
-    this.Filter.columns[columnName] = filterText;
+    this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
   }
   public resetFilter() {
-    this.Filter = {all: '', columns: {}}
+    this.Filter = '';
   }
 }
 //==============================================================
@@ -749,13 +752,11 @@ class Table extends RawTable {
   //-------------------------------------------------- PUBLIC METHODS
   public createEntry(): void {
     let me = this
-
     const ModalTitle = this.GUIOptions.modalHeaderTextCreate + '<span class="text-muted ml-3">in ' + this.getTableIcon() + ' ' + this.getTableAlias()+'</span>';
     const CreateBtns = `<div class="ml-auto mr-0">
   <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
   <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
 </div>`;
-
     //--- Overwrite and merge the differences from diffObject
     let defFormObj = me.getDefaultFormObject();
     const diffFormCreate = me.diffFormCreateObject;
@@ -777,85 +778,78 @@ class Table extends RawTable {
     let M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
     M.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
     const ModalID = M.getDOMID();
-    //console.log(fCreate.getHTML());
     fCreate.initEditors();
   
     // Bind Buttonclick
-    $('#'+ModalID+' .btnCreateEntry').click(function(e){
-      e.preventDefault();
-      // Read out all input fields with {key:value}
-      let data = fCreate.getValues();
-      const reOpenModal = $(this).hasClass('andReopen');
-
-      me.createRow(data, function(r){
-        let msgs = [];        
-        $('#'+ModalID+' .modal-body .alert').remove(); // Remove all Error Messages
-        // Try to parse Result
-        try {
-          msgs = r;
-        }
-        catch(err) {
-          // Show Error
-          $('#'+ModalID+' .modal-body').prepend(`<div class="alert alert-danger" role="alert"><b>Script Error!</b>&nbsp;${r}</div>`);
-          return
-        }
-        // Handle Transition Feedback
-        let counter = 0; // 0 = trans, 1 = in -- but only at Create!
-        msgs.forEach(msg => {
-          // Show Message
-          if (msg.show_message) {
-            const stateEntry = msg['_entry-point-state'];
-            const stateTo = me.renderStateButton(stateEntry['id'], stateEntry['name']);
-            let tmplTitle = '';
-            if (counter == 0) tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
-            if (counter == 1) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>`;
-            let resM = new Modal(tmplTitle, msg.message)
-            resM.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose
-            resM.show();
-          }
-          // Check if Element was created
-          if (msg.element_id) {
-            // Success?
-            if (msg.element_id > 0) {
+    const btns = document.getElementById(ModalID).getElementsByClassName('btnCreateEntry');
+    for (const btn of btns) {
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        // Read out all input fields with {key:value}
+        let data = fCreate.getValues();
+        const reOpenModal = btn.classList.contains('andReopen');
+  
+        me.createRow(data, function(r){
+          let msgs = [];        
+          // Handle Transition Feedback
+          let counter = 0; // 0 = trans, 1 = in -- but only at Create!
+          msgs.forEach(msg => {
+            // Show Message
+            if (msg.show_message) {
+              const stateEntry = msg['_entry-point-state'];
+              const stateTo = me.renderStateButton(stateEntry['id'], stateEntry['name']);
+              let tmplTitle = '';
+              if (counter == 0) tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
+              if (counter == 1) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>`;
+              let resM = new Modal(tmplTitle, msg.message)
+              resM.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose
+              resM.show();
+            }
+            // Check if Element was created
+            if (msg.element_id) {
+              // Success?
+              if (msg.element_id > 0) {
+                // Reload Data from Table
+                me.lastModifiedRowID = msg.element_id              
+                // load rows and render Table
+                me.loadRows(function(){
+                  me.renderContent();
+                  me.renderFooter();
+                  me.renderHeader();
+                  me.onEntriesModified.trigger();
+                  // Reopen Modal
+                  if (reOpenModal)
+                    me.modifyRow(me.lastModifiedRowID, M);
+                  else
+                    M.close();
+                })
+              }
+            }
+            else {
+              // ElementID is defined but 0 => the transscript aborted
+              if (msg.element_id == 0) {
+                alert(msg.errormsg);
+                //$('#'+ModalID+' .modal-body').prepend(`<div class="alert alert-danger" role="alert"><b>Database Error!</b>&nbsp;${msg.errormsg}</div>`);
+              }
+            }
+            // Special Case for Relations (reactivate them)
+            if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
               // Reload Data from Table
-              me.lastModifiedRowID = msg.element_id              
+              me.lastModifiedRowID = msg.element_id
               // load rows and render Table
               me.loadRows(function(){
                 me.renderContent();
                 me.renderFooter();
                 me.renderHeader();
                 me.onEntriesModified.trigger();
-                // Reopen Modal
-                if (reOpenModal)
-                  me.modifyRow(me.lastModifiedRowID, M);
-                else
-                  M.close();
+                M.close();
               })
             }
-          }
-          else {
-            // ElementID is defined but 0 => the transscript aborted
-            if (msg.element_id == 0) {
-              $('#'+ModalID+' .modal-body').prepend(`<div class="alert alert-danger" role="alert"><b>Database Error!</b>&nbsp;${msg.errormsg}</div>`);
-            }
-          }
-          // Special Case for Relations (reactivate them)
-          if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
-            // Reload Data from Table
-            me.lastModifiedRowID = msg.element_id
-            // load rows and render Table
-            me.loadRows(function(){
-              me.renderContent();
-              me.renderFooter();
-              me.renderHeader();
-              me.onEntriesModified.trigger();
-              M.close();
-            })
-          }
-          counter++;
+            counter++;
+          });
         });
-      });
-    })
+      })
+    }
     // Show Modal
     M.show();
   }
@@ -939,7 +933,7 @@ class Table extends RawTable {
   public getSelectedRowID(): number {
     return this.selectedRow[this.PrimaryColumn];
   }
-  private renderStateButton(ID: number, name: string, withDropdown: boolean = false) {
+  private renderStateButton(ID: number, name: string, withDropdown: boolean = false): string {
     const cssClass = 'state' + ID;
     if (withDropdown) {
       // With Dropdown
@@ -955,13 +949,13 @@ class Table extends RawTable {
     }
   }
   // string -> escaped string
-  private escapeHtml(string: string) {
+  private escapeHtml(string: string): string {
     let entityMap = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'};
     return String(string).replace(/[&<>"'`=\/]/g, function (s) {
       return entityMap[s];
     });
   }
-  private formatCell(colname: string, cellContent: any, isHTML: boolean = false) {
+  private formatCell(colname: string, cellContent: any, isHTML: boolean = false): string {
     if (isHTML) return cellContent;
     let t = this;
     // check cell type
@@ -1010,7 +1004,220 @@ class Table extends RawTable {
     // Cell is no String and no Object   
     return this.escapeHtml(cellContent);
   }
-  private renderCell(row: any, col: string) {
+
+  //---------------------------------------------------- Pure HTML building Functions
+  private htmlHeaders(colnames) {
+    let t = this;
+    let th = '';
+
+    // Pre fill with 1 because of selector
+    if (t.GUIOptions.showControlColumn)
+      th = `<th class="border-0 align-middle text-center text-muted" scope="col">
+        ${t.selType == SelectType.Single ? '<i class="fa fa-link"></i>' :
+          (t.TableType == TableType.obj ? '<i class="fa fa-cog"></i>' : '<i class="fa fa-link"></i>')}
+      </th>`;
+
+    // Loop Columns
+    for (const colname of colnames) {
+      if (t.Columns[colname].show_in_grid) {
+        //--- Alias (+Sorting)
+        const ordercol = t.OrderBy.replace('a.', '');
+        th += `<th scope="col" data-colname="${colname}" ${
+          (t.Columns[colname].is_primary || ['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''
+        }class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">`+
+        // Title
+        '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
+        // Sorting
+        '<div class="float-right pr-3">' + (colname == ordercol ?
+          '&nbsp;' + (t.AscDesc == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (t.AscDesc == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')
+        ) + '' : '') +
+        '</div>';
+        //---- Foreign Key Column
+        if (t.Columns[colname].field_type == 'foreignkey') {
+          let cols = {};
+          try {
+            cols = JSON.parse(t.Columns[colname].foreignKey.col_subst);
+          } catch (error) {
+            cols[t.Columns[colname].foreignKey.col_subst] = 1; // only one FK => TODO: No subheader
+          }
+          //-------------------
+          const colsnames = Object.keys(cols);
+          if (colsnames.length > 1) {
+            // Get the config from the remote table
+            let subheaders: string = '';
+            let tmpTable = new Table(t.Columns[colname].foreignKey.table);
+            const split = (100 * (1 / colsnames.length)).toFixed(0);
+            for (const c of colsnames) {
+              const tmpAlias = tmpTable.Columns[c].column_alias;
+              subheaders += '<td class="border-0 align-middle" style="width: '+ split +'%">' + tmpAlias + '</td>';
+            };
+            th += `<table class="w-100 border-0"><tr>${subheaders}</tr></table>`;
+          }
+          //-------------------
+        }
+        // Clearfix
+        th += '<div class="clearfix"></div>';
+        th += '</th>';
+      }
+    }
+    return th;
+  }
+  private getHeader(): string {
+    let t = this
+    const hasEntries = t.Rows && (t.Rows.length > 0);    
+    let NoText: string = 'No Objects';
+    if (t.TableType != TableType.obj) NoText = 'No Relations';
+    let Text: string = '';
+
+    // TODO: 
+    // Pre-Selected Row
+    if (t.selectedRow) {
+        // Set the selected text -> concat foreign keys
+        const vals = recflattenObj(t.selectedRow);
+        Text = '' + vals.join(' | ');
+    } else {      
+      Text = t.getSearch(); // Filter was set
+    }
+
+    const searchBar = `<div class="form-group m-0 p-0 mr-1 float-left">
+      <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } w-100 filterText"
+        ${ (Text != '' ? ' value="' + Text + '"' : '') }
+        placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
+    </div>`;
+    const btnCreate = `<button class="btn btn-${t.selType == SelectType.Single ? 'light text-success' : 'success'} btnCreateEntry mr-1">
+      ${ t.TableType != TableType.obj ?
+        '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : 
+        `<i class="fa fa-plus"></i><span class="d-none d-md-inline pl-2">${t.GUIOptions.modalButtonTextCreate} ${t.getTableAlias()}</span>`}
+    </button>`;
+    const btnWorkflow = `<button class="btn btn-info btnShowWorkflow mr-1">
+      <i class="fa fa-random"></i><span class="d-none d-md-inline pl-2">Workflow</span>
+    </button>`;
+    const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
+      ${ t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>' }
+    </button>`;
+
+    // Concat HTML
+    let html: string = '<div class="tbl_header form-inline">';
+    html += searchBar;
+    if (!t.ReadOnly) html += btnCreate;
+    if (t.SM && t.GUIOptions.showWorkflowButton) html += btnWorkflow;
+    if (t.selType === SelectType.Single) html += btnExpand;
+    html += '</div>';
+
+    return html;
+  }
+  private getContent(): string {
+    let t = this
+    let tds: string = '';
+
+    if (!t.isExpanded) return '';
+
+    // Order Headers by col_order
+    function compare(a, b) {
+      a = parseInt(t.Columns[a].col_order);
+      b = parseInt(t.Columns[b].col_order);
+      return a < b ? -1 : (a > b ? 1 : 0);
+    }
+    const sortedColumnNames = Object.keys(t.Columns).sort(compare);
+    const ths = t.htmlHeaders(sortedColumnNames);
+    // Loop Rows
+    t.Rows.forEach(function(row){
+      const RowID: number = row[t.PrimaryColumn];
+      let data_string: string = '';
+      let isSelected: boolean = false;
+
+      // Check if selected
+      if (t.selectedRow) {
+        isSelected = (t.selectedRow[t.PrimaryColumn] == RowID);
+      }
+      // [Control Column] is set then Add one before each row
+      if (t.GUIOptions.showControlColumn) {
+        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0" data-rowid="${row[t.PrimaryColumn]}">
+          ${ (t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>') 
+            : ( t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>') )
+          }
+        </td>`;
+      }
+      // Generate HTML for Table-Data Cells sorted
+      sortedColumnNames.forEach(function(col) {
+        // Check if it is displayed
+        if (t.Columns[col].show_in_grid) 
+          data_string += '<td class="align-middle py-0 border-0">' + t.renderCell(row, col) + '</td>';
+      })
+      // Add row to table
+      if (t.GUIOptions.showControlColumn) {
+        // Edit via first column
+        tds += `<tr class="datarow row-${row[t.PrimaryColumn] + (isSelected ? ' table-info' : '')}">${data_string}</tr>`;
+      }
+      else {
+        if (t.ReadOnly) {
+          // Edit via click
+          tds += '<tr class="datarow row-'+row[t.PrimaryColumn]+'" data-rowid="'+row[t.PrimaryColumn]+'">'+data_string+'</tr>';
+        } else {
+          // Edit via click on full Row
+          tds += '<tr class="datarow row-'+row[t.PrimaryColumn]+' editFullRow modRow" data-rowid="'+row[t.PrimaryColumn]+'">'+data_string+'</tr>';
+        }
+      }
+    })
+    return `<div class="tbl_content pt-1 ${ ((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
+      ${ (t.Rows && t.Rows.length > 0) ?
+      `<div class="tablewrapper border table-responsive-md">
+        <table class="table table-striped table-hover m-0 table-sm datatbl">
+          <thead>
+            <tr>${ths}</tr>
+          </thead>
+          <tbody>
+            ${tds}
+          </tbody>
+        </table>
+      </div>` : ( t.getSearch() != '' ? 'Sorry, nothing found.' : '') }
+    </div>`;
+  }
+  private getFooter(): string {
+    let t = this;
+    if (!t.Rows || t.Rows.length <= 0) return '<div class="tbl_footer"></div>';
+    // Pagination
+    let pgntn = '';
+    let PaginationButtons = t.getPaginationButtons();
+    // Only Display Buttons if more than one Button exists
+    if (PaginationButtons.length > 1) {
+      PaginationButtons.forEach(btnIndex => {
+        if (t.PageIndex == t.PageIndex + btnIndex) { // Active
+          pgntn += `<li class="page-item active"><span class="page-link">${t.PageIndex + 1 + btnIndex}</span></li>`;
+        } else {
+          pgntn += `<li class="page-item"><a class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
+        }
+      })
+    }
+    if (t.selType == SelectType.Single && !t.isExpanded)
+      return `<div class="tbl_footer"></div>`;
+
+    //--- StatusText
+    let statusText = '';
+    if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
+      let text = this.GUIOptions.statusBarTextEntries;
+      // Replace Texts
+      text = text.replace('{lim_from}', ''+ ((this.PageIndex * this.PageLimit) + 1) );
+      text = text.replace('{lim_to}', ''+ ((this.PageIndex * this.PageLimit) + this.Rows.length) );
+      text = text.replace('{count}', '' + this.getNrOfRows() );
+      statusText = text;
+    }
+    else {
+      // No Entries
+      statusText = this.GUIOptions.statusBarTextNoEntries;
+    }
+    // Normal
+    return `<div class="tbl_footer">
+      <div class="text-muted p-0 px-2">
+        <p class="float-left m-0 mb-1"><small>${statusText}</small></p>
+        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
+        <div class="clearfix"></div>
+      </div>
+    </div>`;
+  }
+
+
+  private renderCell(row: any, col: string): string {
     let t = this;
     let value: any = row[col];
     // Return if null
@@ -1091,117 +1298,18 @@ class Table extends RawTable {
     value = t.formatCell(col, value, isHTML);
     return value;
   }
-  private htmlHeaders(colnames) {
+  private renderHeader() {
     let t = this;
-    let th = '';
-
-    // Pre fill with 1 because of selector
-    if (t.GUIOptions.showControlColumn)
-      th = `<th class="border-0 align-middle text-center text-muted" scope="col">
-        ${t.selType == SelectType.Single ? '<i class="fa fa-link"></i>' :
-          (t.TableType == TableType.obj ? '<i class="fa fa-cog"></i>' : '<i class="fa fa-link"></i>')}
-      </th>`;
-
-    // Loop Columns
-    for (const colname of colnames) {
-      if (t.Columns[colname].show_in_grid) {
-        //--- Alias (+Sorting)
-        const ordercol = t.OrderBy.replace('a.', '');
-        th += `<th scope="col" data-colname="${colname}" ${
-          (t.Columns[colname].is_primary || ['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''
-        }class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">`+
-        // Title
-        '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
-        // Sorting
-        '<div class="float-right pr-3">' + (colname == ordercol ?
-          '&nbsp;' + (t.AscDesc == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (t.AscDesc == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')
-        ) + '' : '') +
-        '</div>';
-        //---- Foreign Key Column
-        if (t.Columns[colname].field_type == 'foreignkey') {
-          let cols = {};
-          try {
-            cols = JSON.parse(t.Columns[colname].foreignKey.col_subst);
-          } catch (error) {
-            cols[t.Columns[colname].foreignKey.col_subst] = 1; // only one FK => TODO: No subheader
-          }
-          //-------------------
-          const colsnames = Object.keys(cols);
-          if (colsnames.length > 1) {
-            // Get the config from the remote table
-            let subheaders: string = '';
-            let tmpTable = new Table(t.Columns[colname].foreignKey.table);
-            const split = (100 * (1 / colsnames.length)).toFixed(0);
-            for (const c of colsnames) {
-              const tmpAlias = tmpTable.Columns[c].column_alias;
-              subheaders += '<td class="border-0 align-middle" style="width: '+ split +'%">' + tmpAlias + '</td>';
-            };
-            th += `<table class="w-100 border-0"><tr>${subheaders}</tr></table>`;
-          }
-          //-------------------
-        }
-        // Clearfix
-        th += '<div class="clearfix"></div>';
-        th += '</th>';
-      }
-    }
-    return th;
-  }
-  private getHeader() {
-    let t = this
-    const hasEntries = t.Rows && (t.Rows.length > 0);
-    let NoText: string = 'No Objects';
-    if (t.TableType != TableType.obj) NoText = 'No Relations';
-
-    // TODO: 
-    // Pre-Selected Row
-    if (t.selectedRow) {
-        // Set the selected text -> concat foreign keys
-        const vals = recflattenObj(t.selectedRow);
-        t.FilterText = '' + vals.join('  |  ');
-    } else {
-      // Filter was set
-      t.FilterText = t.getFilter().all;
-    }
-    return `<form class="tbl_header form-inline">
-    <div class="form-group m-0 p-0${t.selType == SelectType.Single ? ' w-50' : ''}">
-      <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } mr-1 w-100 filterText"
-        ${ (t.FilterText != '' ? ' value="'+t.FilterText+'"' : '') }
-        placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
-    </div>
-    ${
-    (t.ReadOnly ? '' : 
-      `<!-- Create Button -->
-      <button class="btn btn-${t.selType == SelectType.Single ? 'outline-' : ''}success btnCreateEntry mr-1">
-        ${ t.TableType != TableType.obj ?
-          '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : 
-          `<i class="fa fa-plus"></i><span class="d-none d-md-inline pl-2">${t.GUIOptions.modalButtonTextCreate} ${t.getTableAlias()}</span>`}
-      </button>`) +
-    ( (t.SM && t.GUIOptions.showWorkflowButton) ? 
-      `<!-- Workflow Button -->
-      <button class="btn btn-info btnShowWorkflow mr-1">
-        <i class="fa fa-random"></i><span class="d-none d-md-inline pl-2">Workflow</span>
-      </button>` : '') +
-    (t.selType == SelectType.Single ? 
-      `<!-- Reset & Expand -->
-      <button class="btn btn-secondary btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
-        ${ t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>' }
-      </button>`
-      : '')
-    }
-    </form>`;
-  }
-  private renderHeader(): void {
-    let t = this;
-    const output = t.getHeader();
-    $('.'+t.GUID).parent().find('.tbl_header').replaceWith(output);
-
-    //---------------------- Link jquery
-    // Edit Row
+    const tableEl = document.getElementById(t.GUID).parentElement;
+    // Replace new HTML
+    tableEl.getElementsByClassName('tbl_header')[0].innerHTML = t.getHeader();
+    //------------------------------------------ Events
+    // Edit Row    
     async function filterEvent(t: Table) {
       t.PageIndex = 0; // jump to first page
-      const filterText = $('.'+t.GUID).parent().find('.filterText').val();
-      t.setGlobalFilter(filterText);
+      const element = <HTMLInputElement>tableEl.getElementsByClassName('filterText')[0];
+      const filterText = element.value;
+      t.setSearch(filterText);
       t.loadRows(async function(){
         if (t.Rows.length == t.PageLimit) {
           await t.renderFooter();
@@ -1212,116 +1320,59 @@ class Table extends RawTable {
         }
         await t.renderContent();
       })
-    }
-    // hitting Return on searchbar at Filter
-    $('.'+t.GUID).parent().find('.filterText').off('keydown').on('keydown', function(e){
-      if (e.keyCode == 13) {
-        e.preventDefault();
-        filterEvent(t)
-      }
-    })
+    }    
+    let el = null;
+    // hitting Return on searchbar at Filter (OK)
+    el = tableEl.getElementsByClassName('filterText')[0];
+    if (el) el.addEventListener('keydown', function(e: KeyboardEvent){
+      if (e.keyCode == 13) { e.preventDefault(); filterEvent(t); }
+    });
     // Show Workflow Button clicked
-    $('.'+t.GUID).parent().find('.btnShowWorkflow').off('click').on('click', function(e){
-      e.preventDefault();
-      t.SM.openSEPopup();
-    })
+    el = tableEl.getElementsByClassName('btnShowWorkflow')[0];
+    if (el) el.addEventListener('click', function(e){ e.preventDefault(); t.SM.openSEPopup(); });
     // Create Button clicked
-    $('.'+t.GUID).parent().find('.btnCreateEntry').off('click').on('click', function(e){
-      e.preventDefault();
-      t.createEntry()
-    })
+    el = tableEl.getElementsByClassName('btnCreateEntry')[0];
+    if (el) el.addEventListener('click', function(e){ e.preventDefault(); t.createEntry(); });
     // Expand Table
-    $('.'+t.GUID).parent().find('.btnExpandTable').off('click').on('click', function(e){
-      e.preventDefault();
+    el = tableEl.getElementsByClassName('btnExpandTable')[0];
+    if (el) el.addEventListener('click', function(e){ e.preventDefault();
       t.isExpanded = !t.isExpanded;
       t.renderContent();
       t.renderHeader();
       t.renderFooter();
-    })
-  }
-  private getContent() {
-    let tds: string = '';
-    let t = this
-    // Order Headers by col_order
-    function compare(a, b) {
-      a = parseInt(t.Columns[a].col_order);
-      b = parseInt(t.Columns[b].col_order);
-      return a < b ? -1 : (a > b ? 1 : 0);
-    }
-    const sortedColumnNames = Object.keys(t.Columns).sort(compare);
-    const ths = t.htmlHeaders(sortedColumnNames);
-    // Loop Rows
-    t.Rows.forEach(function(row){
-      const RowID: number = row[t.PrimaryColumn];
-      let data_string: string = '';
-      let isSelected: boolean = false;
-
-      // Check if selected
-      if (t.selectedRow) {
-        isSelected = (t.selectedRow[t.PrimaryColumn] == RowID);
-      }
-      // [Control Column] is set then Add one before each row
-      if (t.GUIOptions.showControlColumn) {
-        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0" data-rowid="${row[t.PrimaryColumn]}">
-          ${ (t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>') 
-            : ( t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>') )
-          }
-        </td>`;
-      }
-      // Generate HTML for Table-Data Cells sorted
-      sortedColumnNames.forEach(function(col) {
-        // Check if it is displayed
-        if (t.Columns[col].show_in_grid) 
-          data_string += '<td class="align-middle py-0 border-0">' + t.renderCell(row, col) + '</td>';
-      })
-      // Add row to table
-      if (t.GUIOptions.showControlColumn) {
-        // Edit via first column
-        tds += `<tr class="datarow row-${row[t.PrimaryColumn] + (isSelected ? ' table-info' : '')}">${data_string}</tr>`;
-      }
-      else {
-        if (t.ReadOnly) {
-          // Edit via click
-          tds += '<tr class="datarow row-'+row[t.PrimaryColumn]+'" data-rowid="'+row[t.PrimaryColumn]+'">'+data_string+'</tr>';
-        } else {
-          // Edit via click on full Row
-          tds += '<tr class="datarow row-'+row[t.PrimaryColumn]+' editFullRow modRow" data-rowid="'+row[t.PrimaryColumn]+'">'+data_string+'</tr>';
-        }
-      }
-    })
-    return `<div class="tbl_content ${t.GUID} mt-1 p-0${ ((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}">
-      ${ (t.Rows && t.Rows.length > 0) ?
-      `<div class="tablewrapper border table-responsive-md">
-        <table class="table table-striped table-hover m-0 table-sm datatbl">
-          <thead>
-            <tr>${ths}</tr>
-          </thead>
-          <tbody>
-            ${tds}
-          </tbody>
-        </table>
-      </div>` : ( t.getFilter().all != '' ? 'Sorry, nothing found.' : '') }
-    </div>`;
+    });
   }
   private async renderContent() {
     let t = this;
     const output = await t.getContent();
-    $('.'+t.GUID).replaceWith(output);
+    const tableEl = document.getElementById(t.GUID);
+    tableEl.innerHTML = output;
     //---------------------- Link jquery
+    let els = null;
     // Table-Header - Sort
-    $('.'+t.GUID+' .datatbl_header').off('click').on('click', function(e){
-      e.preventDefault();
-      let colname = $(this).data('colname');
-      t.toggleSort(colname)
-    })
+    els = tableEl.getElementsByClassName('datatbl_header');
+    if (els) {
+      for (const el of els) {
+        el.addEventListener('click', function(e){
+          e.preventDefault();
+          const colname = el.getAttribute('data-colname');
+          t.toggleSort(colname)
+        });
+      }
+    }
     // Edit Row
-    $('.'+t.GUID+' .modRow').off('click').on('click', function(e){
-      e.preventDefault();
-      let RowID = $(this).data('rowid');
-      t.modifyRow(RowID);
-    })
+    els = tableEl.getElementsByClassName('modRow');
+    if (els) {
+      for (const el of els) {
+        el.addEventListener('click', function(e){
+          e.preventDefault();
+          const RowID = el.getAttribute('data-rowid'); // $(this).data('rowid');
+          t.modifyRow(RowID);
+        });
+      }
+    }
     // State PopUp Menu
-    $('.'+t.GUID+' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function(e){
+    $('#'+t.GUID+' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function(e){
       let jQRow = $(this).parent().parent();
       let RowID = jQRow.find('td:first').data('rowid');
       let Row = {};
@@ -1342,7 +1393,7 @@ class Table extends RawTable {
         });
         jQRow.find('.dropdown-menu').html(btns);
         // Bind function to StateButtons
-        $('.'+t.GUID+' .btnState').click(function(e){
+        $('#'+t.GUID+' .btnState').click(function(e){
           e.preventDefault();
           const RowID = $(this).data('rowid');
           const TargetStateID = $(this).data('targetstate');
@@ -1351,71 +1402,28 @@ class Table extends RawTable {
       }
     })
   }
-  private getFooter() {
+  private renderFooter() {
     let t = this;
-    if (!t.Rows || t.Rows.length <= 0) return '<div class="tbl_footer"></div>';
-    // Pagination
-    let pgntn = '';
-    let PaginationButtons = t.getPaginationButtons();
-    // Only Display Buttons if more than one Button exists
-    if (PaginationButtons.length > 1) {
-      PaginationButtons.forEach(btnIndex => {
-        if (t.PageIndex == t.PageIndex + btnIndex) { // Active
-          pgntn += `<li class="page-item active"><span class="page-link">${t.PageIndex + 1 + btnIndex}</span></li>`;
-        } else {
-          pgntn += `<li class="page-item"><a class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
-        }
+    const parent = document.getElementById(t.GUID).parentElement;
+    // Replace new HTML
+    parent.getElementsByClassName('tbl_footer')[0].innerHTML = t.getFooter(); 
+    // Pagination Button Events
+    const btns = parent.getElementsByClassName('page-link');
+    for (const btn of btns) {
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        t.setPageIndex(parseInt(btn.innerHTML) - 1);
       })
     }
-    if (t.selType == SelectType.Single && !t.isExpanded)
-      return `<div class="tbl_footer"></div>`;
-
-    //--- StatusText
-    let statusText = '';
-    if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
-      let text = this.GUIOptions.statusBarTextEntries;
-      // Replace Texts
-      text = text.replace('{lim_from}', ''+ ((this.PageIndex * this.PageLimit) + 1) );
-      text = text.replace('{lim_to}', ''+ ((this.PageIndex * this.PageLimit) + this.Rows.length) );
-      text = text.replace('{count}', '' + this.getNrOfRows() );
-      statusText = text;
-    }
-    else {
-      // No Entries
-      statusText = this.GUIOptions.statusBarTextNoEntries;
-    }
-
-    // Normal
-    return `<div class="tbl_footer">
-      <div class="text-muted p-0 px-2">
-        <p class="float-left m-0 mb-1"><small>${statusText}</small></p>
-        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
-        <div class="clearfix"></div>
-      </div>
-    </div>`;
   }
-  private renderFooter(): void {
-    let t = this;
-    const output = t.getFooter();
-    $('.'+t.GUID).parent().find('.tbl_footer').replaceWith(output);
-    //---------------------- Link jquery
-    // Pagination Button
-    $('.'+t.GUID).parent().find('a.page-link').off('click').on('click', function(e){
-      e.preventDefault();
-      let newPageIndex = $(this).data('pageindex');
-      t.setPageIndex(newPageIndex)
-    })
-  }
-  public async renderHTML(DOMSelector: string) {
-    let t = this
+  public async renderHTML(DOM_ID: string) {
     // GUI
-    const content = t.getHeader() + await t.getContent() + t.getFooter();
-    $(DOMSelector).empty();
-    $(DOMSelector).append(content);
+    const content = this.getHeader() + await this.getContent() + this.getFooter();
+    document.getElementById(DOM_ID).innerHTML = content;
 
-    await t.renderHeader();
-    await t.renderContent();
-    await t.renderFooter();
+    await this.renderHeader();
+    await this.renderContent();
+    await this.renderFooter();
   }
   //-------------------------------------------------- EVENTS
   public get SelectionHasChanged() {
@@ -1542,7 +1550,7 @@ class FormGenerator {
       tmp.setDefaultValues(defValues);
       // Load Rows
       tmp.loadRows(function(){
-        tmp.renderHTML('.' + tmpGUID);
+        tmp.renderHTML(tmpGUID);
       });
     }
     //--- Quill Editor
@@ -1739,18 +1747,18 @@ function loadFKTable(btnElement): void {
 
   let fkInput = me.parent().parent().parent().find('.inputFK');
   fkInput.val(''); // Reset Selection
-  me.parent().parent().parent().find('.external-table').replaceWith('<div class="'+randID+'"></div>');
+  me.parent().parent().parent().find('.external-table').replaceWith('<div id="'+randID+'"></div>');
   let tmpTable = new Table(FKTable, SelectType.Single);
-  // Set custom Filter
+  // Set custom Filter  
   if (CustomFilter) {
     Object.keys(CustomFilter['columns']).forEach(key => {
       const val = CustomFilter['columns'][key];
       tmpTable.setColumnFilter(key, val);
     });
-  }
+  }  
   // Load
   tmpTable.loadRows(async function(){
-    await tmpTable.renderHTML('#'+randID);
+    await tmpTable.renderHTML(randID);
     const el = <HTMLElement>document.getElementById(randID).getElementsByClassName('filterText')[0];
     el.focus();
   });

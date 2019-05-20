@@ -45,12 +45,7 @@
   try {    
     if ($ReqMethod === 'GET') {
       $command = 'read'; // or call
-      $param['table'] = isset($_GET['table']) ? $_GET['table'] : null;
-      $param['filter'] = isset($_GET['filter']) ? $_GET['filter'] : null;
-      $param['limitStart'] = isset($_GET['limitStart']) ? $_GET['limitStart'] : null;
-      $param['limitSize'] = isset($_GET['limitSize']) ? $_GET['limitSize'] : null;
-      $param['orderby'] = isset($_GET['orderby']) ? $_GET['orderby'] : null;
-      $param['ascdesc'] = isset($_GET['ascdesc']) ? $_GET['ascdesc'] : null;
+      $param = $_GET;
     }
     else if ($ReqMethod === 'OPTIONS') {
       $command = 'init';

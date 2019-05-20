@@ -80,6 +80,10 @@ class ReadQuery {
   public function setFilter($strFilter) {
     $this->filter = json_decode($strFilter, true);
   }
+  public function addFilter($strFilter) {
+    $strNewFilter = '{"and": ['.json_encode($this->filter).', '.$strFilter.']}';
+    $this->filter = json_decode($strNewFilter, true);
+  }
   private function getFilter($prep = false) {
     if (is_null($this->filter)) return "";
     if ($prep) return self::QUERY_SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter, true);
