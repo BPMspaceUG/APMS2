@@ -138,13 +138,18 @@
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;');
   }  
   //---------------------------------
+
+
+
   foreach ($data as $table) {
     // Get Data
     $tablename = $table["table_name"];
     $se_active = (bool)$table["se_active"];
     $table_type = $table["table_type"];    
 
-    //--- Create HTML Content
+
+
+    //--- Create HTML Content TODO: REMOVE!! --> generate dynamically in muster.js
     if ($table["mode"] != 'hi') {
       // Tabs
       $content_tabs .= "            ".
@@ -160,204 +165,9 @@
     }
     //---/Create HTML Content
 
+
+
     // TODO: Check if the "table" is no view
-
-    //==================================================================== STORED PROCEDURE
-    //--- Create a stored procedure for each Table
-    /*
-    $sp_name = 'sp_'.$tablename;
-    $con->exec('DROP PROCEDURE IF EXISTS `'.$sp_name.'`'); // TODO: Ask user if it should be overwritten
-
-    //-- All standard columns
-    $colnames = array_keys($table["columns"]);
-
-    // Generate joins
-    unset($joincolsubst); // clear due to loop
-    unset($jointexts);
-    unset($virtualcols);
-    unset($stdcols);
-    unset($allcolnames);
-    unset($colnamesWOforeignKeys);
-
-    $joincolsubst = [];
-    $jointexts = [];
-    $virtualcols = [];
-    $stdcols = [];
-    $allcolnames = [];
-    $colnamesWOforeignKeys = [];
-    $seperator = '_____';
-
-    foreach ($colnames as $colname) {
-      $has_FK = ($table["columns"][$colname]["field_type"] == 'foreignkey');
-      $isVc = $table["columns"][$colname]["is_virtual"];
-
-      // -- Foreign Key
-      if ($has_FK) {
-        $fk = $table["columns"][$colname]["foreignKey"];
-        $ft = $fk["table"];
-        $fkey = $fk["col_id"];
-        $fsub = $fk["col_subst"];
-        // Template: ' LEFT JOIN [fktable] AS a___[0] ON a.[stdkey] = a____[0].[fkey] '
-        $jointexts[] = ' LEFT JOIN `'.$ft.'` AS a'.$seperator.$colname.' ON a.'.$colname.' = a'.$seperator.$colname.'.'.$fkey."\n";
-        $joincolsubst[] = 'a'.$seperator.$colname.'.'.$fkey;
-        $allcolnames[] = 'a'.$seperator.$colname.'.'.$fkey;
-        $colnamesWOforeignKeys[$colname] = 'a.'.$colname;
-
-        // Check if contains more than one
-        if (strpos($fsub, "{") !== FALSE) {
-          $multifkcols = json_decode($fsub, true);
-
-          foreach ($multifkcols as $c => $val) {
-            // Nested FKs         FK(FK)
-            if (is_array($val)) {
-              $layer1 = 'a'.$seperator.$colname;
-              $joincolsubst[] = $layer1.'.'.$c; // The nested FK
-              
-              // Then normally recursion
-              $_table = $multifkcols[$c]["table"];
-              $_fkey = $multifkcols[$c]["col_id"];
-              $_fsub = $multifkcols[$c]["col_subst"];
-
-              $jointexts[] = ' LEFT JOIN '.$_table.' AS '.$layer1.$seperator.$c.' ON '.$layer1.'.'.$c.' = '.$layer1.$seperator.$c.'.'.$_fkey;
-              $joincolsubst[] = 'a'.$seperator.$colname.$seperator.$c.'.'.$_fkey;
-              $joincolsubst[] = 'a'.$seperator.$colname.$seperator.$c.'.'.$_fsub;
-              
-              $allcolnames[] = 'a'.$seperator.$colname.$seperator.$c.'.'.$_fsub;
-            }
-            else {
-              // Normal FK
-              $joincolsubst[] = 'a'.$seperator.$colname.'.'.$c;
-              $allcolnames[] = 'a'.$seperator.$colname.'.'.$c;
-            }
-          }
-          $allcolnames[] = 'a'.$seperator.$colname.'.'.$c;
-        }
-        else {
-          $joincolsubst[] = 'a'.$seperator.$colname.'.'.$fsub;
-          $allcolnames[] = 'a'.$seperator.$colname.'.'.$fsub;
-        }
-      } else {
-        if ($isVc) {
-          $virtSelect = $table["columns"][$colname]["virtual_select"];
-          if (strlen($virtSelect) > 0)
-            $colnamesWOforeignKeys[$colname] = $colname;
-        } else
-          $colnamesWOforeignKeys[$colname] = 'a.'.$colname;
-      }
-
-      // -- Virtual Column      
-      if ($isVc) {
-        $virtSelect = $table["columns"][$colname]["virtual_select"];
-        if (strlen($virtSelect) > 0) {
-          $virtualcols[] = $virtSelect.' AS '.$colname;
-          $allcolnames[] = $virtSelect;
-        }
-      }
-      else {
-        $stdcols[] = "a.".$colname;
-        $allcolnames[] = "a.".$colname;
-      }
-    }
-
-    // Prepare for SP -> add prefixes/aliases for each column
-    // IF(JSON_UNQUOTE(JSON_EXTRACT(a_____state_id.form_data, '$.demo_order_person_name.mode_form')) = 'hi', null, a.demo_order_person_name) AS demo_order_person_name,
-    $stdColText = ''; //implode(",\n", $stdcols);
-    foreach ($stdcols as $stdcol) {
-      $parts = explode('.', $stdcol);
-      $cname = end($parts);
-      if ($se_active && !$table["columns"][$cname]["is_primary"] && $cname != 'state_id') {
-        $stdColText .= "IF(JSON_UNQUOTE(JSON_EXTRACT(a_____state_id.form_data, '$.$cname.mode_form')) = 'hi', NULL, $stdcol) AS $cname,\n";
-      } else {
-        $stdColText .= $stdcol.",\n";
-      }
-    }
-    $stdColText = substr($stdColText, 0, -2);
-
-    $joinTables = implode("", $jointexts);
-    //---- Select
-    $select = $stdColText;
-    if (count($virtualcols) > 0) $select .= ",\n".implode(",\n", $virtualcols);
-    if (count($joincolsubst) > 0) $select .= ",\n".implode(",\n", $joincolsubst);
-    //--- order by text
-    $orderByText = '';
-    // Template:     
-    //case when @sortDir <> 'ASC' then 0 when @sortCol = 'a.Role_id' then a.Role_id end ASC,
-    //case when @sortDir <> 'ASC' then 0 when @sortCol = 'a.Role_name' then a.Role_name end ASC,
-    //case when @sortDir <> 'DESC' then 0 when @sortCol = 'a.Role_id' then a.Role_id end DESC,
-    //case when @sortDir <> 'DESC' then 0 when @sortCol = 'a.Role_name' then a.Role_name end DESC
-
-    foreach ($colnamesWOforeignKeys as $col => $realColname) {
-      $orderByText .= 
-      "case when sortDir <> 'ASC' then 0 when sortCol = '$col' then $realColname end ASC,\n".
-      "case when sortDir <> 'DESC' then 0 when sortCol = '$col' then $realColname end DESC,\n";
-    }
-    $orderByText = substr($orderByText, 0, -2);
-
-    // Filter All
-    $filtertext = implode(" LIKE CONCAT('%',@sAll,'%') OR\n", $allcolnames) . " LIKE CONCAT('%',@sAll,'%')\n";
-    $filtertext = substr($filtertext, 0, -1);
-    // Filter Custom
-    $filtercustomVars = '';
-    $filtercustom = '';
-    foreach ($stdcols as $col) {
-      $parts = explode('.', $col);
-      $colname = end($parts);
-      $filtercustomVars .= "SET @s$colname = JSON_UNQUOTE(JSON_EXTRACT(search, '$.columns.$colname'));\n";
-      // if type is string then like, if type is INT || primary || state_id then excactly
-      if ($table["columns"][$colname]["is_primary"] || $table["columns"][$colname]["field_type"] == 'foreignkey')
-        $filtercustom .= "AND (CONCAT(@s$colname, $col) IS NULL OR $col LIKE @s$colname)\n";
-      else
-        $filtercustom .= "AND (CONCAT(@s$colname, $col) IS NULL OR $col LIKE CONCAT('%',@s$colname,'%'))\n";
-    }
-    $filtercustomVars = substr($filtercustomVars, 0, -1);
-    $filtercustom = substr($filtercustom, 0, -1);
-
-    // Custom Conditions
-    // __CONDITION__ = a.state_id IN (1,2)
-    // __CONDITION__ = a.Role_id = TID
-    // __CONDITION__ = $stdcols[0] % 2
-    // $cuWhere1 = "AND (IF(customWhere = '1', __CONDITION__, TRUE))\n";
-    $customWhere = ''; //$cuWhere1;
-
-    //===========================================================
-    // STORED PROECEDURE START
-
-    // SET @search = '{"all": "sdfsdf", "columns": {"test": "123", "test2": "hajkhd", "test3": "qwert"}}';
-    // SET @searchGlobal = JSON_UNQUOTE(JSON_EXTRACT(@search, '$.all'));
-    // SET @searchColumname1 = JSON_UNQUOTE(JSON_EXTRACT(@search, '$.columns.name'));
-    $sp = "CREATE PROCEDURE $sp_name(IN TID INT, IN search LONGTEXT, IN sortCol VARCHAR(100), IN sortDir VARCHAR(4), IN limStart INT, IN limSize INT)
-BEGIN
--- ------ Variables
-SET @sAll = IFNULL(JSON_UNQUOTE(JSON_EXTRACT(search, '$.all')), '');
-$filtercustomVars
--- -----------------------------
-SELECT
-$select
-FROM
-`$tablename` AS a
-$joinTables
-WHERE
-( -- Filter ALL
-$filtertext
-) -- Filter via Column
-$filtercustom
--- OrderBy
-ORDER BY
-$orderByText
--- Limit
-LIMIT limStart, limSize;
-END";
-
-    echo "----------------------------- Create Stored Procedure for Reading\n";
-    echo $sp."\n";
-    $res = $con->exec($sp);
-    echo "-----------------------------";
-    echo ($res == 0 ? 'OK' : 'Fail');
-    echo "\n\n";
-
-    // STORED PROECEDURE END
-    //===========================================================
-*/
 
     //--- Create StateMachine
     if ($se_active) {
@@ -390,14 +200,9 @@ END";
           }
         }
         // Update the inactive state with readonly
-        // TODO: get all states
         $formDataRO = json_encode($rights_ro);
-        //var_dump($formDataRO);
-        //echo "-----------------------------";
         $allstates = $SM->getStates();
-        //var_dump($allstates);
-        // TODO: loop states and check if they are empty
-          //-> if empty, create basic-form if name is (active => [ro] or inactive => [ro])
+        // loop states -> if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
         foreach ($allstates as $state) {
           $formData = $SM->getFormDataByStateID($state["id"]);
           if (strlen($formData) == 0) {
@@ -416,9 +221,8 @@ END";
         $excludeKeys[] = $vc;
       }      
       $queries1 = '';
-      $queries1 = $SM->getQueryLog();
-      // Clean up
-      unset($SM);
+      $queries1 = $SM->getQueryLog();      
+      unset($SM); // Clean up
 
       // ------------ Connection to existing structure !
 
@@ -526,8 +330,6 @@ END";
   // ------------------------------------ Generate Config File
   // ---> ENCODE Data as JSON
   $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
-
 
   // ----------------------- Config File generator
   function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey, $machineToken) {

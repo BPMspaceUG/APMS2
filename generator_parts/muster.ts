@@ -1,5 +1,4 @@
 // Plugins (only declared to remove TS Errors)
-declare var $: any;
 declare var vis: any;
 declare var Quill: any;
 
@@ -30,15 +29,15 @@ class LiteEvent<T> implements ILiteEvent<T> {
     return this;
   }
 }
-
-// Generates GUID for DOM Handling !JQ
+//==============================================================
+// Class: GUI (Generates GUID for DOM Handling) !JQ
+//==============================================================
 abstract class GUI {
   public static getID = function () {
     function chr4(){ return Math.random().toString(16).slice(-4); }
     return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
   };
 }
-
 //==============================================================
 // Class: Database (Communication via API) !JQ
 //==============================================================
@@ -101,7 +100,6 @@ abstract class DB {
     });
   }
 }
-
 //==============================================================
 // Class: Modal (Dynamic Modal Generation and Handling) !JQ
 //==============================================================
@@ -189,7 +187,6 @@ class Modal {
     return this.DOM_ID;
   }
 }
-
 //==============================================================
 // Class: StateMachine !JQ
 //==============================================================
@@ -341,7 +338,6 @@ class StateMachine {
     return name;
   }
 }
-
 //==============================================================
 // Class: RawTable !JQ
 //==============================================================
@@ -442,7 +438,6 @@ class RawTable {
     this.Filter = {all: '', columns: {}}
   }
 }
-
 //==============================================================
 // Class: Table
 //==============================================================
@@ -672,7 +667,6 @@ class Table extends RawTable {
       }
     })
   }
-
   private setState(data: any, RowID: number, targetStateID: number, myModal: Modal, closeModal: boolean): void {
     let t = this;
     let actState = undefined;
@@ -682,15 +676,7 @@ class Table extends RawTable {
         actState = row['state_id'];
     }
     // REQUEST
-    t.transitRow(RowID, targetStateID, data, function(response) {
-      // Check for Error
-      if ('error' in response) {
-        $('#'+ myModal.getDOMID() +' .modal-body').prepend(`<div class="alert alert-danger" role="alert"><b>Database Error!</b>&nbsp;${response['error']['msg']}</div>`);
-        return
-      }
-      // Remove all Error Messages from Modal
-      if (myModal) $('#'+ myModal.getDOMID() + ' .modal-body .alert').remove();
-
+    t.transitRow(RowID, targetStateID, data, function(response) {      
       // Handle Transition Feedback
       let counter: number = 0;
       let messages = [];
@@ -714,7 +700,9 @@ class Table extends RawTable {
             const diffObject = t.SM.getFormDiffByState(targetStateID); // Refresh Form-Content
             // Refresh Row
             let newRow = null;
-            t.Rows.forEach(row => { if (row[t.PrimaryColumn] == RowID) newRow = row; });
+            t.Rows.forEach(row => {
+              if (row[t.PrimaryColumn] == RowID) newRow = row;
+            });
             // check if the row is already loaded in the grid
             if (newRow)
               t.renderEditForm(newRow, diffObject, myModal); // The circle begins again
@@ -738,6 +726,7 @@ class Table extends RawTable {
         if (msg.type == 0) tmplTitle = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
         if (msg.type == 1) tmplTitle = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
         if (msg.type == 2) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
+        // Render a new Modal
         let resM = new Modal(tmplTitle, msg.text)
         resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
         resM.show();
@@ -757,7 +746,6 @@ class Table extends RawTable {
     }
     return FormObj;
   }
-
   //-------------------------------------------------- PUBLIC METHODS
   public createEntry(): void {
     let me = this
@@ -967,7 +955,7 @@ class Table extends RawTable {
     }
   }
   // string -> escaped string
-  private escapeHtml(string) {
+  private escapeHtml(string: string) {
     let entityMap = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'};
     return String(string).replace(/[&<>"'`=\/]/g, function (s) {
       return entityMap[s];
@@ -991,9 +979,7 @@ class Table extends RawTable {
       let content = '<table class="w-100 p-0 border-0"><tr class="border-0">';
       let cnt = 0;
       Object.keys(cellContent).forEach(c => {
-
         let val = cellContent[c];
-
         if (nrOfCells > 1 && cnt == 0) {
           // TODO!!!!
           const fTablename = t.Columns[colname].foreignKey.table;
@@ -1027,10 +1013,8 @@ class Table extends RawTable {
   private renderCell(row: any, col: string) {
     let t = this;
     let value: any = row[col];
-
     // Return if null
     if (!value) return '&nbsp;';
-
     // Check data type
     if (t.Columns[col].field_type == 'date') {
       //--- DATE
@@ -1092,7 +1076,6 @@ class Table extends RawTable {
       //------------- Render [State] as button
       let stateID = 0;
       let text = '';
-
       if((typeof value === "object") && (value !== null)) {
         stateID = parseInt(value['state_id']);
         text = value['name'];
@@ -1108,7 +1091,7 @@ class Table extends RawTable {
     value = t.formatCell(col, value, isHTML);
     return value;
   }
-  private async htmlHeaders(colnames) {
+  private htmlHeaders(colnames) {
     let t = this;
     let th = '';
 
@@ -1134,7 +1117,6 @@ class Table extends RawTable {
           '&nbsp;' + (t.AscDesc == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (t.AscDesc == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')
         ) + '' : '') +
         '</div>';
-
         //---- Foreign Key Column
         if (t.Columns[colname].field_type == 'foreignkey') {
           let cols = {};
@@ -1147,23 +1129,17 @@ class Table extends RawTable {
           const colsnames = Object.keys(cols);
           if (colsnames.length > 1) {
             // Get the config from the remote table
-            let getSubHeaders = new Promise((resolve) => {
-              let subheaders = '';
-              let tmpTable = new Table(t.Columns[colname].foreignKey.table); //, 0, function(){
-              const split = (100 * (1 / colsnames.length)).toFixed(0);
-              for (const c of colsnames) {
-                const tmpAlias = tmpTable.Columns[c].column_alias;
-                subheaders += '<td class="border-0 align-middle" style="width: '+ split +'%">' + tmpAlias + '</td>';
-              };
-              resolve(subheaders);
-              //});
-            });
-            const res = await getSubHeaders;
-            th += `<table class="w-100 border-0"><tr>${res}</tr></table>`;
+            let subheaders: string = '';
+            let tmpTable = new Table(t.Columns[colname].foreignKey.table);
+            const split = (100 * (1 / colsnames.length)).toFixed(0);
+            for (const c of colsnames) {
+              const tmpAlias = tmpTable.Columns[c].column_alias;
+              subheaders += '<td class="border-0 align-middle" style="width: '+ split +'%">' + tmpAlias + '</td>';
+            };
+            th += `<table class="w-100 border-0"><tr>${subheaders}</tr></table>`;
           }
           //-------------------
         }
-
         // Clearfix
         th += '<div class="clearfix"></div>';
         th += '</th>';
@@ -1187,7 +1163,6 @@ class Table extends RawTable {
       // Filter was set
       t.FilterText = t.getFilter().all;
     }
-
     return `<form class="tbl_header form-inline">
     <div class="form-group m-0 p-0${t.selType == SelectType.Single ? ' w-50' : ''}">
       <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } mr-1 w-100 filterText"
@@ -1220,6 +1195,7 @@ class Table extends RawTable {
     let t = this;
     const output = t.getHeader();
     $('.'+t.GUID).parent().find('.tbl_header').replaceWith(output);
+
     //---------------------- Link jquery
     // Edit Row
     async function filterEvent(t: Table) {
@@ -1263,7 +1239,7 @@ class Table extends RawTable {
       t.renderFooter();
     })
   }
-  private async getContent() {
+  private getContent() {
     let tds: string = '';
     let t = this
     // Order Headers by col_order
@@ -1272,11 +1248,8 @@ class Table extends RawTable {
       b = parseInt(t.Columns[b].col_order);
       return a < b ? -1 : (a > b ? 1 : 0);
     }
-    let sortedColumnNames = Object.keys(t.Columns).sort(compare);
-    let p1 = new Promise((resolve) => {
-      resolve(t.htmlHeaders(sortedColumnNames));
-    });
-    let ths = await p1;
+    const sortedColumnNames = Object.keys(t.Columns).sort(compare);
+    const ths = t.htmlHeaders(sortedColumnNames);
     // Loop Rows
     t.Rows.forEach(function(row){
       const RowID: number = row[t.PrimaryColumn];
@@ -1316,7 +1289,6 @@ class Table extends RawTable {
         }
       }
     })
-
     return `<div class="tbl_content ${t.GUID} mt-1 p-0${ ((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}">
       ${ (t.Rows && t.Rows.length > 0) ?
       `<div class="tablewrapper border table-responsive-md">
@@ -1453,9 +1425,8 @@ class Table extends RawTable {
     return this.onEntriesModified.expose();
   }
 }
-
 //==============================================================
-// Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON)
+// Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON) !JQ
 //==============================================================
 class FormGenerator {
   private data: any;
@@ -1577,7 +1548,6 @@ class FormGenerator {
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
       const newQuillID = GUI.getID();
-      //console.log(newQuillID);
       this.editors[key] = {'mode': el.mode_form, 'id': newQuillID}; // reserve key
       result += `<div><div class="htmleditor" id="${newQuillID}"></div></div>`;
     }
@@ -1613,41 +1583,42 @@ class FormGenerator {
   }
   public getValues() {
     let result = {};
-    $('#' + this.GUID + ' .rwInput').each(function(){
-      let inp = $(this);
-      const key = inp.attr('name');
-      const type = inp.attr('type');
+    const rwInputs = document.getElementById(this.GUID).getElementsByClassName('rwInput');
+    for (const element of rwInputs) {
+      const inp = <HTMLInputElement>element;
+      const key = inp.getAttribute('name');
+      const type = inp.getAttribute('type');
       let value = undefined;
       //--- Format different Types
       // Checkbox
       if (type == 'checkbox') {
-        value = inp.is(':checked') ? 1 : 0;
+        value = inp.matches(':checked') ? 1 : 0;
       }
       // Float numbers
-      else if (type == 'text' && inp.hasClass('inpFloat')) {
-        const input = inp.val().replace(',', '.');
+      else if (type == 'text' && inp.classList.contains('inpFloat')) {
+        const input = inp.value.replace(',', '.');
         value = parseFloat(input);
       }
       // DateTime
-      else if (type == 'time' && inp.hasClass('dtm')) {
+      else if (type == 'time' && inp.classList.contains('dtm')) {
         if (key in result) // if key already exists in result
-          value = result[key] + ' ' + inp.val(); // append Time to Date
+          value = result[key] + ' ' + inp.value; // append Time to Date
       }
       // ForeignKey
-      else if (type == 'hidden' && inp.hasClass('inputFK')) {
-        let tmpVal = inp.val();
+      else if (type == 'hidden' && inp.classList.contains('inputFK')) {
+        let tmpVal = inp.value;
         if (tmpVal == '') tmpVal = null;
         value = tmpVal;
       }
       // Every other type
       else {
-        value = inp.val();
+        value = inp.value;
       }
       //----
       // Only add to result object if value is valid
       if (!(value == '' && (type == 'number' || type == 'date' || type == 'time' || type == 'datetime')))
         result[key] = value;
-    })
+    }    
     // Editors
     let editors = this.editors;
     for (const key of Object.keys(editors)) {
@@ -1683,12 +1654,12 @@ class FormGenerator {
     let elements = document.querySelectorAll('.modal input[type=number]');
     for (let el of elements) {
       el.addEventListener('keydown', function(e: KeyboardEvent){
-        const kc = e.keyCode;
+        const kc: number = e.keyCode;
         // INTEGER
         // comma 190, period 188, and minus 109, . on keypad
         // key == 190 || key == 188 || key == 109 || key == 110 ||
         // Allow: delete, backspace, tab, escape, enter and numeric . (180 = .)
-        if ($.inArray(kc, [46, 8, 9, 27, 13, 109, 110, 173, 190, 188]) !== -1 ||
+        if ([46, 8, 9, 27, 13, 109, 110, 173, 190, 188].indexOf(kc) !== -1 ||
         // Allow: Ctrl+A, Command+A
         (kc === 65 && (e.ctrlKey === true || e.metaKey === true)) || 
         (kc === 67 && e.ctrlKey === true ) || // Ctrl + C
@@ -1713,7 +1684,6 @@ class FormGenerator {
     }
   }
 }
-
 //==================================================================== Global Helper Methods
 
 // Show the actual Tab in the URL and also open Tab by URL
@@ -1780,18 +1750,19 @@ function loadFKTable(btnElement): void {
   }
   // Load
   tmpTable.loadRows(async function(){
-    await tmpTable.renderHTML('.'+randID);
-    $('.' + randID).find('.filterText').focus();
+    await tmpTable.renderHTML('#'+randID);
+    const el = <HTMLElement>document.getElementById(randID).getElementsByClassName('filterText')[0];
+    el.focus();
   });
   tmpTable.SelectionHasChanged.on(function(){
     const selRowID = tmpTable.getSelectedRowID();
     if (selRowID) fkInput.val(selRowID); else fkInput.val("");
   })
 }
-function gEdit(tablename, RowID) {
+function gEdit(tablename: string, RowID: number) {
   // Load Table, load Row, display Edit-Modal
-  let tmpTable = new Table(tablename, 0);
-  tmpTable.setColumnFilter(tmpTable.getPrimaryColname(), RowID);
+  const tmpTable = new Table(tablename, 0);
+  tmpTable.setColumnFilter(tmpTable.getPrimaryColname(), ''+RowID);
   tmpTable.loadRows(function(){
     tmpTable.modifyRow(RowID);
   });
