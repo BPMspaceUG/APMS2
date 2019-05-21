@@ -16,7 +16,7 @@ body {margin-bottom: 60px;}
 .datatbl .sorted {color: steelblue; min-width: 100px; white-space: nowrap;}
 .datatbl .datarow:hover {cursor: auto;}
 .datatbl .editFullRow:hover {cursor: pointer;}
-.external-table input {cursor: pointer;}
+.external-table input.editable {cursor: pointer;}
 /* --- For the html inside the table --- */
 .datatbl .datarow td p, h1, h2, h3, h4, h5, h6 {margin: 0; padding: 0;}
 .datatbl .datarow td ul, ol {margin: 0; padding: 0; list-style-position: inside;}

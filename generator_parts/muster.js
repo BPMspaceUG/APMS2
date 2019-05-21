@@ -375,6 +375,9 @@ class RawTable {
     getSearch() {
         return this.Search;
     }
+    setFilter(filterStr) {
+        this.Filter = filterStr;
+    }
     setColumnFilter(columnName, filterText) {
         this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}';
     }
@@ -387,7 +390,7 @@ class Table extends RawTable {
         super(tablename);
         this.SM = null;
         this.isExpanded = true;
-        this.defaultValues = {};
+        this.customFormCreateOptions = {};
         this.diffFormCreateObject = {};
         this.GUIOptions = {
             maxCellLength: 30,
@@ -431,8 +434,16 @@ class Table extends RawTable {
                 me.OrderBy = col;
         }
     }
-    setDefaultValues(values) {
-        this.defaultValues = values;
+    setCustomFormCreateOptions(customData) {
+        this.customFormCreateOptions = customData;
+    }
+    getIDs(colname) {
+        const t = this;
+        let result = [];
+        for (const Row of t.Rows) {
+            result.push(Row[colname]);
+        }
+        return result;
     }
     getPrimaryColname() {
         return this.PrimaryColumn;
@@ -658,10 +669,7 @@ class Table extends RawTable {
         let defFormObj = me.getDefaultFormObject();
         const diffFormCreate = me.diffFormCreateObject;
         let newObj = mergeDeep({}, defFormObj, diffFormCreate);
-        for (const key of Object.keys(me.defaultValues)) {
-            newObj[key].value = me.defaultValues[key];
-            newObj[key].mode_form = 'ro';
-        }
+        newObj = mergeDeep({}, newObj, this.customFormCreateOptions);
         for (const key of Object.keys(newObj)) {
             if (newObj[key].field_type == 'reversefk')
                 newObj[key].mode_form = 'hi';
@@ -781,12 +789,21 @@ class Table extends RawTable {
             ${this.GUIOptions.modalButtonTextModifySaveAndClose}
           </button>
         </div>`);
-                $('#' + M.getDOMID() + ' .btnSave').click(function (e) {
-                    e.preventDefault();
-                    const closeModal = $(this).hasClass('andClose');
-                    me.saveEntry(M, fModify.getValues(), closeModal);
-                });
-                $('#' + M.getDOMID() + ' .modal-body form').append('<input type="hidden" class="rwInput" name="' + this.PrimaryColumn + '" value="' + id + '">');
+                const btnsSave = document.getElementById(M.getDOMID()).getElementsByClassName('btnSave');
+                for (const btn of btnsSave) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const closeModal = btn.classList.contains('andClose');
+                        me.saveEntry(M, fModify.getValues(), closeModal);
+                    });
+                }
+                const form = document.getElementById(M.getDOMID()).getElementsByTagName('form')[0];
+                const newEl = document.createElement("input");
+                newEl.setAttribute('value', '' + id);
+                newEl.setAttribute('name', this.PrimaryColumn);
+                newEl.setAttribute('type', 'hidden');
+                newEl.classList.add('rwInput');
+                form.appendChild(newEl);
                 if (M)
                     M.show();
             }
@@ -921,7 +938,7 @@ class Table extends RawTable {
         ${(Text != '' ? ' value="' + Text + '"' : '')}
         placeholder="${(!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText)}">
     </div>`;
-        const btnCreate = `<button class="btn btn-${t.selType == SelectType.Single ? 'light text-success' : 'success'} btnCreateEntry mr-1">
+        const btnCreate = `<button class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'light text-success' : 'success'} btnCreateEntry mr-1">
       ${t.TableType != TableType.obj ?
             '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' :
             `<i class="fa fa-plus"></i><span class="d-none d-md-inline pl-2">${t.GUIOptions.modalButtonTextCreate} ${t.getTableAlias()}</span>`}
@@ -938,7 +955,7 @@ class Table extends RawTable {
             html += btnCreate;
         if (t.SM && t.GUIOptions.showWorkflowButton)
             html += btnWorkflow;
-        if (t.selType === SelectType.Single)
+        if (t.selType === SelectType.Single && hasEntries)
             html += btnExpand;
         html += '</div>';
         return html;
@@ -1301,32 +1318,53 @@ class FormGenerator {
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
           <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this)"' : ''} data-tablename="${el.fk_table}"${el.customfilter ? "data-customfilter='" + el.customfilter + "'" : ''}>
-            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white' : ''}" ${el.value ? 'value="' + el.value + '"' : ''} placeholder="Nothing selected" readonly>
-            <div class="input-group-append">
-              <button class="btn btn-primary btnLinkFK" title="Link Element" type="button"${el.mode_form == 'ro' ? ' disabled' : ''}>
-                <i class="fa fa-unlink"></i>
-              </button>
-            </div>
+            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${el.value ? 'value="' + el.value + '"' : ''} placeholder="Nothing selected" readonly>
+            ${el.mode_form == 'ro' ? '' :
+                `<div class="input-group-append">
+                <button class="btn btn-primary btnLinkFK" title="Link Element" type="button">
+                  <i class="fa fa-unlink"></i>
+                </button>
+              </div>`}
           </div>
         </div>`;
         }
         else if (el.field_type == 'reversefk') {
             const tmpGUID = GUI.getID();
-            const ext_tablename = el.revfk_tablename;
             const hideCol = el.revfk_colname;
+            const parts = hideCol.split('.');
+            const hideColname = parts[parts.length - 1];
             const OriginRowID = this.oRowID;
-            let defValues = {};
-            defValues[hideCol] = OriginRowID;
-            result += `<div class="${tmpGUID}"></div>`;
-            let tmp = new Table(ext_tablename, SelectType.NoSelect);
-            tmp.Columns[hideCol].show_in_grid = false;
+            result += `<div id="${tmpGUID}"></div>`;
+            let tmp = new Table(el.revfk_tablename, SelectType.NoSelect);
+            tmp.Columns[hideColname].show_in_grid = false;
             tmp.Columns[tmp.getPrimaryColname()].show_in_grid = false;
             tmp.ReadOnly = (el.mode_form == 'ro');
             tmp.GUIOptions.showControlColumn = !tmp.ReadOnly;
             tmp.setColumnFilter(hideCol, '' + OriginRowID);
-            tmp.setDefaultValues(defValues);
+            const colnamex = 'demo_order_order_ID';
+            const refreshSel = function () {
+                let customFormCreate = {};
+                customFormCreate[hideColname] = {};
+                customFormCreate[hideColname]['value'] = OriginRowID;
+                customFormCreate[hideColname]['mode_form'] = 'ro';
+                const Rows = tmp.getIDs(colnamex);
+                if (Rows.length > 0) {
+                    const ids = [];
+                    for (const el of Rows) {
+                        ids.push(el[colnamex]);
+                    }
+                    const filter = '{\"nin\": [\"' + colnamex + '\", \"' + ids.join(',') + '\"]}';
+                    customFormCreate[colnamex] = {};
+                    customFormCreate[colnamex]['customfilter'] = filter;
+                }
+                tmp.setCustomFormCreateOptions(customFormCreate);
+            };
+            tmp.EntriesHaveChanged.on(function () {
+                refreshSel();
+            });
             tmp.loadRows(function () {
                 tmp.renderHTML(tmpGUID);
+                refreshSel();
             });
         }
         else if (el.field_type == 'htmleditor') {
@@ -1495,12 +1533,8 @@ function loadFKTable(btnElement) {
     fkInput.val('');
     me.parent().parent().parent().find('.external-table').replaceWith('<div id="' + randID + '"></div>');
     let tmpTable = new Table(FKTable, SelectType.Single);
-    if (CustomFilter) {
-        Object.keys(CustomFilter['columns']).forEach(key => {
-            const val = CustomFilter['columns'][key];
-            tmpTable.setColumnFilter(key, val);
-        });
-    }
+    if (CustomFilter)
+        tmpTable.setFilter(CustomFilter);
     tmpTable.loadRows(function () {
         return __awaiter(this, void 0, void 0, function* () {
             yield tmpTable.renderHTML(randID);

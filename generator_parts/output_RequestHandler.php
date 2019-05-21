@@ -63,6 +63,9 @@
           $alias = implode('/', [$t, $c]);
           $result[] = '`' . $alias . '`.' . $colname;*/
         }
+        elseif ($col['is_virtual']) {
+          # virtual Column
+        }
         else {
           $result[] = "`$tablename`.`$colname`";
         }
@@ -433,19 +436,15 @@
         elseif ($ascdesc == "desc") $ascdesc == "DESC";
         else die(fmtError("AscDesc has no valid value (value has to be empty, ASC or DESC)!"));
       }
-      //--- Filter
-      //if ($this->isValidFilterStruct($filter))
-      $filter = json_encode($filter);
-
-      //================================================ New Version:
+      //================================================  New Version:
 
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
       $rq->setLimit($limitSize, $limitStart);
       $rq->setSorting($orderby, $ascdesc);
 
-      // Filter
-      $rq->setFilter('{"=":[1,1]}'); // inital Filter
+      //--- Filter
+      $rq->setFilter('{"=":[1,1]}'); // inital Filter (has no influence)
       // add Search for all columns
       if (!is_null($search)) {
         $search = "%".$search."%";
@@ -459,11 +458,10 @@
       }
       // add Custom Filter
       if (!is_null($filter)) {
-        //$rq->addFilter($filter);
+        $rq->addFilter($filter);
       }
 
-
-      // Add Joins from Config
+      //--- Add Joins from Config
       $joins = Config::getJoinedCols($tablename);
       // TODO: Multilayered JOINS
       foreach ($joins as $key => $value) {
@@ -501,8 +499,8 @@
         return json_encode($result, true);
       } else {
         // Error -> Return Error
-        echo $stmt->queryString."<br>";
-        echo json_encode($rq->getValues())."<br>";
+        echo $stmt->queryString."\n\n";
+        echo json_encode($rq->getValues())."\n\n";
         var_dump($stmt->errorInfo());
         exit();
       }

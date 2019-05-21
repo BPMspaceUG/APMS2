@@ -434,6 +434,9 @@ class RawTable {
   public getSearch(): string {
     return this.Search;
   }
+  public setFilter(filterStr: string) {
+    this.Filter = filterStr;
+  }
   public setColumnFilter(columnName: string, filterText: string) {
     this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
   }
@@ -452,7 +455,7 @@ class Table extends RawTable {
   private isExpanded: boolean = true;
   private selType: SelectType;
   private selectedRow: any;
-  private defaultValues = {}; // Default Values for Create-Form
+  private customFormCreateOptions: any = {};
   private diffFormCreateObject: any = {};
   public ReadOnly: boolean;
   public GUIOptions = {
@@ -505,8 +508,16 @@ class Table extends RawTable {
       if (me.Columns[col].show_in_grid && me.OrderBy == '') me.OrderBy = col; // Get SortColumn (DEFAULT: Sort by first visible Col)
     }
   }
-  public setDefaultValues(values: any) {
-    this.defaultValues = values;
+  public setCustomFormCreateOptions(customData: any) {
+    this.customFormCreateOptions = customData;
+  }
+  public getIDs(colname: string): Array<number> {
+    const t = this;
+    let result = [];
+    for (const Row of t.Rows) {
+      result.push(Row[colname]);
+    }
+    return result;
   }
   public getPrimaryColname(): string {
     return this.PrimaryColumn;
@@ -758,12 +769,11 @@ class Table extends RawTable {
     let defFormObj = me.getDefaultFormObject();
     const diffFormCreate = me.diffFormCreateObject;
     let newObj = mergeDeep({}, defFormObj, diffFormCreate);
-    // set default values
-    for (const key of Object.keys(me.defaultValues)) {
-      newObj[key].value = me.defaultValues[key]; // overwrite value
-      newObj[key].mode_form = 'ro'; // and also set to read-only
-    }
-    // In the create form do not use reverse foreign keys
+    // Custom Form
+    newObj = mergeDeep({}, newObj, this.customFormCreateOptions);
+    //--------------------------------------------------------
+    // In the create form do not show reverse foreign keys
+    // => cannot be related because Element does not exist yet
     for (const key of Object.keys(newObj)) {
       if (newObj[key].field_type == 'reversefk')
         newObj[key].mode_form = 'hi';
@@ -799,8 +809,8 @@ class Table extends RawTable {
               let tmplTitle = '';
               if (counter == 0) tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
               if (counter == 1) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>`;
-              let resM = new Modal(tmplTitle, msg.message)
-              resM.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose
+              let resM = new Modal(tmplTitle, msg.message);
+              resM.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
               resM.show();
             }
             // Check if Element was created
@@ -846,7 +856,6 @@ class Table extends RawTable {
             }
             counter++;
           });
-
 
         });
       })
@@ -917,15 +926,22 @@ class Table extends RawTable {
         </div>`);
         //--------------------------------------------------
         // Bind functions to Save Buttons
-        $('#' + M.getDOMID() + ' .btnSave').click(function(e){
-          e.preventDefault();
-          const closeModal = $(this).hasClass('andClose');
-          me.saveEntry(M, fModify.getValues(), closeModal);
-        })
-        // Add the Primary RowID
-        $('#' + M.getDOMID() + ' .modal-body form').append(
-          '<input type="hidden" class="rwInput" name="' + this.PrimaryColumn + '" value="' + id + '">'
-        );
+        const btnsSave = document.getElementById(M.getDOMID()).getElementsByClassName('btnSave');
+        for (const btn of btnsSave) {
+          btn.addEventListener('click', function(e){
+            e.preventDefault();
+            const closeModal = btn.classList.contains('andClose');
+            me.saveEntry(M, fModify.getValues(), closeModal);
+          })
+        }
+       // Add the Primary RowID
+        const form = document.getElementById(M.getDOMID()).getElementsByTagName('form')[0];
+        const newEl = document.createElement("input");
+        newEl.setAttribute('value', '' + id);
+        newEl.setAttribute('name', this.PrimaryColumn);
+        newEl.setAttribute('type', 'hidden');
+        newEl.classList.add('rwInput');
+        form.appendChild(newEl);
         // Finally show Modal if none existed
         if (M) M.show();
       }
@@ -1085,7 +1101,7 @@ class Table extends RawTable {
         ${ (Text != '' ? ' value="' + Text + '"' : '') }
         placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
     </div>`;
-    const btnCreate = `<button class="btn btn-${t.selType == SelectType.Single ? 'light text-success' : 'success'} btnCreateEntry mr-1">
+    const btnCreate = `<button class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'light text-success' : 'success'} btnCreateEntry mr-1">
       ${ t.TableType != TableType.obj ?
         '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : 
         `<i class="fa fa-plus"></i><span class="d-none d-md-inline pl-2">${t.GUIOptions.modalButtonTextCreate} ${t.getTableAlias()}</span>`}
@@ -1102,7 +1118,7 @@ class Table extends RawTable {
     html += searchBar;
     if (!t.ReadOnly) html += btnCreate;
     if (t.SM && t.GUIOptions.showWorkflowButton) html += btnWorkflow;
-    if (t.selType === SelectType.Single) html += btnExpand;
+    if (t.selType === SelectType.Single && hasEntries) html += btnExpand;
     html += '</div>';
 
     return html;
@@ -1519,39 +1535,66 @@ class FormGenerator {
         <div class="external-table">
           <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this)"' : ''} data-tablename="${el.fk_table}"${
             el.customfilter ? "data-customfilter='" + el.customfilter + "'" : ''}>
-            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white' : ''}" ${el.value ? 'value="'+el.value+'"' : ''} placeholder="Nothing selected" readonly>
-            <div class="input-group-append">
-              <button class="btn btn-primary btnLinkFK" title="Link Element" type="button"${el.mode_form == 'ro' ? ' disabled' : ''}>
-                <i class="fa fa-unlink"></i>
-              </button>
-            </div>
+            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${el.value ? 'value="'+el.value+'"' : ''} placeholder="Nothing selected" readonly>
+            ${ el.mode_form == 'ro' ? '' :
+              `<div class="input-group-append">
+                <button class="btn btn-primary btnLinkFK" title="Link Element" type="button">
+                  <i class="fa fa-unlink"></i>
+                </button>
+              </div>`
+            }
           </div>
         </div>`;
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
       const tmpGUID = GUI.getID();
-      const ext_tablename = el.revfk_tablename;
       const hideCol = el.revfk_colname;
+      const parts =  hideCol.split('.');
+      const hideColname = parts[parts.length - 1];
       const OriginRowID = this.oRowID;
-      // Default values
-      let defValues = {}
-      defValues[hideCol] = OriginRowID;
-      result += `<div class="${tmpGUID}"></div>`; // Container for Table
-
+      // Container for Table
+      result += `<div id="${tmpGUID}"></div>`;
       //--- Create new Table
-      let tmp = new Table(ext_tablename, SelectType.NoSelect);
+      let tmp = new Table(el.revfk_tablename, SelectType.NoSelect);
       // Hide this columns
-      tmp.Columns[hideCol].show_in_grid = false; // Hide the primary column
+      tmp.Columns[hideColname].show_in_grid = false; // Hide the primary column
       tmp.Columns[tmp.getPrimaryColname()].show_in_grid = false; // Hide the origin column
       tmp.ReadOnly = (el.mode_form == 'ro');
       tmp.GUIOptions.showControlColumn = !tmp.ReadOnly;
       // Custom Filter
       tmp.setColumnFilter(hideCol, ''+OriginRowID);
-      tmp.setDefaultValues(defValues);
+      
+      const colnamex = 'demo_order_order_ID'; // TODO: Read dynamically or via config-settings!!!
+      const refreshSel = function(){
+        //--- Create Custom Diff Form
+        let customFormCreate = {};
+        // Set Origin element Fixed
+        customFormCreate[hideColname] = {};
+        customFormCreate[hideColname]['value'] = OriginRowID;
+        customFormCreate[hideColname]['mode_form'] = 'ro';
+        // Filter all elements which are already connected
+        const Rows = tmp.getIDs(colnamex);
+        if (Rows.length > 0) {
+          const ids = [];
+          for (const el of Rows) { ids.push(el[colnamex]); }
+          const filter = '{\"nin\": [\"'+colnamex+'\", \"'+ids.join(',')+'\"]}';
+          customFormCreate[colnamex] = {};
+          customFormCreate[colnamex]['customfilter'] = filter;
+        }
+        // Write Diffs
+        tmp.setCustomFormCreateOptions(customFormCreate);
+      };
+
+      // Refresh
+      tmp.EntriesHaveChanged.on(function(){
+        refreshSel();
+      });
       // Load Rows
       tmp.loadRows(function(){
+        // Render
         tmp.renderHTML(tmpGUID);
+        refreshSel();
       });
     }
     //--- Quill Editor
@@ -1695,8 +1738,6 @@ class FormGenerator {
   }
 }
 
-
-
 //==================================================================== Global Helper Methods
 
 // Show the actual Tab in the URL and also open Tab by URL
@@ -1754,13 +1795,8 @@ function loadFKTable(btnElement): void {
   fkInput.val(''); // Reset Selection
   me.parent().parent().parent().find('.external-table').replaceWith('<div id="'+randID+'"></div>');
   let tmpTable = new Table(FKTable, SelectType.Single);
-  // Set custom Filter  
-  if (CustomFilter) {
-    Object.keys(CustomFilter['columns']).forEach(key => {
-      const val = CustomFilter['columns'][key];
-      tmpTable.setColumnFilter(key, val);
-    });
-  }  
+  // Set custom Filter
+  if (CustomFilter) tmpTable.setFilter(CustomFilter);
   // Load
   tmpTable.loadRows(async function(){
     await tmpTable.renderHTML(randID);

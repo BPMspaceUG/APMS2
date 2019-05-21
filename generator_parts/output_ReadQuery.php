@@ -19,13 +19,27 @@ class ReadQuery {
     // Compare Operators
     if (in_array($opLC, ['=', '>', '<', '>=', '<=', '<>', '!=', 'nin', 'like'])) {
       $col = $arr[$op][0];
-      $pname = ':p' . count($values); // param-name
-      $val = $prepStmt ? $pname : $arr[$op][1];
-      $values[$pname] = $arr[$op][1];
-      // Convert Operator
-      if ($opLC == 'nin') $op = 'NOT IN';
+      $val = $arr[$op][1];
+      //--------------------- Convert Operator
+      if ($opLC == 'nin') {
+        $op = 'NOT IN';
+        // Split Value
+        $ids = preg_split('/\s*,\s*/', $val, -1, PREG_SPLIT_NO_EMPTY);
+        $placeHolders = [];
+        foreach ($ids as $id) {
+          $pname = ':p' . count($values); // param-name
+          $values[$pname] = $id;
+          $placeHolders[] = $pname;
+        }
+        $value = '('.implode(',', $placeHolders).')';
+      }
+      else {
+        $pname = ':p' . count($values); // param-name
+        $values[$pname] = $val;
+        $value = $prepStmt ? $pname : $val;
+      }
       // Result
-      return "$col $op $val";
+      return "$col $op $value";
     }
     // Logic Operators (AND, OR, NOT, XOR)
     elseif (in_array($opLC, ['and', 'or', 'not', 'xor'])) {

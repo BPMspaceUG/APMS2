@@ -52,14 +52,14 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     }
     rec_test(newConfig, oldConfig);    
     // Virtual Columns
-    console.log("OLD:", oldConfig);
-    console.log("NEW:", newConfig);
+    //console.log("OLD:", oldConfig);
+    //console.log("NEW:", newConfig);
     Object.keys(oldConfig).forEach(function(table){
       //console.log(table)
       Object.keys(oldConfig[table].columns).forEach(function(column){
         let col = oldConfig[table].columns[column]
         if (col.is_virtual) {
-          console.log(table, " -> ", column);
+          //console.log(table, " -> ", column);
           newConfig[table].columns[column] = col
         }
       })
@@ -156,7 +156,6 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     .error(function(data, status, headers, config) {
       $scope.status = status;
       console.log('Error-Status: '+JSON.stringify(status));
-      scsSignal(false)
     });
   }
   $scope.changeSelection = function() {
@@ -261,35 +260,30 @@ APMS.controller('APMScontrol', function ($scope, $http) {
   $scope.del_virtCol = function(tbl, colname){    
     delete tbl.columns[colname];
   }
-
   $scope.addNewOrigin = function() {
     const text = $scope.x.newOriginText;
     const filter = $scope.x.newOriginFilter;
-
     console.log(text, filter);
-
     $scope.x.newOriginText = '';
     $scope.x.newOriginFilter = '';
   }
-
   $scope.changeSortOrder = function(col, inc) {
-    //const oldIndex = parseInt(col.col_order); // can be overwritten
     const newIndex = parseInt(col.col_order) + inc;
-    //console.log('change Col Order', col, inc)
     col.col_order = newIndex
   }
   $scope.changeSortOrderTable = function(tbl, inc) {
     const newIndex = parseInt(tbl.order) + inc;
     tbl.order = newIndex
   }
-  $scope.openProject = function(e){ // Build new URL and execute in new Tab
+  $scope.openProject = function(){
+    // Build new URL and execute in new Tab
     // TODO: Needs improvement
     const url = window.location.href.replace("APMS2", "APMS_test")
     window.open(url + $scope.dbNames.model+"/")
   }
   $scope.toggle_kids = function(tbl) {
     if (!tbl.showKids) {
-      tbl.showKids = true
+      tbl.showKids = true;
       return
     }
     tbl.showKids = !tbl.showKids;
@@ -298,13 +292,3 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     return Object.keys($scope.tables).length;
   }
 });
-/* set green checked icon for success */
-function scsSignal(bool){
-  if (bool) {
-    $('.fa-minus-circle').css({ display: 'none' });
-    $('.fa-check').css({ display: 'inline-block' });
-  } else{
-    $('.fa-minus-circle').css({ display: 'inline-block' });
-    $('.fa-check').css({ display: 'none' });
-  }
-}
