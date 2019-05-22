@@ -187,6 +187,23 @@ class Modal {
   public getDOMID(): string {
     return this.DOM_ID;
   }
+  public setLoadingState(isLoading: boolean) {
+    const inputs = document.getElementById(this.DOM_ID).getElementsByTagName('input');
+    const textareas = document.getElementById(this.DOM_ID).getElementsByTagName('texarea');
+    const btns = document.getElementById(this.DOM_ID).getElementsByTagName('button');
+
+    if (isLoading) {
+      // Loading => Disabled
+      for (const el of inputs) { el.setAttribute('disabled', 'disabled'); };
+      for (const el of textareas) { el.setAttribute('disabled', 'disabled'); };
+      for (const el of btns) { el.setAttribute('disabled', 'disabled'); };
+    } else {
+      // Not Loading => Enabled
+      for (const el of inputs) { el.removeAttribute('disabled'); };
+      for (const el of textareas) { el.removeAttribute('disabled'); };
+      for (const el of btns) { el.removeAttribute('disabled'); };
+    }
+  }
 }
 //==============================================================
 // Class: StateMachine !JQ
@@ -405,15 +422,13 @@ class RawTable {
   }
   public loadRows(callback) {
     let me = this;
-    let data = {
-      table: me.tablename,
-      limitStart: me.PageIndex * me.PageLimit,
-      limitSize: me.PageLimit,
-      orderby: me.OrderBy,
-      ascdesc: me.AscDesc
-    }
+    let data = {table: me.tablename, orderby: me.OrderBy, ascdesc: me.AscDesc}
     if (me.Filter && me.Filter !== '') data['filter'] = me.Filter;
     if (me.Search && me.Search !== '') data['search'] = me.Search;
+    if (me.PageLimit && me.PageLimit) {
+      data['limitStart'] = me.PageIndex * me.PageLimit;
+      data['limitSize'] = me.PageLimit;
+    }
     // HTTP Request
     DB.request('read', data, function(response){
       me.Rows = response.records; // Cache
@@ -443,13 +458,19 @@ class RawTable {
   public resetFilter() {
     this.Filter = '';
   }
+  public resetLimit() {
+    this.PageIndex = null;
+    this.PageLimit = null;
+  }
+  public getRows() {
+    return this.Rows;
+  }
 }
 //==============================================================
 // Class: Table
 //==============================================================
 class Table extends RawTable {
   private TableConfig: any;
-  private lastModifiedRowID: number;
   private GUID: string;
   private SM: StateMachine = null;
   private isExpanded: boolean = true;
@@ -511,14 +532,6 @@ class Table extends RawTable {
   public setCustomFormCreateOptions(customData: any) {
     this.customFormCreateOptions = customData;
   }
-  public getIDs(colname: string): Array<number> {
-    const t = this;
-    let result = [];
-    for (const Row of t.Rows) {
-      result.push(Row[colname]);
-    }
-    return result;
-  }
   public getPrimaryColname(): string {
     return this.PrimaryColumn;
   }
@@ -551,7 +564,8 @@ class Table extends RawTable {
     })
   }
   private getNrOfPages(): number {
-    return Math.ceil(this.getNrOfRows() / this.PageLimit);
+    const PageLimit = this.PageLimit || this.getNrOfRows();
+    return Math.ceil(this.getNrOfRows() / PageLimit);
   }
   private getPaginationButtons(): number[] {
     const MaxNrOfButtons: number = 5
@@ -587,14 +601,14 @@ class Table extends RawTable {
     for (const key of Object.keys(Row)) {
       newObj[key].value = Row[key];
     }
-    // Generate a Modify-Form
-    const newForm = new FormGenerator(t, RowID, newObj);
-    const htmlForm = newForm.getHTML();
     // create Modal if not exists
     const TableAlias = 'in '+this.getTableIcon()+' ' + this.getTableAlias();
     const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+RowID+')</span><span class="text-muted ml-3">'+ TableAlias +'</span>';
     let M: Modal = ExistingModal || new Modal(ModalTitle, '', '', true);
     M.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
+    // Generate a Modify-Form
+    const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
+    const htmlForm = newForm.getHTML();
     // Set Modal Header
     M.setHeader(ModalTitle);
     M.setContent(htmlForm);
@@ -661,17 +675,19 @@ class Table extends RawTable {
   }
   private saveEntry(SaveModal: Modal, data: any, closeModal: boolean = true){
     let t = this
+    SaveModal.setLoadingState(true);
     // REQUEST
     t.updateRow(data[t.PrimaryColumn], data, function(r){
       if (r == "1") {
         // Success
-        if (closeModal) SaveModal.close();
-        t.lastModifiedRowID = data[t.PrimaryColumn]
         t.loadRows(function(){
+          SaveModal.setLoadingState(false);
+          if (closeModal) SaveModal.close();
           t.renderContent();
           t.onEntriesModified.trigger();
         })
       } else {
+        SaveModal.setLoadingState(false);
         // Fail
         const ErrorModal = new Modal('Error', '<b class="text-danger">Element could not be updated!</b><br><pre>' + r + '</pre>');
         ErrorModal.show();
@@ -700,8 +716,6 @@ class Table extends RawTable {
       messages.reverse(); // sort in Order of the process => [1. Out, 2. Transition, 3. In]
       // Check if Transition was successful
       if (counter === 3) {
-        // Mark rows
-        if (RowID != 0) t.lastModifiedRowID = RowID;
         // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
         t.loadRows(function(){
           t.renderContent();
@@ -778,11 +792,11 @@ class Table extends RawTable {
       if (newObj[key].field_type == 'reversefk')
         newObj[key].mode_form = 'hi';
     }
-    // Create a new Create-Form
-    const fCreate = new FormGenerator(me, undefined, newObj);
 
+    // Create a new Create-Form
+    const fCreate = new FormGenerator(me, undefined, newObj, null);
     // Create Modal
-    let M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
+    const M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
     M.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
     const ModalID = M.getDOMID();
     fCreate.initEditors();
@@ -792,12 +806,13 @@ class Table extends RawTable {
     for (const btn of btns) {
       btn.addEventListener('click', function(e){
         e.preventDefault();
+        M.setLoadingState(true);
         // Read out all input fields with {key:value}
         let data = fCreate.getValues();
         const reOpenModal = btn.classList.contains('andReopen');
-  
+        //---> CREATE
         me.createRow(data, function(r){
-
+          //---> created          
           let msgs = r;
           // Handle Transition Feedback
           let counter = 0; // 0 = trans, 1 = in -- but only at Create!
@@ -818,17 +833,18 @@ class Table extends RawTable {
               // Success?
               if (msg.element_id > 0) {
                 console.info('Element created! ID:', msg.element_id);
-                // Reload Data from Table
-                me.lastModifiedRowID = msg.element_id;
                 // load rows and render Table
                 me.loadRows(function(){
+                  M.setLoadingState(false);
                   me.renderContent();
                   me.renderFooter();
                   me.renderHeader();
                   me.onEntriesModified.trigger();
                   // Reopen Modal
-                  if (reOpenModal)
-                    me.modifyRow(me.lastModifiedRowID, M);
+                  if (reOpenModal) {
+                    console.log("Modal should stay open");
+                    me.modifyRow(msg.element_id, M);
+                  }
                   else
                     M.close();
                 })
@@ -843,8 +859,6 @@ class Table extends RawTable {
             }
             // Special Case for Relations (reactivate them)
             if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
-              // Reload Data from Table
-              me.lastModifiedRowID = msg.element_id
               // load rows and render Table
               me.loadRows(function(){
                 me.renderContent();
@@ -863,7 +877,7 @@ class Table extends RawTable {
     // Show Modal
     M.show();
   }
-  public modifyRow(id: number, ExistingModal: Modal = undefined) {
+  public modifyRow(id: number, ExistingModal: Modal = null) {
     let me = this
     // Check Selection-Type
     if (me.selType == SelectType.Single) {
@@ -881,6 +895,10 @@ class Table extends RawTable {
       me.renderHeader();
       me.renderFooter();
       me.onSelectionChanged.trigger();
+      // when clicking create from FK-Selector
+      if (ExistingModal) {
+        ExistingModal.close();
+      }
       return
     }
     else {
@@ -893,6 +911,7 @@ class Table extends RawTable {
       // Get Row
       let TheRow = null;
       this.Rows.forEach(row => { if (row[me.PrimaryColumn] == id) TheRow = row; });
+      console.log(TheRow);
       // Set Form
       if (me.SM) {
         //-------- EDIT-Modal WITH StateMachine
@@ -904,18 +923,21 @@ class Table extends RawTable {
         const tblTxt = 'in '+ me.getTableIcon() +' ' + me.getTableAlias();
         const ModalTitle = me.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+id+')</span><span class="text-muted ml-3">'+tblTxt+'</span>';
         //--- Overwrite and merge the differences from diffObject
-        let FormObj = mergeDeep({}, me.getDefaultFormObject());
+        const FormObj = mergeDeep({}, me.getDefaultFormObject());
         for (const key of Object.keys(TheRow)) {
-          const value = TheRow[key];
-          FormObj[key].value = isObject(value) ? value[Object.keys(value)[0]] : value;
-        }    
-        let fModify = new FormGenerator(me, id, FormObj);        
-        let M: Modal = ExistingModal || new Modal('', fModify.getHTML(), '', true);
+          const v = TheRow[key];
+          FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
+        }
+        const guid = (ExistingModal) ? ExistingModal.getDOMID() : null;
+        const fModify = new FormGenerator(me, id, FormObj, guid);
+        const M: Modal = ExistingModal || new Modal('', '', '', true);
         M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
+        M.setContent(fModify.getHTML());
         fModify.initEditors();
         // Set Modal Header
         M.setHeader(ModalTitle);
         // Save buttons
+        console.log("Set Save Footer!");
         M.setFooter(`<div class="ml-auto mr-0">
           <button class="btn btn-primary btnSave" type="button">
             <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
@@ -943,7 +965,10 @@ class Table extends RawTable {
         newEl.classList.add('rwInput');
         form.appendChild(newEl);
         // Finally show Modal if none existed
-        if (M) M.show();
+        if (M) {
+          M.setLoadingState(false);
+          M.show();
+        }
       }
     }
   }
@@ -965,13 +990,6 @@ class Table extends RawTable {
       return `<button title="State-ID: ${ID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
     }
   }
-  // string -> escaped string
-  private escapeHtml(string: string): string {
-    let entityMap = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'};
-    return String(string).replace(/[&<>"'`=\/]/g, function (s) {
-      return entityMap[s];
-    });
-  }
   private formatCell(colname: string, cellContent: any, isHTML: boolean = false): string {
     if (isHTML) return cellContent;
     let t = this;
@@ -979,7 +997,7 @@ class Table extends RawTable {
     if (typeof cellContent == 'string') {
       // String, and longer than X chars
       if (cellContent.length > this.GUIOptions.maxCellLength)
-        return this.escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
+        return escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
     }
     else if ((typeof cellContent === "object") && (cellContent !== null)) {
       //-----------------------
@@ -1019,9 +1037,8 @@ class Table extends RawTable {
       return content;
     }
     // Cell is no String and no Object   
-    return this.escapeHtml(cellContent);
+    return escapeHtml(cellContent);
   }
-
   //---------------------------------------------------- Pure HTML building Functions
   private htmlHeaders(colnames) {
     let t = this;
@@ -1232,8 +1249,6 @@ class Table extends RawTable {
       </div>
     </div>`;
   }
-
-
   private renderCell(row: any, col: string): string {
     let t = this;
     let value: any = row[col];
@@ -1389,7 +1404,7 @@ class Table extends RawTable {
       }
     }
     // State PopUp Menu
-    $('#'+t.GUID+' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function(e){
+    $('#'+t.GUID+' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function(){
       let jQRow = $(this).parent().parent();
       let RowID = jQRow.find('td:first').data('rowid');
       let Row = {};
@@ -1460,8 +1475,8 @@ class FormGenerator {
   private oRowID: number;
   private editors = {};
 
-  constructor(originTable: Table, originRowID: number, rowData: any) {
-    this.GUID = GUI.getID();
+  constructor(originTable: Table, originRowID: number, rowData: any, GUID: string) {
+    this.GUID = GUID || GUI.getID();
     // Save data internally
     this.oTable = originTable;
     this.oRowID = originRowID;
@@ -1469,51 +1484,53 @@ class FormGenerator {
   }
   private getElement(key: string, el): string {
     let result: string = '';
+    let v: string = el.value || '';
+
     if (el.mode_form == 'hi') return '';
     // Label?
     const form_label: string = el.column_alias ? `<label class="col-sm-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
     //--- Textarea
     if (el.field_type == 'textarea') {
-      result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${el.value ? el.value : ''}</textarea>`;
+      result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
     }
     //--- Text
     else if (el.field_type == 'text') {
       result += `<input name="${key}" type="text" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
     //--- Number
     else if (el.field_type == 'number') {
       result += `<input name="${key}" type="number" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
     //--- Float
     else if (el.field_type == 'float') {
       if (el.value) el.value = parseFloat(el.value).toLocaleString('de-DE');
       result += `<input name="${key}" type="text" id="inp_${key}" class="form-control inpFloat${el.mode_form == 'rw' ? ' rwInput' : ''}"
-      value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+      value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
     //--- Time
     else if (el.field_type == 'time') {
       result += `<input name="${key}" type="time" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
     //--- Date
     else if (el.field_type == 'date') {
       result += `<input name="${key}" type="date" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
     //--- Password
     else if (el.field_type == 'password') {
       result += `<input name="${key}" type="password" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
     //--- Datetime
     else if (el.field_type == 'datetime') {
       result += `<div class="input-group">
         <input name="${key}" type="date" id="inp_${key}" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value.split(' ')[0] : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
+        value="${v.split(' ')[0]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
         <input name="${key}" type="time" id="inp_${key}_time" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value.split(' ')[1] : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
+        value="${v.split(' ')[1]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
       </div>`;
     }
     //--- Foreignkey
@@ -1527,7 +1544,7 @@ class FormGenerator {
         if (isObject(x)) {
           ID = x[Object.keys(x)[0]];
           const vals = recflattenObj(x);
-          el.value = vals.join('  |  ');
+          el.value = vals.join(' | ');
         }
       }
       result += `
@@ -1535,7 +1552,7 @@ class FormGenerator {
         <div class="external-table">
           <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this)"' : ''} data-tablename="${el.fk_table}"${
             el.customfilter ? "data-customfilter='" + el.customfilter + "'" : ''}>
-            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${el.value ? 'value="'+el.value+'"' : ''} placeholder="Nothing selected" readonly>
+            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
             ${ el.mode_form == 'ro' ? '' :
               `<div class="input-group-append">
                 <button class="btn btn-primary btnLinkFK" title="Link Element" type="button">
@@ -1549,35 +1566,46 @@ class FormGenerator {
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
       const tmpGUID = GUI.getID();
-      const hideCol = el.revfk_colname;
-      const parts =  hideCol.split('.');
-      const hideColname = parts[parts.length - 1];
       const OriginRowID = this.oRowID;
+      const extTablename = el.revfk_tablename;
+      const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID
+      const hideCol = '`' + extTablename + '/' + extTableColSelf + '`.' + extTableColSelf;
+
       // Container for Table
       result += `<div id="${tmpGUID}"></div>`;
       //--- Create new Table
-      let tmp = new Table(el.revfk_tablename, SelectType.NoSelect);
+      let tmp = new Table(extTablename, SelectType.NoSelect);
       // Hide this columns
-      tmp.Columns[hideColname].show_in_grid = false; // Hide the primary column
+      tmp.Columns[extTableColSelf].show_in_grid = false; // Hide the primary column
       tmp.Columns[tmp.getPrimaryColname()].show_in_grid = false; // Hide the origin column
       tmp.ReadOnly = (el.mode_form == 'ro');
       tmp.GUIOptions.showControlColumn = !tmp.ReadOnly;
-      // Custom Filter
       tmp.setColumnFilter(hideCol, ''+OriginRowID);
       
-      const colnamex = 'demo_order_order_ID'; // TODO: Read dynamically or via config-settings!!!
+      //--- TODO: Probably do this via configuration
+      let fkCols = [];
+      for (const colname of Object.keys(tmp.Columns)) {
+        if (tmp.Columns[colname].field_type == 'foreignkey') fkCols.push(colname);
+      }
+      const i = fkCols.indexOf(extTableColSelf);
+      if (i > -1) fkCols.splice(i, 1); // Remove the hidecolumn
+      const colnamex = fkCols[0];
+      //---/
+
+      //--- Create Custom Diff Form
       const refreshSel = function(){
-        //--- Create Custom Diff Form
         let customFormCreate = {};
         // Set Origin element Fixed
-        customFormCreate[hideColname] = {};
-        customFormCreate[hideColname]['value'] = OriginRowID;
-        customFormCreate[hideColname]['mode_form'] = 'ro';
+        customFormCreate[extTableColSelf] = {};
+        customFormCreate[extTableColSelf]['value'] = OriginRowID;
+        customFormCreate[extTableColSelf]['mode_form'] = 'ro';
         // Filter all elements which are already connected
-        const Rows = tmp.getIDs(colnamex);
-        if (Rows.length > 0) {
-          const ids = [];
-          for (const el of Rows) { ids.push(el[colnamex]); }
+        // TODO!!!! -> make a seperate GET request
+        const ids = [];
+        for (const Row of tmp.getRows()) {
+          ids.push(Row[colnamex][colnamex]);
+        }
+        if (ids.length > 0) {
           const filter = '{\"nin\": [\"'+colnamex+'\", \"'+ids.join(',')+'\"]}';
           customFormCreate[colnamex] = {};
           customFormCreate[colnamex]['customfilter'] = filter;
@@ -1585,14 +1613,11 @@ class FormGenerator {
         // Write Diffs
         tmp.setCustomFormCreateOptions(customFormCreate);
       };
-
       // Refresh
-      tmp.EntriesHaveChanged.on(function(){
-        refreshSel();
-      });
+      tmp.resetLimit(); // unlimited Relations
+      tmp.EntriesHaveChanged.on(refreshSel);
       // Load Rows
       tmp.loadRows(function(){
-        // Render
         tmp.renderHTML(tmpGUID);
         refreshSel();
       });
@@ -1611,27 +1636,23 @@ class FormGenerator {
     else if (el.field_type == 'switch') {
       result = '';
       result += `<div class="custom-control custom-switch mt-2">
-      <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${el.value == 1 ? ' checked' : ''}>
+      <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
       <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
     </div>`;
     }
     else if (el.field_type == 'checkbox') {
       result = '';
       result += `<div class="custom-control custom-checkbox mt-2">
-        <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${el.value == 1 ? ' checked' : ''}>
+        <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
         <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
       </div>`;
     }
     // ===> HTML Output
-    result = 
-    `<div class="form-group row">
-      ${form_label}
+    return `<div class="form-group row">${form_label}
       <div class="col-sm-10 align-middle">
         ${result}
       </div>
     </div>`;
-    // Return
-    return result;
   }
   public getValues() {
     let result = {};
@@ -1753,7 +1774,13 @@ $(function(){
   });
 });
 //-------------------------------------------
-//--- Special Object merge functions
+//--- Special global functions
+function escapeHtml(string: string): string {
+  const entityMap = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'};
+  return String(string).replace(/[&<>"'`=\/]/g, function (s) {
+    return entityMap[s];
+  });
+}
 function isObject(item) {
   return (item && typeof item === 'object' && !Array.isArray(item));
 }    

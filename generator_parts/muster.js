@@ -166,6 +166,39 @@ class Modal {
     getDOMID() {
         return this.DOM_ID;
     }
+    setLoadingState(isLoading) {
+        const inputs = document.getElementById(this.DOM_ID).getElementsByTagName('input');
+        const textareas = document.getElementById(this.DOM_ID).getElementsByTagName('texarea');
+        const btns = document.getElementById(this.DOM_ID).getElementsByTagName('button');
+        if (isLoading) {
+            for (const el of inputs) {
+                el.setAttribute('disabled', 'disabled');
+            }
+            ;
+            for (const el of textareas) {
+                el.setAttribute('disabled', 'disabled');
+            }
+            ;
+            for (const el of btns) {
+                el.setAttribute('disabled', 'disabled');
+            }
+            ;
+        }
+        else {
+            for (const el of inputs) {
+                el.removeAttribute('disabled');
+            }
+            ;
+            for (const el of textareas) {
+                el.removeAttribute('disabled');
+            }
+            ;
+            for (const el of btns) {
+                el.removeAttribute('disabled');
+            }
+            ;
+        }
+    }
 }
 class StateMachine {
     constructor(table, states, links) {
@@ -346,17 +379,15 @@ class RawTable {
     }
     loadRows(callback) {
         let me = this;
-        let data = {
-            table: me.tablename,
-            limitStart: me.PageIndex * me.PageLimit,
-            limitSize: me.PageLimit,
-            orderby: me.OrderBy,
-            ascdesc: me.AscDesc
-        };
+        let data = { table: me.tablename, orderby: me.OrderBy, ascdesc: me.AscDesc };
         if (me.Filter && me.Filter !== '')
             data['filter'] = me.Filter;
         if (me.Search && me.Search !== '')
             data['search'] = me.Search;
+        if (me.PageLimit && me.PageLimit) {
+            data['limitStart'] = me.PageIndex * me.PageLimit;
+            data['limitSize'] = me.PageLimit;
+        }
         DB.request('read', data, function (response) {
             me.Rows = response.records;
             me.actRowCount = response.count;
@@ -383,6 +414,13 @@ class RawTable {
     }
     resetFilter() {
         this.Filter = '';
+    }
+    resetLimit() {
+        this.PageIndex = null;
+        this.PageLimit = null;
+    }
+    getRows() {
+        return this.Rows;
     }
 }
 class Table extends RawTable {
@@ -437,14 +475,6 @@ class Table extends RawTable {
     setCustomFormCreateOptions(customData) {
         this.customFormCreateOptions = customData;
     }
-    getIDs(colname) {
-        const t = this;
-        let result = [];
-        for (const Row of t.Rows) {
-            result.push(Row[colname]);
-        }
-        return result;
-    }
     getPrimaryColname() {
         return this.PrimaryColumn;
     }
@@ -479,7 +509,8 @@ class Table extends RawTable {
         });
     }
     getNrOfPages() {
-        return Math.ceil(this.getNrOfRows() / this.PageLimit);
+        const PageLimit = this.PageLimit || this.getNrOfRows();
+        return Math.ceil(this.getNrOfRows() / PageLimit);
     }
     getPaginationButtons() {
         const MaxNrOfButtons = 5;
@@ -513,12 +544,12 @@ class Table extends RawTable {
         for (const key of Object.keys(Row)) {
             newObj[key].value = Row[key];
         }
-        const newForm = new FormGenerator(t, RowID, newObj);
-        const htmlForm = newForm.getHTML();
         const TableAlias = 'in ' + this.getTableIcon() + ' ' + this.getTableAlias();
         const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">(' + RowID + ')</span><span class="text-muted ml-3">' + TableAlias + '</span>';
         let M = ExistingModal || new Modal(ModalTitle, '', '', true);
         M.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
+        const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
+        const htmlForm = newForm.getHTML();
         M.setHeader(ModalTitle);
         M.setContent(htmlForm);
         newForm.initEditors();
@@ -575,17 +606,19 @@ class Table extends RawTable {
     }
     saveEntry(SaveModal, data, closeModal = true) {
         let t = this;
+        SaveModal.setLoadingState(true);
         t.updateRow(data[t.PrimaryColumn], data, function (r) {
             if (r == "1") {
-                if (closeModal)
-                    SaveModal.close();
-                t.lastModifiedRowID = data[t.PrimaryColumn];
                 t.loadRows(function () {
+                    SaveModal.setLoadingState(false);
+                    if (closeModal)
+                        SaveModal.close();
                     t.renderContent();
                     t.onEntriesModified.trigger();
                 });
             }
             else {
+                SaveModal.setLoadingState(false);
                 const ErrorModal = new Modal('Error', '<b class="text-danger">Element could not be updated!</b><br><pre>' + r + '</pre>');
                 ErrorModal.show();
             }
@@ -608,8 +641,6 @@ class Table extends RawTable {
             });
             messages.reverse();
             if (counter === 3) {
-                if (RowID != 0)
-                    t.lastModifiedRowID = RowID;
                 t.loadRows(function () {
                     t.renderContent();
                     t.onEntriesModified.trigger();
@@ -674,8 +705,8 @@ class Table extends RawTable {
             if (newObj[key].field_type == 'reversefk')
                 newObj[key].mode_form = 'hi';
         }
-        const fCreate = new FormGenerator(me, undefined, newObj);
-        let M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
+        const fCreate = new FormGenerator(me, undefined, newObj, null);
+        const M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
         M.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
         const ModalID = M.getDOMID();
         fCreate.initEditors();
@@ -683,6 +714,7 @@ class Table extends RawTable {
         for (const btn of btns) {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
+                M.setLoadingState(true);
                 let data = fCreate.getValues();
                 const reOpenModal = btn.classList.contains('andReopen');
                 me.createRow(data, function (r) {
@@ -704,14 +736,16 @@ class Table extends RawTable {
                         if (msg.element_id) {
                             if (msg.element_id > 0) {
                                 console.info('Element created! ID:', msg.element_id);
-                                me.lastModifiedRowID = msg.element_id;
                                 me.loadRows(function () {
+                                    M.setLoadingState(false);
                                     me.renderContent();
                                     me.renderFooter();
                                     me.renderHeader();
                                     me.onEntriesModified.trigger();
-                                    if (reOpenModal)
-                                        me.modifyRow(me.lastModifiedRowID, M);
+                                    if (reOpenModal) {
+                                        console.log("Modal should stay open");
+                                        me.modifyRow(msg.element_id, M);
+                                    }
                                     else
                                         M.close();
                                 });
@@ -723,7 +757,6 @@ class Table extends RawTable {
                             }
                         }
                         if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
-                            me.lastModifiedRowID = msg.element_id;
                             me.loadRows(function () {
                                 me.renderContent();
                                 me.renderFooter();
@@ -739,7 +772,7 @@ class Table extends RawTable {
         }
         M.show();
     }
-    modifyRow(id, ExistingModal = undefined) {
+    modifyRow(id, ExistingModal = null) {
         let me = this;
         if (me.selType == SelectType.Single) {
             me.selectedRow = me.Rows[id];
@@ -754,6 +787,9 @@ class Table extends RawTable {
             me.renderHeader();
             me.renderFooter();
             me.onSelectionChanged.trigger();
+            if (ExistingModal) {
+                ExistingModal.close();
+            }
             return;
         }
         else {
@@ -764,6 +800,7 @@ class Table extends RawTable {
             let TheRow = null;
             this.Rows.forEach(row => { if (row[me.PrimaryColumn] == id)
                 TheRow = row; });
+            console.log(TheRow);
             if (me.SM) {
                 const diffJSON = me.SM.getFormDiffByState(TheRow.state_id.state_id);
                 me.renderEditForm(TheRow, diffJSON, ExistingModal);
@@ -771,16 +808,19 @@ class Table extends RawTable {
             else {
                 const tblTxt = 'in ' + me.getTableIcon() + ' ' + me.getTableAlias();
                 const ModalTitle = me.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">(' + id + ')</span><span class="text-muted ml-3">' + tblTxt + '</span>';
-                let FormObj = mergeDeep({}, me.getDefaultFormObject());
+                const FormObj = mergeDeep({}, me.getDefaultFormObject());
                 for (const key of Object.keys(TheRow)) {
-                    const value = TheRow[key];
-                    FormObj[key].value = isObject(value) ? value[Object.keys(value)[0]] : value;
+                    const v = TheRow[key];
+                    FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
                 }
-                let fModify = new FormGenerator(me, id, FormObj);
-                let M = ExistingModal || new Modal('', fModify.getHTML(), '', true);
+                const guid = (ExistingModal) ? ExistingModal.getDOMID() : null;
+                const fModify = new FormGenerator(me, id, FormObj, guid);
+                const M = ExistingModal || new Modal('', '', '', true);
                 M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
+                M.setContent(fModify.getHTML());
                 fModify.initEditors();
                 M.setHeader(ModalTitle);
+                console.log("Set Save Footer!");
                 M.setFooter(`<div class="ml-auto mr-0">
           <button class="btn btn-primary btnSave" type="button">
             <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
@@ -804,8 +844,10 @@ class Table extends RawTable {
                 newEl.setAttribute('type', 'hidden');
                 newEl.classList.add('rwInput');
                 form.appendChild(newEl);
-                if (M)
+                if (M) {
+                    M.setLoadingState(false);
                     M.show();
+                }
             }
         }
     }
@@ -826,19 +868,13 @@ class Table extends RawTable {
             return `<button title="State-ID: ${ID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
         }
     }
-    escapeHtml(string) {
-        let entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
-        return String(string).replace(/[&<>"'`=\/]/g, function (s) {
-            return entityMap[s];
-        });
-    }
     formatCell(colname, cellContent, isHTML = false) {
         if (isHTML)
             return cellContent;
         let t = this;
         if (typeof cellContent == 'string') {
             if (cellContent.length > this.GUIOptions.maxCellLength)
-                return this.escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
+                return escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
         }
         else if ((typeof cellContent === "object") && (cellContent !== null)) {
             const nrOfCells = Object.keys(cellContent).length;
@@ -874,7 +910,7 @@ class Table extends RawTable {
             content += '</tr></table>';
             return content;
         }
-        return this.escapeHtml(cellContent);
+        return escapeHtml(cellContent);
     }
     htmlHeaders(colnames) {
         let t = this;
@@ -1196,7 +1232,7 @@ class Table extends RawTable {
                     });
                 }
             }
-            $('#' + t.GUID + ' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function (e) {
+            $('#' + t.GUID + ' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function () {
                 let jQRow = $(this).parent().parent();
                 let RowID = jQRow.find('td:first').data('rowid');
                 let Row = {};
@@ -1254,53 +1290,54 @@ class Table extends RawTable {
     }
 }
 class FormGenerator {
-    constructor(originTable, originRowID, rowData) {
+    constructor(originTable, originRowID, rowData, GUID) {
         this.editors = {};
-        this.GUID = GUI.getID();
+        this.GUID = GUID || GUI.getID();
         this.oTable = originTable;
         this.oRowID = originRowID;
         this.data = rowData;
     }
     getElement(key, el) {
         let result = '';
+        let v = el.value || '';
         if (el.mode_form == 'hi')
             return '';
         const form_label = el.column_alias ? `<label class="col-sm-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
         if (el.field_type == 'textarea') {
-            result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${el.value ? el.value : ''}</textarea>`;
+            result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
         }
         else if (el.field_type == 'text') {
             result += `<input name="${key}" type="text" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'number') {
             result += `<input name="${key}" type="number" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'float') {
             if (el.value)
                 el.value = parseFloat(el.value).toLocaleString('de-DE');
             result += `<input name="${key}" type="text" id="inp_${key}" class="form-control inpFloat${el.mode_form == 'rw' ? ' rwInput' : ''}"
-      value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+      value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'time') {
             result += `<input name="${key}" type="time" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'date') {
             result += `<input name="${key}" type="date" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'password') {
             result += `<input name="${key}" type="password" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'datetime') {
             result += `<div class="input-group">
         <input name="${key}" type="date" id="inp_${key}" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value.split(' ')[0] : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
+        value="${v.split(' ')[0]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
         <input name="${key}" type="time" id="inp_${key}_time" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${el.value ? el.value.split(' ')[1] : ''}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
+        value="${v.split(' ')[1]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
       </div>`;
         }
         else if (el.field_type == 'foreignkey') {
@@ -1311,14 +1348,14 @@ class FormGenerator {
                 if (isObject(x)) {
                     ID = x[Object.keys(x)[0]];
                     const vals = recflattenObj(x);
-                    el.value = vals.join('  |  ');
+                    el.value = vals.join(' | ');
                 }
             }
             result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
           <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this)"' : ''} data-tablename="${el.fk_table}"${el.customfilter ? "data-customfilter='" + el.customfilter + "'" : ''}>
-            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${el.value ? 'value="' + el.value + '"' : ''} placeholder="Nothing selected" readonly>
+            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
             ${el.mode_form == 'ro' ? '' :
                 `<div class="input-group-append">
                 <button class="btn btn-primary btnLinkFK" title="Link Element" type="button">
@@ -1330,38 +1367,44 @@ class FormGenerator {
         }
         else if (el.field_type == 'reversefk') {
             const tmpGUID = GUI.getID();
-            const hideCol = el.revfk_colname;
-            const parts = hideCol.split('.');
-            const hideColname = parts[parts.length - 1];
             const OriginRowID = this.oRowID;
+            const extTablename = el.revfk_tablename;
+            const extTableColSelf = el.revfk_colname;
+            const hideCol = '`' + extTablename + '/' + extTableColSelf + '`.' + extTableColSelf;
             result += `<div id="${tmpGUID}"></div>`;
-            let tmp = new Table(el.revfk_tablename, SelectType.NoSelect);
-            tmp.Columns[hideColname].show_in_grid = false;
+            let tmp = new Table(extTablename, SelectType.NoSelect);
+            tmp.Columns[extTableColSelf].show_in_grid = false;
             tmp.Columns[tmp.getPrimaryColname()].show_in_grid = false;
             tmp.ReadOnly = (el.mode_form == 'ro');
             tmp.GUIOptions.showControlColumn = !tmp.ReadOnly;
             tmp.setColumnFilter(hideCol, '' + OriginRowID);
-            const colnamex = 'demo_order_order_ID';
+            let fkCols = [];
+            for (const colname of Object.keys(tmp.Columns)) {
+                if (tmp.Columns[colname].field_type == 'foreignkey')
+                    fkCols.push(colname);
+            }
+            const i = fkCols.indexOf(extTableColSelf);
+            if (i > -1)
+                fkCols.splice(i, 1);
+            const colnamex = fkCols[0];
             const refreshSel = function () {
                 let customFormCreate = {};
-                customFormCreate[hideColname] = {};
-                customFormCreate[hideColname]['value'] = OriginRowID;
-                customFormCreate[hideColname]['mode_form'] = 'ro';
-                const Rows = tmp.getIDs(colnamex);
-                if (Rows.length > 0) {
-                    const ids = [];
-                    for (const el of Rows) {
-                        ids.push(el[colnamex]);
-                    }
+                customFormCreate[extTableColSelf] = {};
+                customFormCreate[extTableColSelf]['value'] = OriginRowID;
+                customFormCreate[extTableColSelf]['mode_form'] = 'ro';
+                const ids = [];
+                for (const Row of tmp.getRows()) {
+                    ids.push(Row[colnamex][colnamex]);
+                }
+                if (ids.length > 0) {
                     const filter = '{\"nin\": [\"' + colnamex + '\", \"' + ids.join(',') + '\"]}';
                     customFormCreate[colnamex] = {};
                     customFormCreate[colnamex]['customfilter'] = filter;
                 }
                 tmp.setCustomFormCreateOptions(customFormCreate);
             };
-            tmp.EntriesHaveChanged.on(function () {
-                refreshSel();
-            });
+            tmp.resetLimit();
+            tmp.EntriesHaveChanged.on(refreshSel);
             tmp.loadRows(function () {
                 tmp.renderHTML(tmpGUID);
                 refreshSel();
@@ -1378,25 +1421,22 @@ class FormGenerator {
         else if (el.field_type == 'switch') {
             result = '';
             result += `<div class="custom-control custom-switch mt-2">
-      <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${el.value == 1 ? ' checked' : ''}>
+      <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
       <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
     </div>`;
         }
         else if (el.field_type == 'checkbox') {
             result = '';
             result += `<div class="custom-control custom-checkbox mt-2">
-        <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${el.value == 1 ? ' checked' : ''}>
+        <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
         <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
       </div>`;
         }
-        result =
-            `<div class="form-group row">
-      ${form_label}
+        return `<div class="form-group row">${form_label}
       <div class="col-sm-10 align-middle">
         ${result}
       </div>
     </div>`;
-        return result;
     }
     getValues() {
         let result = {};
@@ -1493,6 +1533,12 @@ $(function () {
         $('html,body').scrollTop(scrollmem);
     });
 });
+function escapeHtml(string) {
+    const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
+    return String(string).replace(/[&<>"'`=\/]/g, function (s) {
+        return entityMap[s];
+    });
+}
 function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
