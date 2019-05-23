@@ -13,9 +13,12 @@
   - **Objects** are tables with at least ONE attribute (for example: name, duration, size, time, etc.)
   - **Relations** are basically n:m tables with only foreign keys
 
-## Compile the Javascript
-The javascript is generated via Typescript. Compile the TS-File in the generator parts directory with the following command:
+## Getting started
 
+1. Clone the Git-repository
+
+2. Compile TS-Files automatically: The javascript is generated via Typescript. So go into the project folder and start
 ```javascript
-tsc .\muster.ts -w --lib 'ES2015, DOM' --target ES2015
+tsc -w
 ```
+3. Ready to go -> Now you can edit all files
