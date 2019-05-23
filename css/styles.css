@@ -1,42 +1,14 @@
 .bpm-server-connect {
-      border: 1px solid darkslategrey;
-      padding: 25px 20px;
-      margin-bottom: 50px;
+      border: 1px solid #ccc;
+      padding: 25px;
+      margin: 20px 0;
       position: relative;
 }
-
-.title {
-      position: absolute;
-      top: -35px;
-      background: #fff;
-      text-transform: uppercase;
-}
-
-.bpm-server-connect .fa {
-      font-size: 35px;
-      display: inline-block;
-}
-
-.fa-check {
-      color: forestgreen;
-}
-
-.fa-minus-circle, .fa-trash-o {
-      color: darkred;
-}
-.fa-trash-o {
-      font-size: 20px;
-      float: right;
-      padding-left: 10px;
-      border-left: 1px solid black;
-}
-
 #sqlDatabases {
       display: inline-block;
       width: 33.3333%;
       margin-bottom: 30px;
 }
-
 .bpm-checkboxes {
       /*display: block;*/
       width: 100%;
@@ -47,7 +19,6 @@
 .bpm-active{
       display: block;
 }
-
 .bpm-db-table {
       display: inline-block;
       vertical-align: top;
@@ -77,4 +48,8 @@
       top: -33px;
       width: 100%;
       border-radius: 0 ;
+}
+.footer {
+      background-color: #ededed;
+      color: #333;
 }

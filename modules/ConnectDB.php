@@ -16,34 +16,30 @@
   // If all relevant params are available
   if (isset($host) && isset($user) && isset($pwd)) {
     // Connect to DB
-    $con = new mysqli($host, $user, $pwd);    
-
+    $con = new mysqli($host, $user, $pwd);
     // Connection Error ?
     if ($con->connect_error) {
       die("\n\nCould not connect: ERROR NO. " . $con->connect_errno . " : " . $con->connect_error);
     }
     else {
-
       if (!is_null($x_table)) {
         // Return output [Tables, Specific Schema/DB]
         $json = getTables($con, $x_table);
-      } else {
+      }
+      else {
         // Return output [Schemata/Databases]
         $json = getData($con);
       }
       header('Content-Type: application/json');
       echo json_encode($json);
-      // Close Connection
-      $con->close();
     }
   }
 
-  // Extracting databases
+  //---- Extracting databases
   function getData($con) {
     $res = array();
     $query = "SHOW DATABASES";
     $result = mysqli_query($con, $query);
-
     while ($row = $result->fetch_assoc()) {
       $dbName = $row['Database'];
       // Filter information_schema to save resources
@@ -86,6 +82,8 @@
     elseif ($datatype == 'varchar') return 'text';
     elseif ($datatype == 'mediumtext') return 'textarea';
     elseif ($datatype == 'longtext') return 'textarea';
+    // Other
+    elseif ($datatype == 'enum') return 'enum';
     // Default
     else return 'text';
   }
@@ -116,7 +114,8 @@
           $column_info = $row2;
           $column_name = $row2["COLUMN_NAME"];
           $col_datatype = $row2["DATA_TYPE"];
-          $col_isPrimary = ($row2['EXTRA'] == 'auto_increment');
+          $col_type_enums = $row2["COLUMN_TYPE"];
+          $col_isPrimary = ($row2['EXTRA'] == 'auto_increment'); // TODO: maybe look for primary and not AI
           $col_isFK = false;
           // Additional information
           //------------------------------------------------------
@@ -151,6 +150,8 @@
           ------------------------------*/
           // Generate Beautiful alias
           $alias = beautifyName($column_name);
+          $fieldtype = $col_isFK ? 'foreignkey' : getDefaultFieldType($col_datatype);
+
           $additional_info = array(
             "column_alias" => $alias,
             "is_primary" => $col_isPrimary,
@@ -158,10 +159,27 @@
             "show_in_grid" => true,
             "col_order" => (int)$column_counter,
             "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'hi' : 'rw',
-            "field_type" => $col_isFK ? 'foreignkey' : getDefaultFieldType($col_datatype)
+            "field_type" => $fieldtype,
           );
-          // Additional information columns (remove them if not used):
-          if ($fk["table"] != '') $additional_info["foreignKey"] = $fk;
+          // Append FK-Settings
+          if ($fk["table"] != '')
+            $additional_info["foreignKey"] = $fk;
+          // Append Enum-Settings
+          if ($fieldtype == 'enum') {
+            // Get Enum-Fields from DB            
+            preg_match("/^enum\(\'(.*)\'\)$/", $col_type_enums, $matches);
+            $enum_vals = explode("','", $matches[1]);
+            $enums = [];
+            foreach ($enum_vals as $val) {
+              // Append each option
+              $enums[] = [
+                "name" => ucfirst($val),
+                "value" => $val
+              ];
+            }
+            $additional_info["col_options"] = json_encode($enums);
+          }          
+          // Save Info
           $columns[$column_name] = $additional_info;
           $column_counter++;
         }
@@ -222,4 +240,5 @@
     return $res;
   }
 
-?>
+  // Close Connection
+  //$con->close();

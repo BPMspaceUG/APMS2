@@ -84,6 +84,7 @@
     }
     public static function getPrimaryColNameByTablename($tablename) {
       $cols = Config::getPrimaryColsByTablename($tablename);
+      if (count($cols) <= 0) return null;
       try {
         $res = $cols[0];
       } catch (Exception $e) {
@@ -427,8 +428,8 @@
       //--- OrderBy
       if (!is_null($ascdesc) && is_null($orderby)) die(fmtError("AscDesc can not be set without OrderBy!"));
       if (!is_null($orderby)) {
-        if (!Config::isValidColname($orderby)) die(fmtError('OrderBy: Invalid Columnname!'));
-        if (!Config::doesColExistInTable($tablename, $orderby)) die(fmtError('OrderBy: Column does not exist in this Table!'));
+        //if (!Config::isValidColname($orderby)) die(fmtError('OrderBy: Invalid Columnname!'));
+        //if (!Config::doesColExistInTable($tablename, $orderby)) die(fmtError('OrderBy: Column does not exist in this Table!'));
         //--- ASC/DESC
         $ascdesc = strtolower(trim($ascdesc));
         if ($ascdesc == "") $ascdesc == "ASC";

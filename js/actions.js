@@ -45,8 +45,13 @@ APMS.controller('APMScontrol', function ($scope, $http) {
           // Convert
           if (typeof value === 'object')
             rec_test(obj[key], b[key]);
-          else
+          else {
+            //console.log(key);
+            // Special overwrites
+            if (key === 'col_options' && b[key] === "") {} // Do nothing (= leave server default val)
+            else
             obj[key] = b[key]; // overwrite
+          }
         }
       });
     }
@@ -177,7 +182,7 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       }
     })
     .success(function(data) {
-      console.log('Table-Data loaded successfully.')
+      console.log('Table-Data loaded successfully.');
       $scope.tables = data
       // Set Icons
       Object.keys($scope.tables).forEach(function(t){
@@ -186,6 +191,10 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       // Stop Loading Icon
       $scope.isLoading = false;
       $scope.DBhasBeenLoaded = true;
+
+      // Load Config automatically
+      $scope.loadConfigByName();
+
     });
   }
   /*
@@ -229,6 +238,9 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       $('#bpm-code').empty();
       $('#bpm-code').html('<pre></pre>');
       $('#bpm-code pre').text(data);
+      // Reload Project
+      $scope.changeSelection();
+
     })
     .error(function(data, status, headers, config) {
       $scope.status = status;

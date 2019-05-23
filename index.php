@@ -3,55 +3,38 @@
 <div ng-app="APMS">
   <div ng-controller="APMScontrol">
 
-    <!-- CONNECT Part -->
-		<div class="container" style="padding-top: 30px">
-			<form class="bpm-server-connect" action="modules/ConnectDB.php">
-		  <h3 class="title">connect</h3>
-		  <div class="form-group row">
-		    <label for="sqlServer" class="col-sm-2 form-control-label">Hostname</label>
-		    <div class="col-sm-2">
-		      <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer" value='{{sqlServer}}'>
-		    </div>
-		    <label for="sqlPort" class="col-sm-2 form-control-label">Port</label>
-		    <div class="col-sm-2">
-		      <input type="number" autocomplete="off" class="form-control" name="port" id="sqlPort" ng-model="sqlPort" value={{sqlPort}}>
-		    </div>
-		    <div class="col-sm-1">
-		      <button id="new" type="reset" class="btn btn-success" name="new">New</button>
-		    </div>
-		    <div class="col-sm-1">
-		      <button id="" type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()">Connect</button>
-		    </div>
-		  </div>
-		  <div class="form-group row">
-		    <label for="username" class="col-sm-2 form-control-label">Username</label>
-		    <div class="col-sm-2">
-		        <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" value='{{username}}'>
-		    </div>
-		    <label for="password" class="col-sm-2 form-control-label">Password</label>
-		    <div class="col-sm-2">
-		      <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw" value='{{pw}}'>
-		    </div>
-		    <!-- Button: Load -->
-		    <div class="col-sm-1">
-		      <a href="#loadDb" name="load" data-toggle="modal" id="loadF" class="btn btn-secondary "
-		         name="load">Load</a>
-		    </div>
-		    <!-- Button: Save -->
-		    <div class="col-sm-1">
-		      <button type="button" name="save" id="save" class="btn btn-primary" name="save">Save</button>
-		    </div>
-		    <!-- Hidden area -->
-		    <div class="col-sm-2">
-		      <i class="fa fa-check" aria-hidden="true" style="display: none"></i>
-		      <i class="fa fa-minus-circle" aria-hidden="true" style="display: none"></i>
-		    </div>
-		  </div>
-			</form>
-		</div>
 
     <!-- CONTENT -->
     <div class="container">
+
+
+    <form class="bpm-server-connect" action="modules/ConnectDB.php">
+      <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
+      <hr>
+		  <div class="form-group row p-0 m-0">
+		    <label for="sqlServer" class="col-sm-1 mt-1 form-control-label">Hostname</label>
+		    <div class="col-sm-3">
+		      <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer" value='{{sqlServer}}'>
+		    </div>
+        <!--
+		    <label for="sqlPort" class="col-sm-1 form-control-label">Port</label>
+		    <div class="col-sm-1">
+		      <input type="number" autocomplete="off" class="form-control form-control-sm" name="port" id="sqlPort" ng-model="sqlPort" value={{sqlPort}}>
+		    </div>
+        -->
+		    <label for="username" class="col-sm-1 mt-1 form-control-label">Username</label>
+		    <div class="col-sm-2">
+		        <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" value='{{username}}'>
+		    </div>
+		    <label for="password" class="col-sm-1 mt-1 form-control-label">Password</label>
+		    <div class="col-sm-2">
+		      <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw" value='{{pw}}'>
+		    </div>
+        <div class="col-sm-1">
+		      <button id="" type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()">Connect</button>
+		    </div>
+		  </div>
+			</form>
 
       <!-- Loading -->
       <div class="alert alert-info" ng-show="isLoading">
@@ -85,18 +68,17 @@
         <div ng-if="DBhasBeenLoaded ">
 
           <!-- Load Config -->
+          <!--
           <div class="card mb-3">
             <div class="card-header">
               <span class="badge badge-warning text-white mr-2">Optional</span> Load Configuration
             </div>
             <div class="card-body">
               <div class="row mb-0">
-                <!-- Automatically load config -->
                 <div class="col-6">
                   <p><strong>[1] Automatically load config</strong></p>
                   <button ng-disabled="!DBhasBeenLoaded || isLoading" class="btn btn-outline-secondary" ng-click="loadConfigByName()"><i class="fa fa-search"></i> Look for last config</button>
                 </div>
-                <!-- Manually load config -->
                 <div class="col-6">
                   <p><strong>[2] Manually load config</strong></p>
                   <textarea class="form-control configtxt" ng-model="configtext" placeholder="Paste Content of the Config-File here"></textarea>
@@ -114,18 +96,19 @@
               </p>
             </div>
           </div>
+          -->
 
           <!-- Content of Databases -->        
           <div class="card mb-3">
             <div class="card-header">
-              <span class="badge badge-success mr-2">2</span>Tables & Configuration
+              <span class="badge badge-success mr-2">2</span>Configuration
             </div>
             <div class="card-body">
 
-              <h5 class="mb-3">
+              <h6 class="mb-3">
                 <span class="text-primary mr-3">{{ dbNames.model }}</span>
                 <span class="text-muted">{{cntTables() + ' Table' + (cntTables() != 1 ? 's' : '')}}</span>
-              </h5>
+              </h6>
 
               <!-- Meta Setting -->
               <div class="my-3 float-left">
@@ -230,11 +213,7 @@
                       </td>
                       <!-- Type -->
                       <td class="align-middle">
-                        <select
-                          class="custom-select custom-select-sm"
-                          ng-if="!(col.is_primary || colname == 'state_id')"
-                          ng-model="col.field_type"
-                        >
+                        <select class="custom-select custom-select-sm" ng-if="!(col.is_primary || colname == 'state_id')" ng-model="col.field_type">
                           <optgroup label="Strings">
                             <option value="text">Text</option>
                             <option value="textarea">Textarea</option>
@@ -254,10 +233,12 @@
                             <option value="datetime">DateTime</option>
                           </optgroup>
                           <optgroup label="Special">
+                            <option value="enum">Enum</option>
                             <option value="foreignkey">ForeignKey</option>
                             <option value="reversefk">Virtual-Table</option>
                             <option value="htmleditor">HTML-Editor</option>
-                            <option value="rawhtml">RawHTML (for Links in Grid etc.)</option>
+                            <option value="codeeditor">Code-Editor</option>
+                            <option value="rawhtml">Raw HTML</option>
                           </optgroup>
                         </select>
                       </td>
@@ -276,6 +257,7 @@
                       </td>
                       <!-- Show FK Menu if it is no Primary column -->
                       <td class="align-middle" colspan="2" ng-if="!col.is_primary && !col.is_virtual">
+                        <!-- FK -->
                         <div ng-if="col.field_type == 'foreignkey'">
                           <b>ForeignKey:</b>
                           <select class="custom-select custom-select-sm" style="width: 100px; display: inline !important;" ng-model="col.foreignKey.table">
@@ -286,6 +268,10 @@
                           <span>
                             <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.col_subst" placeholder="ReplacedCloumn">
                           </span>
+                        </div>
+                        <!-- Enum -->
+                        <div ng-if="col.field_type == 'enum'">
+                            <input class="form-control form-control-sm" type="text" ng-model="col.col_options" style="width: 400px" placeholder='i. e. [{"name": "male", "value": "M"}]'>
                         </div>
                       </td>
                       <!-- VIRTUAL GRID COLUMN -->
@@ -340,17 +326,17 @@
           <!-- Create Button -->
           <div class="card">
             <div class="card-header">
-              <span class="badge badge-success mr-2">3</span>Generate
+              <span class="badge badge-success mr-2">3</span>Generate Project
             </div>
             <div class="card-body">
               <!-- Create Button -->
               <button name="createScript" ng-disabled="GUI_generating" class="btn btn-danger" id="createScript" ng-click="create_fkt()">
-                <i class="fa fa-rocket"></i> Generate!
+                <i class="fa fa-long-arrow-alt-right"></i> Generate!
               </button>
               <!-- Open Project -->
-              <button class="btn btn-secondary" href="#" ng-click="openProject(e)" target="_blank"><i class="fa fa-folder-open"></i> Open Project</button>
+              <button class="btn btn-light" href="#" ng-click="openProject(e)" target="_blank"><i class="fa fa-folder-open"></i> Open Project</button>
               <!-- Generating -->
-              <div class="d-inline h4 ml-2 text-center mt-5 text-muted" ng-if="GUI_generating">
+              <div class="d-inline h5 ml-2 text-center mt-5 text-muted" ng-if="GUI_generating">
                 <i class="fa fa-cog fa-spin fa-fw"></i> Generating Project...
               </div>
             </div>
@@ -366,8 +352,6 @@
           </div>
 
         </div>
-
-
       </div>
     </div>
   </div>

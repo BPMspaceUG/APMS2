@@ -170,6 +170,7 @@ class Modal {
         const inputs = document.getElementById(this.DOM_ID).getElementsByTagName('input');
         const textareas = document.getElementById(this.DOM_ID).getElementsByTagName('texarea');
         const btns = document.getElementById(this.DOM_ID).getElementsByTagName('button');
+        const selects = document.getElementById(this.DOM_ID).getElementsByTagName('select');
         if (isLoading) {
             for (const el of inputs) {
                 el.setAttribute('disabled', 'disabled');
@@ -180,6 +181,10 @@ class Modal {
             }
             ;
             for (const el of btns) {
+                el.setAttribute('disabled', 'disabled');
+            }
+            ;
+            for (const el of selects) {
                 el.setAttribute('disabled', 'disabled');
             }
             ;
@@ -194,6 +199,10 @@ class Modal {
             }
             ;
             for (const el of btns) {
+                el.removeAttribute('disabled');
+            }
+            ;
+            for (const el of selects) {
                 el.removeAttribute('disabled');
             }
             ;
@@ -469,7 +478,7 @@ class Table extends RawTable {
             if (me.Columns[col].is_primary)
                 me.PrimaryColumn = col;
             if (me.Columns[col].show_in_grid && me.OrderBy == '')
-                me.OrderBy = col;
+                me.OrderBy = '`' + tablename + '`.' + col;
         }
     }
     setCustomFormCreateOptions(customData) {
@@ -743,7 +752,6 @@ class Table extends RawTable {
                                     me.renderHeader();
                                     me.onEntriesModified.trigger();
                                     if (reOpenModal) {
-                                        console.log("Modal should stay open");
                                         me.modifyRow(msg.element_id, M);
                                     }
                                     else
@@ -986,7 +994,9 @@ class Table extends RawTable {
       ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
     </button>`;
         let html = '<div class="tbl_header form-inline">';
-        html += searchBar;
+        if (!t.PageLimit && t.TableType !== TableType.obj) { }
+        else
+            html += searchBar;
         if (!t.ReadOnly)
             html += btnCreate;
         if (t.SM && t.GUIOptions.showWorkflowButton)
@@ -1351,6 +1361,7 @@ class FormGenerator {
                     el.value = vals.join(' | ');
                 }
             }
+            console.log('FK', el);
             result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
@@ -1415,8 +1426,21 @@ class FormGenerator {
             this.editors[key] = { 'mode': el.mode_form, 'id': newQuillID };
             result += `<div><div class="htmleditor" id="${newQuillID}"></div></div>`;
         }
+        else if (el.field_type == 'codeeditor') {
+            const newID = GUI.getID();
+            result += `<div><div class="codeeditor" id="${newID}">TODO: Here is codemirror</div></div>`;
+        }
         else if (el.field_type == 'rawhtml') {
             result += el.value;
+        }
+        else if (el.field_type == 'enum') {
+            result += `<select name="${key}" class="custom-select${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}>`;
+            const options = JSON.parse(el.col_options);
+            if (el.col_options)
+                for (const o of options) {
+                    result += `<option value="${o.value}"${el.value == o.value ? 'selected' : ''}>${o.name}</option>`;
+                }
+            result += `</select>`;
         }
         else if (el.field_type == 'switch') {
             result = '';
