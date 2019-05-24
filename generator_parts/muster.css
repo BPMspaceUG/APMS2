@@ -23,8 +23,11 @@ body {margin-bottom: 60px;}
 
 /* Modal */
 .modal-content .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
-/*.editor {font-family: 'Courier New', 'Courier', 'Lucida Sans Typewriter', 'Lucida Typewriter', monospace; font-size: .8em;}*/
 .customfooter {width: 100%;}
+.CodeMirror {
+    border: 1px solid #ced4da;
+    font-size: .85em;
+}
 
 /* StateEngine */
 .btnGridState {padding: 3px 5px; font-size: .75em;}

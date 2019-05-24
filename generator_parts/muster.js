@@ -341,7 +341,6 @@ class RawTable {
         this.Search = '';
         this.AscDesc = SortOrder.DESC;
         this.PageIndex = 0;
-        this.TableType = TableType.obj;
         this.tablename = tablename;
         this.actRowCount = 0;
         this.resetFilter();
@@ -439,6 +438,7 @@ class Table extends RawTable {
         this.isExpanded = true;
         this.customFormCreateOptions = {};
         this.diffFormCreateObject = {};
+        this.TableType = TableType.obj;
         this.GUIOptions = {
             maxCellLength: 30,
             showControlColumn: true,
@@ -480,6 +480,9 @@ class Table extends RawTable {
             if (me.Columns[col].show_in_grid && me.OrderBy == '')
                 me.OrderBy = '`' + tablename + '`.' + col;
         }
+    }
+    isRelationTable() {
+        return (this.TableType !== TableType.obj);
     }
     setCustomFormCreateOptions(customData) {
         this.customFormCreateOptions = customData;
@@ -610,8 +613,10 @@ class Table extends RawTable {
                 t.setState(newForm.getValues(), RowID, TargetStateID, M, closeModal);
             });
         }
-        if (M)
+        if (M) {
             M.show();
+            newForm.refreshEditors();
+        }
     }
     saveEntry(SaveModal, data, closeModal = true) {
         let t = this;
@@ -779,6 +784,7 @@ class Table extends RawTable {
             });
         }
         M.show();
+        fCreate.refreshEditors();
     }
     modifyRow(id, ExistingModal = null) {
         let me = this;
@@ -808,7 +814,6 @@ class Table extends RawTable {
             let TheRow = null;
             this.Rows.forEach(row => { if (row[me.PrimaryColumn] == id)
                 TheRow = row; });
-            console.log(TheRow);
             if (me.SM) {
                 const diffJSON = me.SM.getFormDiffByState(TheRow.state_id.state_id);
                 me.renderEditForm(TheRow, diffJSON, ExistingModal);
@@ -828,7 +833,6 @@ class Table extends RawTable {
                 M.setContent(fModify.getHTML());
                 fModify.initEditors();
                 M.setHeader(ModalTitle);
-                console.log("Set Save Footer!");
                 M.setFooter(`<div class="ml-auto mr-0">
           <button class="btn btn-primary btnSave" type="button">
             <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
@@ -855,6 +859,7 @@ class Table extends RawTable {
                 if (M) {
                     M.setLoadingState(false);
                     M.show();
+                    fModify.refreshEditors();
                 }
             }
         }
@@ -1361,7 +1366,6 @@ class FormGenerator {
                     el.value = vals.join(' | ');
                 }
             }
-            console.log('FK', el);
             result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
@@ -1403,14 +1407,16 @@ class FormGenerator {
                 customFormCreate[extTableColSelf] = {};
                 customFormCreate[extTableColSelf]['value'] = OriginRowID;
                 customFormCreate[extTableColSelf]['mode_form'] = 'ro';
-                const ids = [];
-                for (const Row of tmp.getRows()) {
-                    ids.push(Row[colnamex][colnamex]);
-                }
-                if (ids.length > 0) {
-                    const filter = '{\"nin\": [\"' + colnamex + '\", \"' + ids.join(',') + '\"]}';
-                    customFormCreate[colnamex] = {};
-                    customFormCreate[colnamex]['customfilter'] = filter;
+                if (tmp.isRelationTable()) {
+                    const ids = [];
+                    for (const Row of tmp.getRows()) {
+                        ids.push(Row[colnamex][colnamex]);
+                    }
+                    if (ids.length > 0) {
+                        const filter = '{\"nin\": [\"' + colnamex + '\", \"' + ids.join(',') + '\"]}';
+                        customFormCreate[colnamex] = {};
+                        customFormCreate[colnamex]['customfilter'] = filter;
+                    }
                 }
                 tmp.setCustomFormCreateOptions(customFormCreate);
             };
@@ -1422,13 +1428,14 @@ class FormGenerator {
             });
         }
         else if (el.field_type == 'htmleditor') {
-            const newQuillID = GUI.getID();
-            this.editors[key] = { 'mode': el.mode_form, 'id': newQuillID };
-            result += `<div><div class="htmleditor" id="${newQuillID}"></div></div>`;
+            const newID = GUI.getID();
+            this.editors[key] = { mode: el.mode_form, id: newID, editor: 'quill' };
+            result += `<div><div class="htmleditor" id="${newID}"></div></div>`;
         }
         else if (el.field_type == 'codeeditor') {
             const newID = GUI.getID();
-            result += `<div><div class="codeeditor" id="${newID}">TODO: Here is codemirror</div></div>`;
+            this.editors[key] = { mode: el.mode_form, id: newID, editor: 'codemirror' };
+            result += `<textarea class="codeeditor" id="${newID}"></textarea>`;
         }
         else if (el.field_type == 'rawhtml') {
             result += el.value;
@@ -1496,7 +1503,10 @@ class FormGenerator {
         let editors = this.editors;
         for (const key of Object.keys(editors)) {
             const edi = editors[key];
-            result[key] = edi['objQuill'].root.innerHTML;
+            if (edi['objQuill'])
+                result[key] = edi['objQuill'].root.innerHTML;
+            else if (edi['objCodemirror'])
+                result[key] = edi['objCodemirror'].getValue();
         }
         return result;
     }
@@ -1513,14 +1523,24 @@ class FormGenerator {
         let t = this;
         for (const key of Object.keys(t.editors)) {
             const options = t.editors[key];
-            const QuillID = '#' + options.id;
-            let QuillOptions = { theme: 'snow' };
-            if (options.mode == 'ro') {
-                QuillOptions['readOnly'] = true;
-                QuillOptions['modules'] = { toolbar: false };
+            if (options.editor === 'quill') {
+                let QuillOptions = { theme: 'snow' };
+                if (options.mode == 'ro') {
+                    QuillOptions['readOnly'] = true;
+                    QuillOptions['modules'] = { toolbar: false };
+                }
+                t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
+                t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
             }
-            t.editors[key]['objQuill'] = new Quill(QuillID, QuillOptions);
-            t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
+            else if (options.editor === 'codemirror') {
+                const editor = CodeMirror.fromTextArea(document.getElementById(options.id), {
+                    lineNumbers: true,
+                    fixedGutter: true
+                });
+                editor.setValue(t.data[key].value || '');
+                editor.setSize(null, 111);
+                t.editors[key]['objCodemirror'] = editor;
+            }
         }
         let elements = document.querySelectorAll('.modal input[type=number]');
         for (let el of elements) {
@@ -1540,10 +1560,17 @@ class FormGenerator {
         elements = document.querySelectorAll('.modal .rwInput:not(textarea)');
         for (let el of elements) {
             el.addEventListener('keydown', function (e) {
-                if (e.which == 13) {
+                if (e.which == 13)
                     e.preventDefault();
-                }
             });
+        }
+    }
+    refreshEditors() {
+        let editors = this.editors;
+        for (const key of Object.keys(editors)) {
+            const edi = editors[key];
+            if (edi['objCodemirror'])
+                edi['objCodemirror'].refresh();
         }
     }
 }

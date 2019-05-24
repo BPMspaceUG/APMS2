@@ -1,7 +1,6 @@
 // Plugins (only declared to remove TS Errors)
 declare var $: any; // TODO: Remove
-declare var vis: any;
-declare var Quill: any;
+declare var vis: any, Quill: any, CodeMirror: any; // Plugins
 
 // Enums
 enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
@@ -175,6 +174,7 @@ class Modal {
     let modal = document.getElementById(this.DOM_ID);
     modal.classList.add('show');
     modal.style.display = 'block';
+    // GUI
     if (focusFirstEditableField) {
       let firstElement = (modal.getElementsByClassName('rwInput')[0] as HTMLElement);
       // TODO: check if is foreignKey || HTMLEditor
@@ -374,7 +374,6 @@ class RawTable {
   protected PageIndex: number = 0;
   protected Rows: any;
   protected actRowCount: number; // Count total
-  protected TableType: TableType = TableType.obj;
 
   constructor (tablename: string) {
     this.tablename = tablename;
@@ -482,6 +481,7 @@ class Table extends RawTable {
   private customFormCreateOptions: any = {};
   private diffFormCreateObject: any = {};
   public ReadOnly: boolean;
+  private TableType: TableType = TableType.obj;
   public GUIOptions = {
     maxCellLength: 30,
     showControlColumn: true,
@@ -531,6 +531,9 @@ class Table extends RawTable {
       if (me.Columns[col].is_primary) me.PrimaryColumn = col; // Get Primary Column          
       if (me.Columns[col].show_in_grid && me.OrderBy == '') me.OrderBy = '`'+ tablename +'`.' + col; // Get SortColumn (DEFAULT: Sort by first visible Col)
     }
+  }
+  public isRelationTable() {
+    return (this.TableType !== TableType.obj);
   }
   public setCustomFormCreateOptions(customData: any) {
     this.customFormCreateOptions = customData;
@@ -674,7 +677,10 @@ class Table extends RawTable {
       });
     }
     //--- finally show Modal if it is a new one
-    if (M) M.show();
+    if (M) {
+      M.show();
+      newForm.refreshEditors();
+    }
   }
   private saveEntry(SaveModal: Modal, data: any, closeModal: boolean = true){
     let t = this
@@ -879,6 +885,7 @@ class Table extends RawTable {
     }
     // Show Modal
     M.show();
+    fCreate.refreshEditors();
   }
   public modifyRow(id: number, ExistingModal: Modal = null) {
     let me = this
@@ -914,7 +921,6 @@ class Table extends RawTable {
       // Get Row
       let TheRow = null;
       this.Rows.forEach(row => { if (row[me.PrimaryColumn] == id) TheRow = row; });
-      console.log(TheRow);
       // Set Form
       if (me.SM) {
         //-------- EDIT-Modal WITH StateMachine
@@ -940,7 +946,6 @@ class Table extends RawTable {
         // Set Modal Header
         M.setHeader(ModalTitle);
         // Save buttons
-        console.log("Set Save Footer!");
         M.setFooter(`<div class="ml-auto mr-0">
           <button class="btn btn-primary btnSave" type="button">
             <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
@@ -971,6 +976,7 @@ class Table extends RawTable {
         if (M) {
           M.setLoadingState(false);
           M.show();
+          fModify.refreshEditors();
         }
       }
     }
@@ -1549,7 +1555,6 @@ class FormGenerator {
           el.value = vals.join(' | ');
         }
       }
-      console.log('FK', el);
       result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
@@ -1602,16 +1607,18 @@ class FormGenerator {
         customFormCreate[extTableColSelf] = {};
         customFormCreate[extTableColSelf]['value'] = OriginRowID;
         customFormCreate[extTableColSelf]['mode_form'] = 'ro';
+        //==== RELATION-TABLES
         // Filter all elements which are already connected
-        // TODO!!!! -> make a seperate GET request
-        const ids = [];
-        for (const Row of tmp.getRows()) {
-          ids.push(Row[colnamex][colnamex]);
-        }
-        if (ids.length > 0) {
-          const filter = '{\"nin\": [\"'+colnamex+'\", \"'+ids.join(',')+'\"]}';
-          customFormCreate[colnamex] = {};
-          customFormCreate[colnamex]['customfilter'] = filter;
+        if (tmp.isRelationTable()) {
+          const ids = [];
+          for (const Row of tmp.getRows()) {
+            ids.push(Row[colnamex][colnamex]);
+          }
+          if (ids.length > 0) {
+            const filter = '{\"nin\": [\"'+colnamex+'\", \"'+ids.join(',')+'\"]}';
+            customFormCreate[colnamex] = {};
+            customFormCreate[colnamex]['customfilter'] = filter;
+          }
         }
         // Write Diffs
         tmp.setCustomFormCreateOptions(customFormCreate);
@@ -1627,15 +1634,15 @@ class FormGenerator {
     }
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
-      const newQuillID = GUI.getID();
-      this.editors[key] = {'mode': el.mode_form, 'id': newQuillID}; // reserve key
-      result += `<div><div class="htmleditor" id="${newQuillID}"></div></div>`;
+      const newID = GUI.getID();
+      this.editors[key] = {mode: el.mode_form, id: newID, editor: 'quill'}; // reserve key
+      result += `<div><div class="htmleditor" id="${newID}"></div></div>`;
     }
     //--- Codemirror
     else if (el.field_type == 'codeeditor') {
       const newID = GUI.getID();
-      //this.editors[key] = {'mode': el.mode_form, 'id': newID}; // reserve key
-      result += `<div><div class="codeeditor" id="${newID}">TODO: Here is codemirror</div></div>`;
+      this.editors[key] = {mode: el.mode_form, id: newID, editor: 'codemirror'}; // reserve key
+      result += `<textarea class="codeeditor" id="${newID}"></textarea>`;
     }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
@@ -1674,6 +1681,7 @@ class FormGenerator {
   }
   public getValues() {
     let result = {};
+    //--rwInputs
     const rwInputs = document.getElementById(this.GUID).getElementsByClassName('rwInput');
     for (const element of rwInputs) {
       const inp = <HTMLInputElement>element;
@@ -1709,12 +1717,15 @@ class FormGenerator {
       // Only add to result object if value is valid
       if (!(value == '' && (type == 'number' || type == 'date' || type == 'time' || type == 'datetime')))
         result[key] = value;
-    }    
-    // Editors
+    }
+    //-- Editors
     let editors = this.editors;
     for (const key of Object.keys(editors)) {
       const edi = editors[key];
-      result[key] = edi['objQuill'].root.innerHTML; //edi.getContents();
+      if (edi['objQuill']) 
+        result[key] = edi['objQuill'].root.innerHTML; //edi.getContents();
+      else if (edi['objCodemirror'])
+        result[key] = edi['objCodemirror'].getValue();
     }
     // Output
     return result;
@@ -1729,20 +1740,31 @@ class FormGenerator {
     return html + '</form>';
   }
   public initEditors() {
-    // HTML Editors
+    //--- Editors
     let t = this;
     for (const key of Object.keys(t.editors)) {
       const options = t.editors[key];
-      const QuillID = '#' + options.id;
-      let QuillOptions = {theme: 'snow'};
-      if (options.mode == 'ro') {
-        QuillOptions['readOnly'] = true;
-        QuillOptions['modules'] = {toolbar: false};
+
+      if (options.editor === 'quill') {
+        let QuillOptions = {theme: 'snow'};
+        if (options.mode == 'ro') {
+          QuillOptions['readOnly'] = true;
+          QuillOptions['modules'] = {toolbar: false};
+        }
+        t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
+        t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
       }
-      t.editors[key]['objQuill']  = new Quill(QuillID, QuillOptions);
-      t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
+      else if (options.editor === 'codemirror') {
+        const editor = CodeMirror.fromTextArea(document.getElementById(options.id), {
+          lineNumbers: true,
+          fixedGutter: true
+        });
+        editor.setValue(t.data[key].value || '');
+        editor.setSize(null, 111);
+        t.editors[key]['objCodemirror'] = editor;
+      }
     }
-    // Live-Validate Number Inputs
+    //--- Live-Validate Number Inputs
     let elements = document.querySelectorAll('.modal input[type=number]');
     for (let el of elements) {
       el.addEventListener('keydown', function(e: KeyboardEvent){
@@ -1765,14 +1787,19 @@ class FormGenerator {
         }
       })
     }
-    // Do a submit - if on any R/W field return is pressed
+    //--- Do a submit - if on any R/W field return is pressed
     elements = document.querySelectorAll('.modal .rwInput:not(textarea)');
     for (let el of elements) {
       el.addEventListener('keydown', function(e: KeyboardEvent){
-        if (e.which == 13) {
-          e.preventDefault(); // Prevent Page Reload
-        }
+        if (e.which == 13) e.preventDefault(); // Prevent Page Reload
       });
+    }
+  }
+  public refreshEditors() {
+    let editors = this.editors;
+    for (const key of Object.keys(editors)) {
+      const edi = editors[key];
+      if (edi['objCodemirror']) edi['objCodemirror'].refresh();
     }
   }
 }

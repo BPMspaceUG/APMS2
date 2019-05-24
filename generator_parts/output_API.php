@@ -50,7 +50,7 @@
     else if ($ReqMethod === 'OPTIONS') {
       $command = 'init';
     }
-    else if ($ReqMethod === 'POST') { 
+    else if ($ReqMethod === 'POST') {
       $command = $bodyData["cmd"]; // TODO: --> create
       $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
     }

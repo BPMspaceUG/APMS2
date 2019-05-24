@@ -364,10 +364,7 @@
             //--- TODO: Trick for merging! (has many)
             if (!Config::doesColExistInTable($tablename, $parts[0]))
               $parts[0] .= '/0';
-            //---
             $path = implode('/', $parts);
-            //----------------------------
-            //$row[$path] = $val;
             self::rowPath2Tree($row, $path, $val);
           }
         }
@@ -526,9 +523,13 @@
       $pdo = DB::getInstance()->getConnection();
       $stmt = $pdo->prepare($query);
       if ($stmt->execute($vals)) {
-        $result = $this->parseResultData($stmt);        
+        $result = [];
+        while($singleRow = $stmt->fetch(PDO::FETCH_ASSOC)) {
+          $result[] = $singleRow;
+        }
         return json_encode($result); // Return result as JSON
-      } else {
+      }
+      else {
         // Query-Error
         echo $stmt->queryString."<br>";
         echo json_encode($vals)."<br>";
