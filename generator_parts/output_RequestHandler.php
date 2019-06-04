@@ -282,12 +282,11 @@
       $SE = new StateMachine($pdo, $tablename);
       $param = ["table" => $tablename];
       // TODO: If Table = hidden then return
-      // TODO: If Table = readonly then exclude formcreate and statemachine      
+      // TODO: If Table = readonly then exclude formcreate      
       // ---- Structure
       $config = json_decode(Config::getConfig(), true);
       $result = [];
       $result['config'] = $config[$tablename];
-      //$result['count'] = 0; // TODO: Remove //json_decode($this->count($param), true)[0]['cnt'];
       $result['formcreate'] = $this->getFormCreate($param);
       $result['sm_states'] = $SE->getStates();
       $result['sm_rules'] = $SE->getLinks();

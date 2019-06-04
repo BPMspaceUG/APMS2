@@ -11,7 +11,7 @@
   }
 
   // Global Variables
-  $queries1 = '';
+  $queries = '';
   $content = "";
 
 	// Load data from Angular
@@ -99,26 +99,45 @@
     echo "\nCreating Role Management Tables...\n";
     try {
       // Table: Role
-      $con->exec('CREATE TABLE `Role` (
+      $sql = 'CREATE TABLE `Role` (
         `Role_id` bigint(20) NOT NULL AUTO_INCREMENT,
         `Role_name` varchar(45) DEFAULT NULL,
         PRIMARY KEY (`Role_id`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8;');
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
+      $queries .= "\n$sql\n\n";
+      $con->exec($sql);
+      
       // Table: Role_LIAMUSER
-      $con->exec('CREATE TABLE `Role_LIAMUSER` (
+      $sql = 'CREATE TABLE `Role_LIAMUSER` (
         `Role_User_id` bigint(20) NOT NULL AUTO_INCREMENT,
         `Role_id` bigint(20) NOT NULL,
         `User_id` bigint(20) NOT NULL,
         PRIMARY KEY (`Role_User_id`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8;');
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
+      $queries .= "\n$sql\n\n";
+      $con->exec($sql);
+      
       // ForeignKeys
-      $con->exec('ALTER TABLE `Role_LIAMUSER` ADD INDEX `Role_id_fk` (`Role_id`)');
-      $con->exec('ALTER TABLE `Role_LIAMUSER` ADD CONSTRAINT `Role_id_fk` FOREIGN KEY (`Role_id`) REFERENCES `Role` (`Role_id`) ON DELETE NO ACTION ON UPDATE NO ACTION');
+      $sql = 'ALTER TABLE `Role_LIAMUSER` ADD INDEX `Role_id_fk` (`Role_id`)';
+      $queries .= "\n$sql\n\n";
+      $con->exec($sql);
+      
+      $sql = 'ALTER TABLE `Role_LIAMUSER` ADD CONSTRAINT `Role_id_fk` FOREIGN KEY (`Role_id`) REFERENCES `Role` (`Role_id`) ON DELETE NO ACTION ON UPDATE NO ACTION';
+      $queries .= "\n$sql\n\n";
+      $con->exec($sql);
+
       // Insert default Roles
       $randomID = rand(1000, 10000);
-      $con->exec('INSERT INTO Role (Role_id, Role_name) VALUES ('.$randomID.', \'Administrator\')');
-      $con->exec('INSERT INTO Role (Role_name) VALUES (\'User\')');
-    } catch(PDOException $e) {
+      
+      $sql = 'INSERT INTO Role (Role_id, Role_name) VALUES ('.$randomID.', \'Administrator\')';
+      $queries .= "\n$sql\n\n";
+      $con->exec($sql);
+      
+      $sql = 'INSERT INTO Role (Role_name) VALUES (\'User\')';
+      $con->exec($sql);
+      $queries .= "\n$sql\n\n";
+    }
+    catch(PDOException $e) {
       echo $e->getMessage()."\n";
     }
     $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT); //Error Handling off
@@ -127,7 +146,7 @@
   if ($createHistoryTable) {
     echo "\nCreating History Table...\n";
     // Table: History
-    $con->exec('CREATE TABLE IF NOT EXISTS `History` (
+    $sql = 'CREATE TABLE IF NOT EXISTS `History` (
       `History_id` bigint(20) NOT NULL AUTO_INCREMENT,
       `User_id` bigint(20) NOT NULL,
       `History_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -135,7 +154,9 @@
       `History_valuenew` LONGTEXT NOT NULL,
       `History_created` tinyint(1) NOT NULL DEFAULT 0,
       PRIMARY KEY (`History_id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;');
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
+    $queries .= $sql;
+    $con->exec($sql);
   }  
   //---------------------------------
 
@@ -145,9 +166,7 @@
     // Get Data
     $tablename = $table["table_name"];
     $se_active = (bool)$table["se_active"];
-    $table_type = $table["table_type"];    
-
-
+    $table_type = $table["table_type"];
 
     //--- Create HTML Content TODO: REMOVE!! --> generate dynamically in muster.js
     if ($table["mode"] != 'hi') {
@@ -164,8 +183,6 @@
         "<div id=\"table_$tablename\"></div></div>\n";
     }
     //---/Create HTML Content
-
-
 
     // TODO: Check if the "table" is no view
 
@@ -188,7 +205,8 @@
         echo "-----------------------------";
         echo ($res == 0 ? 'OK' : 'Fail');
         echo "\n\n";
-      } else {
+      }
+      else {
         //----------- OBJECT Table
         // TODO: Create Basic form and set RO, RW
         $rights_ro = [];
@@ -217,11 +235,10 @@
       $excludeKeys = Config::getPrimaryColsByTablename($tablename, $data);
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData
       $vcols = Config::getVirtualColnames($tablename, $data);
-      foreach ($vcols as $vc) {
-        $excludeKeys[] = $vc;
-      }      
-      $queries1 = '';
-      $queries1 = $SM->getQueryLog();      
+      foreach ($vcols as $vc) $excludeKeys[] = $vc;
+      $queries .= "-- ============================ StateMachine\n";
+      $queries .= $SM->getQueryLog();
+      $queries .= "\n\n";
       unset($SM); // Clean up
 
       // ------------ Connection to existing structure !
@@ -229,8 +246,9 @@
       // Set the default Entrypoint for the Table (when creating an entry the Process starts here)
       $SM = new StateMachine($con, $tablename); // Load correct Machine
       $EP_ID = $SM->getEntryPoint();
-      $q_se = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD COLUMN `state_id` BIGINT(20) DEFAULT $EP_ID;";
-      $con->query($q_se);
+      $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD COLUMN `state_id` BIGINT(20) DEFAULT $EP_ID;";
+      $queries .= $queries;
+      $con->query($sql);
 
       // Generate CSS-Colors for states
       $allstates = $SM->getStates();
@@ -254,9 +272,10 @@
 
       // Add UNIQUE named foreign Key
       $uid = substr(md5($tablename), 0, 8);
-      $q_se = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD CONSTRAINT `state_id_".$uid."` FOREIGN KEY (`state_id`) ".
+      $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD CONSTRAINT `state_id_".$uid."` FOREIGN KEY (`state_id`) ".
         "REFERENCES `".$db_name."`.`state` (`state_id`) ON DELETE NO ACTION ON UPDATE NO ACTION;";
-      $con->query($q_se);
+      $queries .= $sql;
+      $con->query($sql);
     }
   }
 
@@ -281,7 +300,6 @@
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
-
 
 
   $AccountHandler = '<div class="collapse navbar-collapse" id="navbarText">
@@ -330,7 +348,7 @@
   // ------------------------------------ Generate Core File
   // Output information
   echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
-  echo $queries1;
+  echo $queries;
 
   // ------------------------------------ Generate Config File
   // ---> ENCODE Data as JSON
@@ -452,9 +470,8 @@
         }
         // Token is valid but expired?
         if (property_exists($token, "exp")) {
-          if (($token->exp - time()) <= 0) {
-            gotoLogin("This Token is expired!");
-          }
+          if (($token->exp - time()) <= 0)
+            gotoLogin();
         }
         // If Token is not in Cookie -> save Token in a Cookie
         if (is_null(JWT::getBearerToken())) {
@@ -464,7 +481,6 @@
           exit();
         }
         // Success
-        //echo var_export($token, true); // for debugging
         require_once("'.$db_name.'.inc.html");
       ?>';
     } else
