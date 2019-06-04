@@ -1381,51 +1381,58 @@ class FormGenerator {
         </div>`;
         }
         else if (el.field_type == 'reversefk') {
+            const me = this;
             const tmpGUID = GUI.getID();
             const OriginRowID = this.oRowID;
             const extTablename = el.revfk_tablename;
             const extTableColSelf = el.revfk_colname;
-            const hideCol = '`' + extTablename + '/' + extTableColSelf + '`.' + extTableColSelf;
-            result += `<div id="${tmpGUID}"></div>`;
-            let tmp = new Table(extTablename, SelectType.NoSelect);
-            tmp.Columns[extTableColSelf].show_in_grid = false;
-            tmp.Columns[tmp.getPrimaryColname()].show_in_grid = false;
-            tmp.ReadOnly = (el.mode_form == 'ro');
-            tmp.GUIOptions.showControlColumn = !tmp.ReadOnly;
-            tmp.setColumnFilter(hideCol, '' + OriginRowID);
+            const tmpTable = new Table(extTablename, SelectType.NoSelect);
             let fkCols = [];
-            for (const colname of Object.keys(tmp.Columns)) {
-                if (tmp.Columns[colname].field_type == 'foreignkey')
+            for (const colname of Object.keys(tmpTable.Columns)) {
+                if (tmpTable.Columns[colname].field_type == 'foreignkey')
                     fkCols.push(colname);
             }
             const i = fkCols.indexOf(extTableColSelf);
             if (i > -1)
                 fkCols.splice(i, 1);
             const colnamex = fkCols[0];
+            const hideCol = '`' + extTablename + '`.' + extTableColSelf;
+            tmpTable.Columns[extTableColSelf].show_in_grid = false;
+            tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false;
+            tmpTable.ReadOnly = (el.mode_form == 'ro');
+            tmpTable.GUIOptions.showControlColumn = !tmpTable.ReadOnly;
             const refreshSel = function () {
                 let customFormCreate = {};
                 customFormCreate[extTableColSelf] = {};
                 customFormCreate[extTableColSelf]['value'] = OriginRowID;
                 customFormCreate[extTableColSelf]['mode_form'] = 'ro';
-                if (tmp.isRelationTable()) {
+                if (tmpTable.isRelationTable()) {
                     const ids = [];
-                    for (const Row of tmp.getRows()) {
-                        ids.push(Row[colnamex][colnamex]);
+                    const pcolname2 = tmpTable.Columns[colnamex].foreignKey.col_id;
+                    const Table2 = tmpTable.Columns[colnamex].foreignKey.table;
+                    console.log('Relation [', me.oTable.getTablename(), ']---------', extTablename, '---------[', Table2, ']');
+                    for (const Row of tmpTable.getRows()) {
+                        ids.push(Row[colnamex][pcolname2]);
                     }
                     if (ids.length > 0) {
-                        const filter = '{\"nin\": [\"' + colnamex + '\", \"' + ids.join(',') + '\"]}';
                         customFormCreate[colnamex] = {};
-                        customFormCreate[colnamex]['customfilter'] = filter;
+                        customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"' + pcolname2 + '\", \"' + ids.join(',') + '\"]}';
                     }
+                    tmpTable.setColumnFilter(hideCol, '' + OriginRowID);
+                    tmpTable.loadRows(function () {
+                        tmpTable.renderHTML(tmpGUID);
+                        tmpTable.resetFilter();
+                        tmpTable.loadRows(function () { });
+                    });
                 }
-                tmp.setCustomFormCreateOptions(customFormCreate);
+                tmpTable.setCustomFormCreateOptions(customFormCreate);
             };
-            tmp.resetLimit();
-            tmp.EntriesHaveChanged.on(refreshSel);
-            tmp.loadRows(function () {
-                tmp.renderHTML(tmpGUID);
+            tmpTable.resetLimit();
+            tmpTable.EntriesHaveChanged.on(refreshSel);
+            tmpTable.loadRows(function () {
                 refreshSel();
             });
+            result += `<div id="${tmpGUID}"></div>`;
         }
         else if (el.field_type == 'htmleditor') {
             const newID = GUI.getID();

@@ -1573,32 +1573,31 @@ class FormGenerator {
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
+      const me = this;
       const tmpGUID = GUI.getID();
       const OriginRowID = this.oRowID;
       const extTablename = el.revfk_tablename;
-      const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID
-      const hideCol = '`' + extTablename + '/' + extTableColSelf + '`.' + extTableColSelf;
+      const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID      
+      const tmpTable = new Table(extTablename, SelectType.NoSelect);
 
-      // Container for Table
-      result += `<div id="${tmpGUID}"></div>`;
-      //--- Create new Table
-      let tmp = new Table(extTablename, SelectType.NoSelect);
-      // Hide this columns
-      tmp.Columns[extTableColSelf].show_in_grid = false; // Hide the primary column
-      tmp.Columns[tmp.getPrimaryColname()].show_in_grid = false; // Hide the origin column
-      tmp.ReadOnly = (el.mode_form == 'ro');
-      tmp.GUIOptions.showControlColumn = !tmp.ReadOnly;
-      tmp.setColumnFilter(hideCol, ''+OriginRowID);
-      
       //--- TODO: Probably do this via configuration
       let fkCols = [];
-      for (const colname of Object.keys(tmp.Columns)) {
-        if (tmp.Columns[colname].field_type == 'foreignkey') fkCols.push(colname);
+      for (const colname of Object.keys(tmpTable.Columns)) {
+        if (tmpTable.Columns[colname].field_type == 'foreignkey') fkCols.push(colname);
       }
       const i = fkCols.indexOf(extTableColSelf);
       if (i > -1) fkCols.splice(i, 1); // Remove the hidecolumn
       const colnamex = fkCols[0];
       //---/
+
+      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
+      
+      // Special Settings
+      tmpTable.Columns[extTableColSelf].show_in_grid = false; // Hide the primary column
+      tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false; // Hide the origin column
+      tmpTable.ReadOnly = (el.mode_form == 'ro');
+      tmpTable.GUIOptions.showControlColumn = !tmpTable.ReadOnly;
+      //tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find all relations
 
       //--- Create Custom Diff Form
       const refreshSel = function(){
@@ -1609,28 +1608,38 @@ class FormGenerator {
         customFormCreate[extTableColSelf]['mode_form'] = 'ro';
         //==== RELATION-TABLES
         // Filter all elements which are already connected
-        if (tmp.isRelationTable()) {
+        if (tmpTable.isRelationTable()) {
           const ids = [];
-          for (const Row of tmp.getRows()) {
-            ids.push(Row[colnamex][colnamex]);
+          const pcolname2 = tmpTable.Columns[colnamex].foreignKey.col_id;
+          const Table2 = tmpTable.Columns[colnamex].foreignKey.table;
+          console.log('Relation [', me.oTable.getTablename() ,']---------', extTablename ,'---------[', Table2 ,']');
+          for (const Row of tmpTable.getRows()) {
+            ids.push(Row[colnamex][pcolname2]); // find all IDs from Table2
           }
           if (ids.length > 0) {
-            const filter = '{\"nin\": [\"'+colnamex+'\", \"'+ids.join(',')+'\"]}';
             customFormCreate[colnamex] = {};
-            customFormCreate[colnamex]['customfilter'] = filter;
+            customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"'+pcolname2+'\", \"'+ids.join(',')+'\"]}';
           }
+          // TODO: Refresh only the connected to self
+          tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
+          tmpTable.loadRows(function(){
+            tmpTable.renderHTML(tmpGUID);
+            tmpTable.resetFilter();
+            tmpTable.loadRows(function(){});
+          });
         }
         // Write Diffs
-        tmp.setCustomFormCreateOptions(customFormCreate);
+        tmpTable.setCustomFormCreateOptions(customFormCreate);
       };
       // Refresh
-      tmp.resetLimit(); // unlimited Relations
-      tmp.EntriesHaveChanged.on(refreshSel);
+      tmpTable.resetLimit(); // unlimited Relations
+      tmpTable.EntriesHaveChanged.on(refreshSel);
       // Load Rows
-      tmp.loadRows(function(){
-        tmp.renderHTML(tmpGUID);
+      tmpTable.loadRows(function(){
         refreshSel();
       });
+      // Container for Table
+      result += `<div id="${tmpGUID}"></div>`;
     }
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
