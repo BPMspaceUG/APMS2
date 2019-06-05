@@ -110,7 +110,7 @@ class Modal {
         if (this.isBig)
             sizeType = ' modal-xl';
         let html = `<div id="${this.DOM_ID}" class="modal fade" tabindex="-1" role="dialog">
-      <div class="modal-dialog${sizeType}" role="document">
+      <div class="modal-dialog${sizeType}">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">${this.heading}</h5>
@@ -483,6 +483,9 @@ class Table extends RawTable {
     }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
+    }
+    getTableType() {
+        return this.TableType;
     }
     setCustomFormCreateOptions(customData) {
         this.customFormCreateOptions = customData;
@@ -1002,7 +1005,8 @@ class Table extends RawTable {
         if (!t.PageLimit && t.TableType !== TableType.obj) { }
         else
             html += searchBar;
-        if (!t.ReadOnly)
+        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount > 0) { }
+        else if (!t.ReadOnly)
             html += btnCreate;
         if (t.SM && t.GUIOptions.showWorkflowButton)
             html += btnWorkflow;
@@ -1387,6 +1391,7 @@ class FormGenerator {
             const extTablename = el.revfk_tablename;
             const extTableColSelf = el.revfk_colname;
             const tmpTable = new Table(extTablename, SelectType.NoSelect);
+            const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             let fkCols = [];
             for (const colname of Object.keys(tmpTable.Columns)) {
                 if (tmpTable.Columns[colname].field_type == 'foreignkey')
@@ -1396,7 +1401,6 @@ class FormGenerator {
             if (i > -1)
                 fkCols.splice(i, 1);
             const colnamex = fkCols[0];
-            const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             tmpTable.Columns[extTableColSelf].show_in_grid = false;
             tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false;
             tmpTable.ReadOnly = (el.mode_form == 'ro');
@@ -1407,16 +1411,20 @@ class FormGenerator {
                 customFormCreate[extTableColSelf]['value'] = OriginRowID;
                 customFormCreate[extTableColSelf]['mode_form'] = 'ro';
                 if (tmpTable.isRelationTable()) {
-                    const ids = [];
-                    const pcolname2 = tmpTable.Columns[colnamex].foreignKey.col_id;
-                    const Table2 = tmpTable.Columns[colnamex].foreignKey.table;
-                    console.log('Relation [', me.oTable.getTablename(), ']---------', extTablename, '---------[', Table2, ']');
+                    const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
+                    let ids = [];
+                    console.log('Relation [', me.oTable.getTablename(), ']---------', extTablename, '---------[', Tbl2.table, ']');
                     for (const Row of tmpTable.getRows()) {
-                        ids.push(Row[colnamex][pcolname2]);
+                        ids.push(Row[colnamex][Tbl2.col_id]);
+                    }
+                    const tt = tmpTable.getTableType();
+                    console.log(tt, 'Filter this:', ids);
+                    if (tt == TableType.tn_1 || tt == TableType.t1_1) {
+                        ids = [];
                     }
                     if (ids.length > 0) {
                         customFormCreate[colnamex] = {};
-                        customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"' + pcolname2 + '\", \"' + ids.join(',') + '\"]}';
+                        customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"' + Tbl2.col_id + '\", \"' + ids.join(',') + '\"]}';
                     }
                     tmpTable.setColumnFilter(hideCol, '' + OriginRowID);
                     tmpTable.loadRows(function () {
@@ -1424,6 +1432,10 @@ class FormGenerator {
                         tmpTable.resetFilter();
                         tmpTable.loadRows(function () { });
                     });
+                }
+                else {
+                    tmpTable.setColumnFilter(hideCol, '' + OriginRowID);
+                    tmpTable.renderHTML(tmpGUID);
                 }
                 tmpTable.setCustomFormCreateOptions(customFormCreate);
             };

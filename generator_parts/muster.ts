@@ -127,7 +127,7 @@ class Modal {
     if (this.isBig) sizeType = ' modal-xl';
     // Result
     let html = `<div id="${this.DOM_ID}" class="modal fade" tabindex="-1" role="dialog">
-      <div class="modal-dialog${sizeType}" role="document">
+      <div class="modal-dialog${sizeType}">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">${this.heading}</h5>
@@ -534,6 +534,9 @@ class Table extends RawTable {
   }
   public isRelationTable() {
     return (this.TableType !== TableType.obj);
+  }
+  public getTableType() {
+    return this.TableType;
   }
   public setCustomFormCreateOptions(customData: any) {
     this.customFormCreateOptions = customData;
@@ -1107,7 +1110,7 @@ class Table extends RawTable {
   }
   private getHeader(): string {
     let t = this
-    const hasEntries = t.Rows && (t.Rows.length > 0);    
+    const hasEntries = t.Rows && (t.Rows.length > 0);
     let NoText: string = 'No Objects';
     if (t.TableType != TableType.obj) NoText = 'No Relations';
     let Text: string = '';
@@ -1141,10 +1144,20 @@ class Table extends RawTable {
 
     // Concat HTML
     let html: string = '<div class="tbl_header form-inline">';
-    if (!t.PageLimit && t.TableType !== TableType.obj) {} else html += searchBar;
-    if (!t.ReadOnly) html += btnCreate;
-    if (t.SM && t.GUIOptions.showWorkflowButton) html += btnWorkflow;
-    if (t.selType === SelectType.Single && hasEntries) html += btnExpand;
+
+    if (!t.PageLimit && t.TableType !== TableType.obj) {}
+    else html += searchBar;
+
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount > 0) {}
+    else if (!t.ReadOnly)
+      html += btnCreate;
+
+    if (t.SM && t.GUIOptions.showWorkflowButton)
+      html += btnWorkflow;
+
+    if (t.selType === SelectType.Single && hasEntries)
+      html += btnExpand;
+
     html += '</div>';
 
     return html;
@@ -1579,6 +1592,8 @@ class FormGenerator {
       const extTablename = el.revfk_tablename;
       const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID      
       const tmpTable = new Table(extTablename, SelectType.NoSelect);
+      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
+
 
       //--- TODO: Probably do this via configuration
       let fkCols = [];
@@ -1588,16 +1603,14 @@ class FormGenerator {
       const i = fkCols.indexOf(extTableColSelf);
       if (i > -1) fkCols.splice(i, 1); // Remove the hidecolumn
       const colnamex = fkCols[0];
-      //---/
-
-      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
+      //---/      
       
+
       // Special Settings
       tmpTable.Columns[extTableColSelf].show_in_grid = false; // Hide the primary column
       tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false; // Hide the origin column
       tmpTable.ReadOnly = (el.mode_form == 'ro');
       tmpTable.GUIOptions.showControlColumn = !tmpTable.ReadOnly;
-      //tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find all relations
 
       //--- Create Custom Diff Form
       const refreshSel = function(){
@@ -1606,31 +1619,49 @@ class FormGenerator {
         customFormCreate[extTableColSelf] = {};
         customFormCreate[extTableColSelf]['value'] = OriginRowID;
         customFormCreate[extTableColSelf]['mode_form'] = 'ro';
-        //==== RELATION-TABLES
-        // Filter all elements which are already connected
+        
+
         if (tmpTable.isRelationTable()) {
-          const ids = [];
-          const pcolname2 = tmpTable.Columns[colnamex].foreignKey.col_id;
-          const Table2 = tmpTable.Columns[colnamex].foreignKey.table;
-          console.log('Relation [', me.oTable.getTablename() ,']---------', extTablename ,'---------[', Table2 ,']');
+          // -------- Relation Table
+          // Filter all elements which are already connected
+          const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
+          let ids = [];
+
+          console.log('Relation [', me.oTable.getTablename() ,']---------', extTablename ,'---------[', Tbl2.table ,']');
+          
           for (const Row of tmpTable.getRows()) {
-            ids.push(Row[colnamex][pcolname2]); // find all IDs from Table2
+            ids.push(Row[colnamex][Tbl2.col_id]); // find all IDs from Table2
           }
+          // In ids[] are now ALL IDs from Tbl2 which are already connected (state does not matter)
+          const tt = tmpTable.getTableType();
+          console.log(tt, 'Filter this:', ids);
+
+          if (tt == TableType.tn_1 || tt == TableType.t1_1) {
+            ids = []; // Reset IDs
+          }
+          
           if (ids.length > 0) {
             customFormCreate[colnamex] = {};
-            customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"'+pcolname2+'\", \"'+ids.join(',')+'\"]}';
+            customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"' + Tbl2.col_id + '\", \"' + ids.join(',') + '\"]}';
           }
-          // TODO: Refresh only the connected to self
+
           tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
+
           tmpTable.loadRows(function(){
             tmpTable.renderHTML(tmpGUID);
             tmpTable.resetFilter();
             tmpTable.loadRows(function(){});
           });
+        } else {
+          // -------- Object Table
+          tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
+          tmpTable.renderHTML(tmpGUID);
         }
         // Write Diffs
         tmpTable.setCustomFormCreateOptions(customFormCreate);
       };
+
+
       // Refresh
       tmpTable.resetLimit(); // unlimited Relations
       tmpTable.EntriesHaveChanged.on(refreshSel);
