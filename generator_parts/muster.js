@@ -680,8 +680,8 @@ class Table extends RawTable {
                         myModal.close();
                 });
             }
-            let htmlStateFrom = t.renderStateButton(actState.state_id, t.SM.getStateNameById(actState.state_id));
-            let htmlStateTo = t.renderStateButton(targetStateID, t.SM.getStateNameById(targetStateID));
+            let htmlStateFrom = t.renderStateButton(actState.state_id, false);
+            let htmlStateTo = t.renderStateButton(targetStateID, false);
             for (const msg of messages) {
                 let tmplTitle = '';
                 if (msg.type == 0)
@@ -870,63 +870,116 @@ class Table extends RawTable {
     getSelectedRowID() {
         return this.selectedRow[this.PrimaryColumn];
     }
-    renderStateButton(ID, name, withDropdown = false) {
-        const cssClass = 'state' + ID;
+    renderStateButton(StateID, withDropdown, altName = undefined) {
+        const name = altName || this.SM.getStateNameById(StateID);
+        const cssClass = 'state' + StateID;
         if (withDropdown) {
             return `<div class="dropdown showNextStates">
-            <button title="State-ID: ${ID}" class="btn dropdown-toggle btnGridState btn-sm label-state ${cssClass}" data-toggle="dropdown">${name}</button>
+            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnGridState btn-sm label-state ${cssClass}" data-toggle="dropdown">${name}</button>
             <div class="dropdown-menu p-0">
               <p class="m-0 p-3 text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading...</p>
             </div>
           </div>`;
         }
         else {
-            return `<button title="State-ID: ${ID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
+            return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
         }
     }
     formatCell(colname, cellContent, isHTML = false) {
         if (isHTML)
             return cellContent;
-        let t = this;
         if (typeof cellContent == 'string') {
             if (cellContent.length > this.GUIOptions.maxCellLength)
                 return escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
         }
         else if ((typeof cellContent === "object") && (cellContent !== null)) {
-            const nrOfCells = Object.keys(cellContent).length;
-            const split = (nrOfCells == 1 ? 100 : (100 * (1 / (nrOfCells - 1))).toFixed(0));
-            let content = '<table class="w-100 p-0 border-0"><tr class="border-0">';
-            let cnt = 0;
+            const fTablename = this.Columns[colname].foreignKey.table;
+            const showColumns = this.Columns[colname].foreignKey.col_subst;
+            const fTable = new Table(fTablename);
+            let cols = [];
             Object.keys(cellContent).forEach(c => {
-                let val = cellContent[c];
-                if (nrOfCells > 1 && cnt == 0) {
-                    const fTablename = t.Columns[colname].foreignKey.table;
-                    content += '<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle" onclick="gEdit(\'' + fTablename + '\', ' + val + ')"><i class="far fa-edit"></i></td>';
-                    cnt += 1;
-                    return;
+                if (showColumns == '*' || showColumns.indexOf(c) >= 0) {
+                    let subCell = {};
+                    subCell[c] = cellContent[c];
+                    cols.push(subCell);
                 }
-                if ((typeof val === "object") && (val !== null)) {
-                    if (c === 'state_id') {
-                        if (val['state_id'])
-                            content += '<td class="border-0" style="width: ' + split + '%">' + t.renderStateButton(val['state_id'], val['name'], false) + '</td>';
-                        else
-                            content += '<td class="border-0">&nbsp;</td>';
-                    }
-                    else
-                        content += '<td class="border-0" style="width: ' + split + '%">' + JSON.stringify(val) + '</td>';
-                }
-                else {
-                    if (val)
-                        content += '<td class="border-0" style="width: ' + split + '%">' + this.formatCell(colname, val, true) + '</td>';
-                    else
-                        content += '<td class="border-0">&nbsp;</td>';
-                }
-                cnt += 1;
             });
-            content += '</tr></table>';
-            return content;
+            let content = '';
+            const split = (100 * (1 / cols.length)).toFixed(0);
+            const firstEl = cols[0];
+            cols.forEach(col => {
+                const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
+                content += '<td class="border-0" style="width: ' + split + '%">' + htmlCell + '</td>';
+            });
+            content = '<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle" \
+        onclick="gEdit(\'' + fTablename + '\', ' + firstEl[Object.keys(firstEl)[0]] + ')"><i class="far fa-edit"></i></td>' + content;
+            return '<table class="w-100 p-0 border-0"><tr class="border">' + content + '</tr></table>';
         }
         return escapeHtml(cellContent);
+    }
+    renderCell(row, col) {
+        let t = this;
+        let value = row[col];
+        if (!value)
+            return '&nbsp;';
+        if (t.Columns[col].field_type == 'date') {
+            let tmp = new Date(value);
+            if (!isNaN(tmp.getTime()))
+                value = tmp.toLocaleDateString('de-DE');
+            else
+                value = '';
+            return value;
+        }
+        else if (t.Columns[col].field_type == 'time') {
+            if (t.GUIOptions.smallestTimeUnitMins) {
+                let timeArr = value.split(':');
+                timeArr.pop();
+                value = timeArr.join(':');
+                return value;
+            }
+        }
+        else if (t.Columns[col].field_type == 'datetime') {
+            let tmp = new Date(value);
+            if (!isNaN(tmp.getTime())) {
+                value = tmp.toLocaleString('de-DE');
+                if (t.GUIOptions.smallestTimeUnitMins) {
+                    let timeArr = value.split(':');
+                    timeArr.pop();
+                    value = timeArr.join(':');
+                }
+            }
+            else
+                value = '';
+            return value;
+        }
+        else if (t.Columns[col].field_type == 'number') {
+            const number = parseInt(value);
+            return number.toLocaleString('de-DE');
+        }
+        else if (t.Columns[col].field_type == 'float') {
+            const number = parseFloat(value);
+            return number.toLocaleString('de-DE');
+        }
+        else if (t.Columns[col].field_type == 'switch' || t.Columns[col].field_type == 'checkbox') {
+            return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>';
+        }
+        else if (col == 'state_id' && t.tablename != 'state') {
+            const stateID = (typeof value === "object") ? value['state_id'] : value;
+            const isExitNode = t.SM.isExitNode(stateID);
+            const withDropdown = !(t.ReadOnly || isExitNode) && (typeof value === "object");
+            return t.renderStateButton(stateID, withDropdown);
+        }
+        else if (col == 'name' && t.tablename == 'state') {
+            const stateID = parseInt(row['state_id']);
+            return t.renderStateButton(stateID, false, value);
+        }
+        else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.tablename == 'state_rules') {
+            const stateID = parseInt(value['state_id']);
+            return t.renderStateButton(stateID, false, value['name']);
+        }
+        const isHTML = t.Columns[col].is_virtual || t.Columns[col].field_type == 'htmleditor';
+        value = t.formatCell(col, value, isHTML);
+        return value;
     }
     htmlHeaders(colnames) {
         let t = this;
@@ -1042,7 +1095,7 @@ class Table extends RawTable {
             }
             sortedColumnNames.forEach(function (col) {
                 if (t.Columns[col].show_in_grid)
-                    data_string += '<td class="align-middle py-0 border-0">' + t.renderCell(row, col) + '</td>';
+                    data_string += '<td class="align-middle py-0 px-0 border-0">' + t.renderCell(row, col) + '</td>';
             });
             if (t.GUIOptions.showControlColumn) {
                 tds += `<tr class="datarow row-${row[t.PrimaryColumn] + (isSelected ? ' table-info' : '')}">${data_string}</tr>`;
@@ -1106,74 +1159,6 @@ class Table extends RawTable {
         <div class="clearfix"></div>
       </div>
     </div>`;
-    }
-    renderCell(row, col) {
-        let t = this;
-        let value = row[col];
-        if (!value)
-            return '&nbsp;';
-        if (t.Columns[col].field_type == 'date') {
-            let tmp = new Date(value);
-            if (!isNaN(tmp.getTime()))
-                value = tmp.toLocaleDateString('de-DE');
-            else
-                value = '';
-            return value;
-        }
-        else if (t.Columns[col].field_type == 'time') {
-            if (t.GUIOptions.smallestTimeUnitMins) {
-                let timeArr = value.split(':');
-                timeArr.pop();
-                value = timeArr.join(':');
-                return value;
-            }
-        }
-        else if (t.Columns[col].field_type == 'datetime') {
-            let tmp = new Date(value);
-            if (!isNaN(tmp.getTime())) {
-                value = tmp.toLocaleString('de-DE');
-                if (t.GUIOptions.smallestTimeUnitMins) {
-                    let timeArr = value.split(':');
-                    timeArr.pop();
-                    value = timeArr.join(':');
-                }
-            }
-            else
-                value = '';
-            return value;
-        }
-        else if (t.Columns[col].field_type == 'number') {
-            const number = parseInt(value);
-            return number.toLocaleString('de-DE');
-        }
-        else if (t.Columns[col].field_type == 'float') {
-            const number = parseFloat(value);
-            return number.toLocaleString('de-DE');
-        }
-        else if (t.Columns[col].field_type == 'switch' || t.Columns[col].field_type == 'checkbox') {
-            return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>';
-        }
-        else if (col == 'state_id' && t.tablename != 'state') {
-            let isExitNode = t.SM.isExitNode(value['state_id']);
-            const withDropdown = !(t.ReadOnly || isExitNode);
-            return t.renderStateButton(value['state_id'], value['name'], withDropdown);
-        }
-        else if ((t.tablename == 'state' && col == 'name') || (t.tablename == 'state_rules' && (col == 'state_id_FROM' || col == 'state_id_TO'))) {
-            let stateID = 0;
-            let text = '';
-            if ((typeof value === "object") && (value !== null)) {
-                stateID = parseInt(value['state_id']);
-                text = value['name'];
-            }
-            else {
-                stateID = parseInt(row['state_id']);
-                text = value;
-            }
-            return t.renderStateButton(stateID, text);
-        }
-        const isHTML = t.Columns[col].is_virtual || t.Columns[col].field_type == 'htmleditor';
-        value = t.formatCell(col, value, isHTML);
-        return value;
     }
     renderHeader() {
         let t = this;
