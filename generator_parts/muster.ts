@@ -57,8 +57,8 @@ abstract class DB {
     }
     // Set HTTP Method
     if (command == 'init') {
-      HTTPMethod = 'OPTIONS';
-    } 
+      HTTPMethod = 'GET';
+    }
     else if (command == 'create') {
       HTTPMethod = 'POST';
       HTTPBody = JSON.stringify(data);
@@ -1655,7 +1655,9 @@ class FormGenerator {
         } else {
           // -------- Object Table
           tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
-          tmpTable.renderHTML(tmpGUID);
+          tmpTable.loadRows(function(){
+            tmpTable.renderHTML(tmpGUID);
+          });
         }
         // Write Diffs
         tmpTable.setCustomFormCreateOptions(customFormCreate);

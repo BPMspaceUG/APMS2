@@ -58,7 +58,7 @@ class DB {
             data['paramJS'] = params;
         }
         if (command == 'init') {
-            HTTPMethod = 'OPTIONS';
+            HTTPMethod = 'GET';
         }
         else if (command == 'create') {
             HTTPMethod = 'POST';
@@ -1435,7 +1435,9 @@ class FormGenerator {
                 }
                 else {
                     tmpTable.setColumnFilter(hideCol, '' + OriginRowID);
-                    tmpTable.renderHTML(tmpGUID);
+                    tmpTable.loadRows(function () {
+                        tmpTable.renderHTML(tmpGUID);
+                    });
                 }
                 tmpTable.setCustomFormCreateOptions(customFormCreate);
             };

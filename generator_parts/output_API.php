@@ -2,19 +2,20 @@
   $param = null;
   $ReqMethod = $_SERVER['REQUEST_METHOD'];
   
-  // API Header
-  if ($ReqMethod === 'OPTIONS') {
-    header('Access-Control-Allow-Methods: POST, GET, DELETE, PUT, PATCH, OPTIONS');
-    header('Access-Control-Allow-Headers: token, Content-Type, Authorization, X-HTTP-Method-Override');
-    header('Access-Control-Max-Age: 3600');
-  }
+  //========================================= API Header
   header('Access-Control-Allow-Origin: *');
+  if ($ReqMethod === 'OPTIONS') {
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: token, Content-Type, Authorization, X-HTTP-Method-Override');
+    header('Access-Control-Max-Age: 1'); // seconds
+    exit();
+  }
   header('Content-Type: application/json; charset=utf-8');
-  //-----------------------------------------------------------------------------------
 
   // Includes
   require_once(__DIR__.'/src/AuthHandler.inc.php');
   include_once(__DIR__."/src/RequestHandler.inc.php");
+
   //========================================= Authentification
   // Check if authenticated via Token
   if (Config::getLoginSystemURL() != '') {
@@ -39,19 +40,19 @@
     // Has no token
     $token = null;
   }
-  //========================================= Parameter & Handling
-  $bodyData = json_decode(file_get_contents('php://input'), true);
-
-  try {    
+  //========================================= Parameter & Handling  
+  try {
+    $bodyData = json_decode(file_get_contents('php://input'), true);
     if ($ReqMethod === 'GET') {
       $command = 'read'; // or call
       $param = $_GET;
-    }
-    else if ($ReqMethod === 'OPTIONS') {
-      $command = 'init';
+      if (count($param) <= 0) {
+        $command = 'init';
+        $param = null;
+      }
     }
     else if ($ReqMethod === 'POST') {
-      $command = $bodyData["cmd"]; // TODO: --> create
+      $command = $bodyData["cmd"]; // TODO: --> create only
       $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
     }
     else if ($ReqMethod === 'PATCH') {
@@ -70,7 +71,7 @@
     die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
   }
 
-  // Handle the Requests
+  //========================= Handle the Requests
   if ($command != "") {
     $RH = new RequestHandler();
     if (!is_null($param)) // are there parameters?
@@ -80,4 +81,3 @@
     // Output result
     echo $result;
   }
-?>
