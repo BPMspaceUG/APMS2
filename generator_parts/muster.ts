@@ -625,8 +625,8 @@ class Table extends RawTable {
 
     let btns = '';
     let saveBtn = '';
-    const actStateID = Row.state_id['state_id'];
-    const actStateName = Row.state_id['name'];
+    const actStateID = Row.state_id;
+    const actStateName = t.SM.getStateNameById(actStateID);
     const cssClass = ' state' + actStateID;
     const nexstates = t.SM.getNextStates(actStateID);
 
@@ -708,11 +708,11 @@ class Table extends RawTable {
   }
   private setState(data: any, RowID: number, targetStateID: number, myModal: Modal, closeModal: boolean): void {
     let t = this;
-    let actState = undefined;
+    let actStateID = undefined;
     // Get Actual State
     for (const row of t.Rows) {
       if (row[t.PrimaryColumn] == RowID)
-        actState = row['state_id'];
+        actStateID = row['state_id'];
     }
     // REQUEST
     t.transitRow(RowID, targetStateID, data, function(response) {      
@@ -756,7 +756,7 @@ class Table extends RawTable {
         });
       }
       // GUI: Show all Script-Result Messages
-      let htmlStateFrom: string = t.renderStateButton(actState.state_id, false);
+      let htmlStateFrom: string = t.renderStateButton(actStateID, false);
       let htmlStateTo: string = t.renderStateButton(targetStateID, false);
       for (const msg of messages) {
         let tmplTitle = '';
@@ -1024,7 +1024,7 @@ class Table extends RawTable {
       let cols = [];
       Object.keys(cellContent).forEach(c => {
         // Add to displayed cols
-        if (showColumns == '*' || showColumns.indexOf(c) >= 0) {
+        if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
           let subCell = {}
           subCell[c] = cellContent[c];
           cols.push(subCell);
@@ -1033,7 +1033,7 @@ class Table extends RawTable {
       // Build content
       let content = '';
       const split = (100 * (1 / cols.length)).toFixed(0);
-      const firstEl = cols[0];
+      const firstEl = cellContent;
       cols.forEach(col => {
         const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
         content += '<td class="border-0" style="width: '+ split +'%">' + htmlCell + '</td>';
@@ -1102,11 +1102,11 @@ class Table extends RawTable {
       //--- BOOLEAN
       return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>'
     }
-    else if (col == 'state_id' && t.tablename != 'state') {
+    else if (t.Columns[col].field_type == 'state') {
       //--- Normal State-Buttons in normal Tables
-      const stateID = (typeof value === "object") ? value['state_id'] : value;
+      const stateID = value;
       const isExitNode = t.SM.isExitNode(stateID);
-      const withDropdown = !(t.ReadOnly || isExitNode) && (typeof value === "object");
+      const withDropdown = !(t.ReadOnly || isExitNode);
       return t.renderStateButton(stateID, withDropdown);
     }
     else if (col == 'name' && t.tablename == 'state') {
@@ -1425,7 +1425,7 @@ class Table extends RawTable {
           break;
         }
       }
-      const nextstates = t.SM.getNextStates(Row['state_id'].state_id);
+      const nextstates = t.SM.getNextStates(Row['state_id']);
       // Any Target States?
       if (nextstates.length > 0) {
         jQRow.find('.dropdown-menu').empty();
@@ -1461,11 +1461,13 @@ class Table extends RawTable {
   public async renderHTML(DOM_ID: string) {
     // GUI
     const content = this.getHeader() + await this.getContent() + this.getFooter();
-    document.getElementById(DOM_ID).innerHTML = content;
-
-    await this.renderHeader();
-    await this.renderContent();
-    await this.renderFooter();
+    const el = document.getElementById(DOM_ID);
+    if (el) {
+      el.innerHTML = content;
+      await this.renderHeader();
+      await this.renderContent();
+      await this.renderFooter();
+    }
   }
   //-------------------------------------------------- EVENTS
   public get SelectionHasChanged() {
@@ -1559,8 +1561,7 @@ class FormGenerator {
       result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
-          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this)"' : ''} data-tablename="${el.fk_table}"${
-            el.customfilter ? "data-customfilter='" + el.customfilter + "'" : ''}>
+          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table +'\', ' + ('' || el.customfilter) + ')"' : ''}>
             <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
             ${ el.mode_form == 'ro' ? '' :
               `<div class="input-group-append">
@@ -1615,14 +1616,13 @@ class FormGenerator {
           const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
           let ids = [];
 
-          console.log('Relation [', me.oTable.getTablename() ,']---------', extTablename ,'---------[', Tbl2.table ,']');
+          //console.log('Relation [', me.oTable.getTablename() ,']---------', extTablename ,'---------[', Tbl2.table ,']');
           
           for (const Row of tmpTable.getRows()) {
             ids.push(Row[colnamex][Tbl2.col_id]); // find all IDs from Table2
           }
           // In ids[] are now ALL IDs from Tbl2 which are already connected (state does not matter)
           const tt = tmpTable.getTableType();
-          console.log(tt, 'Filter this:', ids);
 
           if (tt == TableType.tn_1 || tt == TableType.t1_1) {
             ids = []; // Reset IDs
@@ -1885,18 +1885,15 @@ function recflattenObj(x) {
   }
 }
 //--- Expand foreign key
-function loadFKTable(btnElement): void {
-  let me = $(btnElement);
+function loadFKTable(element, tablename, customfilter): void {
   const randID = GUI.getID();
-  const FKTable = me.data('tablename'); // Extern Table
-  const CustomFilter = me.data('customfilter'); // Custom Filter
+  const hiddenInput = element.parentNode.parentNode.parentNode.getElementsByClassName('inputFK')[0];
+  const placeholderTable = element.parentNode.parentNode.parentNode.getElementsByClassName('external-table')[0];
+  placeholderTable.innerHTML = '<div id="' + randID + '"></div>';
+  hiddenInput.value = null;
 
-  let fkInput = me.parent().parent().parent().find('.inputFK');
-  fkInput.val(''); // Reset Selection
-  me.parent().parent().parent().find('.external-table').replaceWith('<div id="'+randID+'"></div>');
-  let tmpTable = new Table(FKTable, SelectType.Single);
-  // Set custom Filter
-  if (CustomFilter) tmpTable.setFilter(CustomFilter);
+  let tmpTable = new Table(tablename, SelectType.Single);
+  if (customfilter) tmpTable.setFilter(customfilter);
   // Load
   tmpTable.loadRows(async function(){
     await tmpTable.renderHTML(randID);
@@ -1905,7 +1902,7 @@ function loadFKTable(btnElement): void {
   });
   tmpTable.SelectionHasChanged.on(function(){
     const selRowID = tmpTable.getSelectedRowID();
-    if (selRowID) fkInput.val(selRowID); else fkInput.val("");
+    hiddenInput.value = '' || selRowID;
   })
 }
 function gEdit(tablename: string, RowID: number) {

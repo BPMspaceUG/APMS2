@@ -570,8 +570,8 @@ class Table extends RawTable {
         newForm.initEditors();
         let btns = '';
         let saveBtn = '';
-        const actStateID = Row.state_id['state_id'];
-        const actStateName = Row.state_id['name'];
+        const actStateID = Row.state_id;
+        const actStateName = t.SM.getStateNameById(actStateID);
         const cssClass = ' state' + actStateID;
         const nexstates = t.SM.getNextStates(actStateID);
         if (nexstates.length > 0) {
@@ -643,10 +643,10 @@ class Table extends RawTable {
     }
     setState(data, RowID, targetStateID, myModal, closeModal) {
         let t = this;
-        let actState = undefined;
+        let actStateID = undefined;
         for (const row of t.Rows) {
             if (row[t.PrimaryColumn] == RowID)
-                actState = row['state_id'];
+                actStateID = row['state_id'];
         }
         t.transitRow(RowID, targetStateID, data, function (response) {
             let counter = 0;
@@ -680,7 +680,7 @@ class Table extends RawTable {
                         myModal.close();
                 });
             }
-            let htmlStateFrom = t.renderStateButton(actState.state_id, false);
+            let htmlStateFrom = t.renderStateButton(actStateID, false);
             let htmlStateTo = t.renderStateButton(targetStateID, false);
             for (const msg of messages) {
                 let tmplTitle = '';
@@ -898,7 +898,7 @@ class Table extends RawTable {
             const fTable = new Table(fTablename);
             let cols = [];
             Object.keys(cellContent).forEach(c => {
-                if (showColumns == '*' || showColumns.indexOf(c) >= 0) {
+                if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
                     let subCell = {};
                     subCell[c] = cellContent[c];
                     cols.push(subCell);
@@ -906,7 +906,7 @@ class Table extends RawTable {
             });
             let content = '';
             const split = (100 * (1 / cols.length)).toFixed(0);
-            const firstEl = cols[0];
+            const firstEl = cellContent;
             cols.forEach(col => {
                 const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
                 content += '<td class="border-0" style="width: ' + split + '%">' + htmlCell + '</td>';
@@ -963,10 +963,10 @@ class Table extends RawTable {
         else if (t.Columns[col].field_type == 'switch' || t.Columns[col].field_type == 'checkbox') {
             return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>';
         }
-        else if (col == 'state_id' && t.tablename != 'state') {
-            const stateID = (typeof value === "object") ? value['state_id'] : value;
+        else if (t.Columns[col].field_type == 'state') {
+            const stateID = value;
             const isExitNode = t.SM.isExitNode(stateID);
-            const withDropdown = !(t.ReadOnly || isExitNode) && (typeof value === "object");
+            const withDropdown = !(t.ReadOnly || isExitNode);
             return t.renderStateButton(stateID, withDropdown);
         }
         else if (col == 'name' && t.tablename == 'state') {
@@ -1247,7 +1247,7 @@ class Table extends RawTable {
                         break;
                     }
                 }
-                const nextstates = t.SM.getNextStates(Row['state_id'].state_id);
+                const nextstates = t.SM.getNextStates(Row['state_id']);
                 if (nextstates.length > 0) {
                     jQRow.find('.dropdown-menu').empty();
                     let btns = '';
@@ -1280,10 +1280,13 @@ class Table extends RawTable {
     renderHTML(DOM_ID) {
         return __awaiter(this, void 0, void 0, function* () {
             const content = this.getHeader() + (yield this.getContent()) + this.getFooter();
-            document.getElementById(DOM_ID).innerHTML = content;
-            yield this.renderHeader();
-            yield this.renderContent();
-            yield this.renderFooter();
+            const el = document.getElementById(DOM_ID);
+            if (el) {
+                el.innerHTML = content;
+                yield this.renderHeader();
+                yield this.renderContent();
+                yield this.renderFooter();
+            }
         });
     }
     get SelectionHasChanged() {
@@ -1358,7 +1361,7 @@ class FormGenerator {
             result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
-          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this)"' : ''} data-tablename="${el.fk_table}"${el.customfilter ? "data-customfilter='" + el.customfilter + "'" : ''}>
+          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table + '\', ' + ('' || el.customfilter) + ')"' : ''}>
             <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
             ${el.mode_form == 'ro' ? '' :
                 `<div class="input-group-append">
@@ -1398,12 +1401,10 @@ class FormGenerator {
                 if (tmpTable.isRelationTable()) {
                     const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
                     let ids = [];
-                    console.log('Relation [', me.oTable.getTablename(), ']---------', extTablename, '---------[', Tbl2.table, ']');
                     for (const Row of tmpTable.getRows()) {
                         ids.push(Row[colnamex][Tbl2.col_id]);
                     }
                     const tt = tmpTable.getTableType();
-                    console.log(tt, 'Filter this:', ids);
                     if (tt == TableType.tn_1 || tt == TableType.t1_1) {
                         ids = [];
                     }
@@ -1627,17 +1628,15 @@ function recflattenObj(x) {
         return res;
     }
 }
-function loadFKTable(btnElement) {
-    let me = $(btnElement);
+function loadFKTable(element, tablename, customfilter) {
     const randID = GUI.getID();
-    const FKTable = me.data('tablename');
-    const CustomFilter = me.data('customfilter');
-    let fkInput = me.parent().parent().parent().find('.inputFK');
-    fkInput.val('');
-    me.parent().parent().parent().find('.external-table').replaceWith('<div id="' + randID + '"></div>');
-    let tmpTable = new Table(FKTable, SelectType.Single);
-    if (CustomFilter)
-        tmpTable.setFilter(CustomFilter);
+    const hiddenInput = element.parentNode.parentNode.parentNode.getElementsByClassName('inputFK')[0];
+    const placeholderTable = element.parentNode.parentNode.parentNode.getElementsByClassName('external-table')[0];
+    placeholderTable.innerHTML = '<div id="' + randID + '"></div>';
+    hiddenInput.value = null;
+    let tmpTable = new Table(tablename, SelectType.Single);
+    if (customfilter)
+        tmpTable.setFilter(customfilter);
     tmpTable.loadRows(function () {
         return __awaiter(this, void 0, void 0, function* () {
             yield tmpTable.renderHTML(randID);
@@ -1647,10 +1646,7 @@ function loadFKTable(btnElement) {
     });
     tmpTable.SelectionHasChanged.on(function () {
         const selRowID = tmpTable.getSelectedRowID();
-        if (selRowID)
-            fkInput.val(selRowID);
-        else
-            fkInput.val("");
+        hiddenInput.value = '' || selRowID;
     });
 }
 function gEdit(tablename, RowID) {

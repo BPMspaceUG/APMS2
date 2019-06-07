@@ -123,6 +123,7 @@
           //------------------------------------------------------
           // default Foreign Key Template
           $fk = array("table" => "", "col_id" => "", "col_subst" => "");
+
           // Pre-fill (default) values for Statemachine Tables
           if ($table == 'state' && $column_name == "statemachine_id") {
             $col_isFK = true;
@@ -136,14 +137,6 @@
             $col_isFK = true;
             $fk = array("table" => "state", "col_id" => "state_id", "col_subst" => "{\"name\": 1}");
           }
-          else if ($column_name == "state_id" && $table != 'state'){            
-            // every other state column
-            $col_isFK = true;
-            $fk = array("table" => "state", "col_id" => "state_id", "col_subst" => "name");
-          }
-          // Table Has StateMachine?
-          if ($column_name == "state_id" && $table != "state")
-            $TableHasStateMachine = true;
           // enrich column info
           /*------------------------------
                    C O L U M N S
@@ -151,6 +144,12 @@
           // Generate Beautiful alias
           $alias = beautifyName($column_name);
           $fieldtype = $col_isFK ? 'foreignkey' : getDefaultFieldType($col_datatype);
+          
+          // Table Has StateMachine? && Set special datatype
+          if ($column_name == "state_id" && $table != "state") {
+            $fieldtype = 'state';
+            $TableHasStateMachine = true;
+          }
 
           $additional_info = array(
             "column_alias" => $alias,
@@ -188,7 +187,6 @@
         $query = "SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME ".
           "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA = '$db' AND TABLE_NAME = '$table'";
         $resX = mysqli_query($con, $query);
-        //echo "Table: $table\n";
         while ($row = $resX->fetch_assoc()) {
           $colname = $row["COLUMN_NAME"];
           $fKeys[$colname] = array(
@@ -202,18 +200,21 @@
           foreach ($columns as $colname => $col) {
             // check if entry exists
             if (array_key_exists($colname, $fKeys)) {
+
               // Check if keys are empty
-              if (empty($columns[$colname]["foreignKey"]["table"])
+              if ($colname != 'state_id'
+              && empty($columns[$colname]["foreignKey"]["table"])
               && empty($columns[$colname]["foreignKey"]["col_id"])
               && empty($columns[$colname]["foreignKey"]["col_subst"])
               ) {
                 // Save Foreign Keys in existing Array
                 $columns[$colname]["foreignKey"]["table"] = $fKeys[$colname]["refeTable"];
                 $columns[$colname]["foreignKey"]["col_id"] = $fKeys[$colname]["colID"];
-                $columns[$colname]["foreignKey"]["col_subst"] = $fKeys[$colname]["colID"];
+                $columns[$colname]["foreignKey"]["col_subst"] = '*'; //$fKeys[$colname]["colID"];
                 // Set field type to foreign-key
                 $columns[$colname]["field_type"] = 'foreignkey';
               }
+              
             }
           }
         }
@@ -239,6 +240,3 @@
     // Output
     return $res;
   }
-
-  // Close Connection
-  //$con->close();
