@@ -344,8 +344,9 @@ class StateMachine {
     this.myStates.forEach(el => {
       if (StateID == el.id && el.form_data) {
         const strForm = el.form_data.trim();
-        if (strForm != '')
+        if (strForm != '') {
           result = JSON.parse(strForm);
+        }
       }
     });
     return result;
@@ -607,9 +608,13 @@ class Table extends RawTable {
     //--- Overwrite and merge the differences from diffObject
     let defaultFormObj = t.getDefaultFormObject();
     let newObj = mergeDeep({}, defaultFormObj, diffObject);
+    // Set default values
     for (const key of Object.keys(Row)) {
       newObj[key].value = Row[key];
     }
+
+    console.log('roffle', diffObject);
+
     // create Modal if not exists
     const TableAlias = 'in '+this.getTableIcon()+' ' + this.getTableAlias();
     const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+RowID+')</span><span class="text-muted ml-3">'+ TableAlias +'</span>';
@@ -927,7 +932,8 @@ class Table extends RawTable {
       // Set Form
       if (me.SM) {
         //-------- EDIT-Modal WITH StateMachine
-        const diffJSON = me.SM.getFormDiffByState(TheRow.state_id.state_id);
+        const diffJSON = me.SM.getFormDiffByState(TheRow.state_id);
+        console.log(7238946, diffJSON);
         me.renderEditForm(TheRow, diffJSON, ExistingModal);
       }
       else {
@@ -1427,7 +1433,7 @@ class Table extends RawTable {
       }
       const nextstates = t.SM.getNextStates(Row['state_id']);
       // Any Target States?
-      if (nextstates.length > 0) {
+      if (nextstates.length > 0) {        
         jQRow.find('.dropdown-menu').empty();
         let btns = '';
         nextstates.map(state => {

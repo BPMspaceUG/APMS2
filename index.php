@@ -16,12 +16,6 @@
 		    <div class="col-sm-3">
 		      <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer" value='{{sqlServer}}'>
 		    </div>
-        <!--
-		    <label for="sqlPort" class="col-sm-1 form-control-label">Port</label>
-		    <div class="col-sm-1">
-		      <input type="number" autocomplete="off" class="form-control form-control-sm" name="port" id="sqlPort" ng-model="sqlPort" value={{sqlPort}}>
-		    </div>
-        -->
 		    <label for="username" class="col-sm-1 mt-1 form-control-label">Username</label>
 		    <div class="col-sm-2">
 		        <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" value='{{username}}'>
@@ -30,8 +24,8 @@
 		    <div class="col-sm-2">
 		      <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw" value='{{pw}}'>
 		    </div>
-        <div class="col-sm-1">
-		      <button id="" type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()">Connect</button>
+        <div class="col-sm-2">
+		      <button type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()"><i class="fas fa-plug"></i> Connect</button>
 		    </div>
 		  </div>
 			</form>
@@ -66,45 +60,13 @@
         </div>
 
         <div ng-if="DBhasBeenLoaded ">
-
-          <!-- Load Config -->
-          <!--
-          <div class="card mb-3">
-            <div class="card-header">
-              <span class="badge badge-warning text-white mr-2">Optional</span> Load Configuration
-            </div>
-            <div class="card-body">
-              <div class="row mb-0">
-                <div class="col-6">
-                  <p><strong>[1] Automatically load config</strong></p>
-                  <button ng-disabled="!DBhasBeenLoaded || isLoading" class="btn btn-outline-secondary" ng-click="loadConfigByName()"><i class="fa fa-search"></i> Look for last config</button>
-                </div>
-                <div class="col-6">
-                  <p><strong>[2] Manually load config</strong></p>
-                  <textarea class="form-control configtxt" ng-model="configtext" placeholder="Paste Content of the Config-File here"></textarea>
-                  <button ng-disabled="configtext.length == 0" class="btn btn-outline-secondary mt-1" ng-click="loadconfig(configtext)">
-                    <i class="fa fa-arrow-right"></i> Parse and Load configuration file
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card-footer text-center font-weight-bold">
-              <p class="m-0 p-0">
-                &nbsp;
-                <span class="text-danger" ng-if="configFileWasNotFound"><i class="fa fa-times"></i> Error when loading Configuration</span>
-                <span class="text-success" ng-if="configFileWasFound"><i class="fa fa-check"></i> Configuration loaded successfully</span>
-              </p>
-            </div>
-          </div>
-          -->
-
           <!-- Content of Databases -->        
           <div class="card mb-3">
             <div class="card-header">
               <span class="badge badge-success mr-2">2</span>Configuration
             </div>
             <div class="card-body">
-
+            
               <h6 class="mb-3">
                 <span class="text-primary mr-3">{{ dbNames.model }}</span>
                 <span class="text-muted">{{cntTables() + ' Table' + (cntTables() != 1 ? 's' : '')}}</span>

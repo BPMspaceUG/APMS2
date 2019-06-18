@@ -321,8 +321,9 @@ class StateMachine {
         this.myStates.forEach(el => {
             if (StateID == el.id && el.form_data) {
                 const strForm = el.form_data.trim();
-                if (strForm != '')
+                if (strForm != '') {
                     result = JSON.parse(strForm);
+                }
             }
         });
         return result;
@@ -559,6 +560,7 @@ class Table extends RawTable {
         for (const key of Object.keys(Row)) {
             newObj[key].value = Row[key];
         }
+        console.log('roffle', diffObject);
         const TableAlias = 'in ' + this.getTableIcon() + ' ' + this.getTableAlias();
         const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">(' + RowID + ')</span><span class="text-muted ml-3">' + TableAlias + '</span>';
         let M = ExistingModal || new Modal(ModalTitle, '', '', true);
@@ -818,7 +820,8 @@ class Table extends RawTable {
             this.Rows.forEach(row => { if (row[me.PrimaryColumn] == id)
                 TheRow = row; });
             if (me.SM) {
-                const diffJSON = me.SM.getFormDiffByState(TheRow.state_id.state_id);
+                const diffJSON = me.SM.getFormDiffByState(TheRow.state_id);
+                console.log(7238946, diffJSON);
                 me.renderEditForm(TheRow, diffJSON, ExistingModal);
             }
             else {
