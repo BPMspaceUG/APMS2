@@ -206,7 +206,7 @@ class Modal {
       for (const el of btns) { el.removeAttribute('disabled'); };
       for (const el of selects) { el.removeAttribute('disabled'); };
     }
-  }
+  }  
 }
 //==============================================================
 // Class: StateMachine !JQ
@@ -827,6 +827,7 @@ class Table extends RawTable {
         const reOpenModal = btn.classList.contains('andReopen');
         //---> CREATE
         me.createRow(data, function(r){
+          M.setLoadingState(false);
           //---> created          
           let msgs = r;
           // Handle Transition Feedback
@@ -835,7 +836,7 @@ class Table extends RawTable {
             // Show Message
             if (msg.show_message) {
               const stateEntry = msg['_entry-point-state'];
-              const stateTo = me.renderStateButton(stateEntry['id'], stateEntry['name']);
+              const stateTo = me.renderStateButton(stateEntry['id'], false);
               let tmplTitle = '';
               if (counter == 0) tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
               if (counter == 1) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>`;
@@ -850,7 +851,6 @@ class Table extends RawTable {
                 console.info('Element created! ID:', msg.element_id);
                 // load rows and render Table
                 me.loadRows(function(){
-                  M.setLoadingState(false);
                   me.renderContent();
                   me.renderFooter();
                   me.renderHeader();
@@ -1569,7 +1569,6 @@ class FormGenerator {
           v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
         }
       }
-
 
       result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">

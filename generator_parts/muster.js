@@ -736,12 +736,13 @@ class Table extends RawTable {
                 let data = fCreate.getValues();
                 const reOpenModal = btn.classList.contains('andReopen');
                 me.createRow(data, function (r) {
+                    M.setLoadingState(false);
                     let msgs = r;
                     let counter = 0;
                     msgs.forEach(msg => {
                         if (msg.show_message) {
                             const stateEntry = msg['_entry-point-state'];
-                            const stateTo = me.renderStateButton(stateEntry['id'], stateEntry['name']);
+                            const stateTo = me.renderStateButton(stateEntry['id'], false);
                             let tmplTitle = '';
                             if (counter == 0)
                                 tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
@@ -755,7 +756,6 @@ class Table extends RawTable {
                             if (msg.element_id > 0) {
                                 console.info('Element created! ID:', msg.element_id);
                                 me.loadRows(function () {
-                                    M.setLoadingState(false);
                                     me.renderContent();
                                     me.renderFooter();
                                     me.renderHeader();
