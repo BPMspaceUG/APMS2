@@ -613,8 +613,6 @@ class Table extends RawTable {
       newObj[key].value = Row[key];
     }
 
-    console.log('roffle', diffObject);
-
     // create Modal if not exists
     const TableAlias = 'in '+this.getTableIcon()+' ' + this.getTableAlias();
     const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+RowID+')</span><span class="text-muted ml-3">'+ TableAlias +'</span>';
@@ -857,9 +855,8 @@ class Table extends RawTable {
                   me.renderFooter();
                   me.renderHeader();
                   me.onEntriesModified.trigger();
-                  // Reopen Modal
+                  // Reopen Modal => Modal should stay open
                   if (reOpenModal) {
-                    //console.log("Modal should stay open");
                     me.modifyRow(msg.element_id, M);
                   }
                   else
@@ -923,7 +920,7 @@ class Table extends RawTable {
       //------------------------------------ NO SELECT / EDITABLE / READ-ONLY
       // Exit if it is a ReadOnly Table
       if (me.ReadOnly) {
-        alert('The Table "'+me.tablename+'" is read-only!');
+        alert("Can not modify!\nTable \"" + me.tablename + "\" is read-only!");
         return
       }
       // Get Row
@@ -933,7 +930,6 @@ class Table extends RawTable {
       if (me.SM) {
         //-------- EDIT-Modal WITH StateMachine
         const diffJSON = me.SM.getFormDiffByState(TheRow.state_id);
-        console.log(7238946, diffJSON);
         me.renderEditForm(TheRow, diffJSON, ExistingModal);
       }
       else {
@@ -947,6 +943,10 @@ class Table extends RawTable {
           FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
         }
         const guid = (ExistingModal) ? ExistingModal.getDOMID() : null;
+        // Set default values
+        for (const key of Object.keys(TheRow)) {
+          FormObj[key].value = TheRow[key];
+        }
         const fModify = new FormGenerator(me, id, FormObj, guid);
         const M: Modal = ExistingModal || new Modal('', '', '', true);
         M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
@@ -1010,6 +1010,20 @@ class Table extends RawTable {
       return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
     }
   }
+  private formatCellFK(colname: string, cellData: any) {
+    const showColumns = this.Columns[colname].foreignKey.col_subst;      
+    // Loop external Table
+    let cols = [];
+    Object.keys(cellData).forEach(c => {
+      // Add to displayed cols
+      if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
+        let subCell = {}
+        subCell[c] = cellData[c];
+        cols.push(subCell);
+      }
+    })
+    return cols;
+  }
   private formatCell(colname: string, cellContent: any, isHTML: boolean = false): string {
     if (isHTML) return cellContent;
     // check cell type
@@ -1022,24 +1036,13 @@ class Table extends RawTable {
       //-----------------------
       // Foreign Key
       //-----------------------
-      const fTablename = this.Columns[colname].foreignKey.table;
-      const showColumns = this.Columns[colname].foreignKey.col_subst;
-      const fTable = new Table(fTablename);
-
-      // Loop external Table
-      let cols = [];
-      Object.keys(cellContent).forEach(c => {
-        // Add to displayed cols
-        if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
-          let subCell = {}
-          subCell[c] = cellContent[c];
-          cols.push(subCell);
-        }
-      })
+      let cols = this.formatCellFK(colname, cellContent);
       // Build content
       let content = '';
       const split = (100 * (1 / cols.length)).toFixed(0);
       const firstEl = cellContent;
+      const fTablename = this.Columns[colname].foreignKey.table;
+      const fTable = new Table(fTablename);
       cols.forEach(col => {
         const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
         content += '<td class="border-0" style="width: '+ split +'%">' + htmlCell + '</td>';
@@ -1556,14 +1559,18 @@ class FormGenerator {
       // Concat value if is object
       let ID = 0;
       const x = el.value;
+
       if (x){
         ID = x
         if (isObject(x)) {
           ID = x[Object.keys(x)[0]];
           const vals = recflattenObj(x);
-          el.value = vals.join(' | ');
+          v = vals.join(' | ');
+          v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
         }
       }
+
+
       result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">

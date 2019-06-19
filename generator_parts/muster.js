@@ -560,7 +560,6 @@ class Table extends RawTable {
         for (const key of Object.keys(Row)) {
             newObj[key].value = Row[key];
         }
-        console.log('roffle', diffObject);
         const TableAlias = 'in ' + this.getTableIcon() + ' ' + this.getTableAlias();
         const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">(' + RowID + ')</span><span class="text-muted ml-3">' + TableAlias + '</span>';
         let M = ExistingModal || new Modal(ModalTitle, '', '', true);
@@ -813,7 +812,7 @@ class Table extends RawTable {
         }
         else {
             if (me.ReadOnly) {
-                alert('The Table "' + me.tablename + '" is read-only!');
+                alert("Can not modify!\nTable \"" + me.tablename + "\" is read-only!");
                 return;
             }
             let TheRow = null;
@@ -821,7 +820,6 @@ class Table extends RawTable {
                 TheRow = row; });
             if (me.SM) {
                 const diffJSON = me.SM.getFormDiffByState(TheRow.state_id);
-                console.log(7238946, diffJSON);
                 me.renderEditForm(TheRow, diffJSON, ExistingModal);
             }
             else {
@@ -833,6 +831,9 @@ class Table extends RawTable {
                     FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
                 }
                 const guid = (ExistingModal) ? ExistingModal.getDOMID() : null;
+                for (const key of Object.keys(TheRow)) {
+                    FormObj[key].value = TheRow[key];
+                }
                 const fModify = new FormGenerator(me, id, FormObj, guid);
                 const M = ExistingModal || new Modal('', '', '', true);
                 M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
@@ -888,6 +889,18 @@ class Table extends RawTable {
             return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
         }
     }
+    formatCellFK(colname, cellData) {
+        const showColumns = this.Columns[colname].foreignKey.col_subst;
+        let cols = [];
+        Object.keys(cellData).forEach(c => {
+            if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
+                let subCell = {};
+                subCell[c] = cellData[c];
+                cols.push(subCell);
+            }
+        });
+        return cols;
+    }
     formatCell(colname, cellContent, isHTML = false) {
         if (isHTML)
             return cellContent;
@@ -896,20 +909,12 @@ class Table extends RawTable {
                 return escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
         }
         else if ((typeof cellContent === "object") && (cellContent !== null)) {
-            const fTablename = this.Columns[colname].foreignKey.table;
-            const showColumns = this.Columns[colname].foreignKey.col_subst;
-            const fTable = new Table(fTablename);
-            let cols = [];
-            Object.keys(cellContent).forEach(c => {
-                if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
-                    let subCell = {};
-                    subCell[c] = cellContent[c];
-                    cols.push(subCell);
-                }
-            });
+            let cols = this.formatCellFK(colname, cellContent);
             let content = '';
             const split = (100 * (1 / cols.length)).toFixed(0);
             const firstEl = cellContent;
+            const fTablename = this.Columns[colname].foreignKey.table;
+            const fTable = new Table(fTablename);
             cols.forEach(col => {
                 const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
                 content += '<td class="border-0" style="width: ' + split + '%">' + htmlCell + '</td>';
@@ -1358,7 +1363,8 @@ class FormGenerator {
                 if (isObject(x)) {
                     ID = x[Object.keys(x)[0]];
                     const vals = recflattenObj(x);
-                    el.value = vals.join(' | ');
+                    v = vals.join(' | ');
+                    v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
                 }
             }
             result += `
