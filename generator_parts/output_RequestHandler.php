@@ -39,6 +39,8 @@
     $verboseLog = stream_get_contents($verbose);
     return $result;
   }
+
+
   function fmtError($errormessage) {
     return json_encode(['error' => ['msg' => $errormessage]]);
   }
@@ -278,18 +280,25 @@
     // [OPTIONS]
     private function inititalizeTable($tablename) {
       // Init Vars
-      $pdo = DB::getInstance()->getConnection();
-      $SE = new StateMachine($pdo, $tablename);
-      $param = ["table" => $tablename];
-      // TODO: If Table = hidden then return
-      // TODO: If Table = readonly then exclude formcreate      
-      // ---- Structure
+      $pdo = DB::getInstance()->getConnection();      
+      $param = ["table" => $tablename];      
       $config = json_decode(Config::getConfig(), true);
-      $result = [];
-      $result['config'] = $config[$tablename];
-      $result['formcreate'] = $this->getFormCreate($param);
-      $result['sm_states'] = $SE->getStates();
-      $result['sm_rules'] = $SE->getLinks();
+      $result = null;
+      // Check if not hidden
+      if ($config[$tablename]["mode"] != "hi") {
+        $result = [];
+        $result['config'] = $config[$tablename];
+        // If Table = readonly then exclude formcreate
+        if ($config[$tablename]["mode"] != "ro") {
+          $result['formcreate'] = $this->getFormCreate($param);
+        }
+        // StateMachine
+        $SE = new StateMachine($pdo, $tablename);
+        if ($SE->getID() > 0) {
+          $result['sm_states'] = $SE->getStates();
+          $result['sm_rules'] = $SE->getLinks();
+        }
+      }
       return $result;
     }
     public function init($param = null) {
@@ -299,8 +308,9 @@
         $conf = json_decode(Config::getConfig(), true);
         $result = [];
         foreach ($conf as $tablename => $t) {
-          //echo $tablename;
-          $result[$tablename] = $this->inititalizeTable($tablename);
+          $x = $this->inititalizeTable($tablename);
+          if (!is_null($x))
+            $result[$tablename] = $x;
         }
       } else {
         // Check Parameter

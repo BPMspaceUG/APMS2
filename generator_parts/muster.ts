@@ -473,7 +473,7 @@ class RawTable {
 // Class: Table
 //==============================================================
 class Table extends RawTable {
-  private TableConfig: any;
+  private Config: any;
   private GUID: string;
   private SM: StateMachine = null;
   private isExpanded: boolean = true;
@@ -516,14 +516,15 @@ class Table extends RawTable {
     me.OrderBy = '';
     // Save Form Data
     let resp = JSON.parse(JSON.stringify(DB.Config[tablename])); // Deep Copy!
-    me.TableConfig = resp['config'];
-    me.diffFormCreateObject = JSON.parse(resp['formcreate']);
-    me.Columns = me.TableConfig.columns;
-    me.ReadOnly = me.TableConfig.mode == 'ro';
-    me.TableType = me.TableConfig.table_type;
-    // Initialize StateMachine for the Table
-    if (me.TableConfig['se_active'])
-      me.SM = new StateMachine(me, resp['sm_states'], resp['sm_rules']);
+    me.Config = resp['config'];
+
+    me.Columns = me.Config.columns;
+    me.ReadOnly = (me.Config.mode == 'ro');
+    me.TableType = me.Config.table_type;
+
+    if (!me.ReadOnly) me.diffFormCreateObject = JSON.parse(resp['formcreate']);      
+    if (me.Config.se_active) me.SM = new StateMachine(me, resp['sm_states'], resp['sm_rules']);
+
     // check if is ReadOnly and NoSelect then hide first column
     if (me.ReadOnly && me.selType == SelectType.NoSelect)
       me.GUIOptions.showControlColumn = false;
@@ -546,10 +547,10 @@ class Table extends RawTable {
     return this.PrimaryColumn;
   }
   public getTableIcon(): string {
-    return this.TableConfig.table_icon;
+    return this.Config.table_icon;
   }
   public getTableAlias(): string {
-    return this.TableConfig.table_alias;
+    return this.Config.table_alias;
   }
   private toggleSort(ColumnName: string): void {
     let me = this;
@@ -1042,11 +1043,15 @@ class Table extends RawTable {
       const split = (100 * (1 / cols.length)).toFixed(0);
       const firstEl = cellContent;
       const fTablename = this.Columns[colname].foreignKey.table;
-      const fTable = new Table(fTablename);
+
+      // TODO: Check if Table exists in config
+      //const fTable = new Table(fTablename);
       cols.forEach(col => {
-        const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
+        //const htmlCell = this.renderCell(col, Object.keys(col)[0]);
+        const htmlCell = col; //recflattenObj(col);
         content += '<td class="border-0" style="width: '+ split +'%">' + htmlCell + '</td>';
       });
+
       // Add Edit Button Prefix
       content = '<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle" \
         onclick="gEdit(\''+fTablename+'\', '+ firstEl[Object.keys(firstEl)[0]] +')"><i class="far fa-edit"></i></td>' + content;

@@ -466,12 +466,13 @@ class Table extends RawTable {
         me.tablename = tablename;
         me.OrderBy = '';
         let resp = JSON.parse(JSON.stringify(DB.Config[tablename]));
-        me.TableConfig = resp['config'];
-        me.diffFormCreateObject = JSON.parse(resp['formcreate']);
-        me.Columns = me.TableConfig.columns;
-        me.ReadOnly = me.TableConfig.mode == 'ro';
-        me.TableType = me.TableConfig.table_type;
-        if (me.TableConfig['se_active'])
+        me.Config = resp['config'];
+        me.Columns = me.Config.columns;
+        me.ReadOnly = (me.Config.mode == 'ro');
+        me.TableType = me.Config.table_type;
+        if (!me.ReadOnly)
+            me.diffFormCreateObject = JSON.parse(resp['formcreate']);
+        if (me.Config.se_active)
             me.SM = new StateMachine(me, resp['sm_states'], resp['sm_rules']);
         if (me.ReadOnly && me.selType == SelectType.NoSelect)
             me.GUIOptions.showControlColumn = false;
@@ -495,10 +496,10 @@ class Table extends RawTable {
         return this.PrimaryColumn;
     }
     getTableIcon() {
-        return this.TableConfig.table_icon;
+        return this.Config.table_icon;
     }
     getTableAlias() {
-        return this.TableConfig.table_alias;
+        return this.Config.table_alias;
     }
     toggleSort(ColumnName) {
         let me = this;
@@ -914,9 +915,8 @@ class Table extends RawTable {
             const split = (100 * (1 / cols.length)).toFixed(0);
             const firstEl = cellContent;
             const fTablename = this.Columns[colname].foreignKey.table;
-            const fTable = new Table(fTablename);
             cols.forEach(col => {
-                const htmlCell = fTable.renderCell(col, Object.keys(col)[0]);
+                const htmlCell = col;
                 content += '<td class="border-0" style="width: ' + split + '%">' + htmlCell + '</td>';
             });
             content = '<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle" \

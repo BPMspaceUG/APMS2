@@ -63,34 +63,17 @@
   define('DB_NAME', $db_name);
   define('DB_USER', $db_user);
   define('DB_PASS', $db_pass);
+
   require_once("output_DatabaseHandler.php");
-
-  /* ------------------------------------- Statemachine ------------------------------------- */
-
   require_once("output_StateEngine.php");
   require_once("output_RequestHandler.php");
   require_once("output_AuthHandler.php");
-  // Loop each Table with StateMachine checked create a StateMachine Column
 
+  /* ------------------------------------- Statemachine ------------------------------------- */
+  // Loop each Table with StateMachine checked create a StateMachine Column
   // -------------------- FormData --------------------
-  $content_tabs = '';
-  $content_tabpanels = '';  
-  $content_jsObjects = '';
   $content_css_statecolors = '';
   
-  // Add Pseudo Element for Dashboard
-  $content_tabs .= "            ".
-  "<li class=\"nav-item\">
-    <a class=\"nav-link active\" href=\"#dashboard\" data-toggle=\"tab\">
-      <i class=\"fas fa-tachometer-alt\"></i><span class=\"table_alias ml-2\">Dashboard</span>
-    </a>
-  </li>\n";
-  // Add Pseudo Element for Dashboard
-  $content_tabpanels .= "            ".
-    "<div role=\"tabpanel\" class=\"tab-pane show active\" id=\"dashboard\">".
-    "  <div id=\"dashboardcontent\"></div>".
-    "</div>\n";
-
   // Database Connection
   $con = DB::getInstance()->getConnection();  
   //--------------------------------- create RoleManagement
@@ -120,19 +103,16 @@
       // ForeignKeys
       $sql = 'ALTER TABLE `Role_LIAMUSER` ADD INDEX `Role_id_fk` (`Role_id`)';
       $queries .= "\n$sql\n\n";
-      $con->exec($sql);
-      
+      $con->exec($sql);      
       $sql = 'ALTER TABLE `Role_LIAMUSER` ADD CONSTRAINT `Role_id_fk` FOREIGN KEY (`Role_id`) REFERENCES `Role` (`Role_id`) ON DELETE NO ACTION ON UPDATE NO ACTION';
       $queries .= "\n$sql\n\n";
       $con->exec($sql);
 
       // Insert default Roles
-      $randomID = rand(1000, 10000);
-      
+      $randomID = rand(1000, 10000);      
       $sql = 'INSERT INTO Role (Role_id, Role_name) VALUES ('.$randomID.', \'Administrator\')';
       $queries .= "\n$sql\n\n";
-      $con->exec($sql);
-      
+      $con->exec($sql);      
       $sql = 'INSERT INTO Role (Role_name) VALUES (\'User\')';
       $con->exec($sql);
       $queries .= "\n$sql\n\n";
@@ -160,29 +140,11 @@
   }  
   //---------------------------------
 
-
-
   foreach ($data as $table) {
     // Get Data
     $tablename = $table["table_name"];
     $se_active = (bool)$table["se_active"];
     $table_type = $table["table_type"];
-
-    //--- Create HTML Content TODO: REMOVE!! --> generate dynamically in muster.js
-    if ($table["mode"] != 'hi') {
-      // Tabs
-      $content_tabs .= "            ".
-        "<li class=\"nav-item\">
-          <a class=\"nav-link\" href=\"#$tablename\" data-toggle=\"tab\">
-            ".$table["table_icon"]."<span class=\"table_alias ml-2\">".$table["table_alias"]."</span>
-          </a>
-        </li>\n";
-      // TabPanes
-      $content_tabpanels .= "            ".
-        "<div role=\"tabpanel\" class=\"tab-pane\" id=\"$tablename\">".
-        "<div id=\"table_$tablename\"></div></div>\n";
-    }
-    //---/Create HTML Content
 
     // TODO: Check if the "table" is no view
 
@@ -331,15 +293,10 @@
   $output_content = loadFile("./output_content.html");
   $output_footer = loadFile("./output_footer.html");
 
-  // Replace Names
-  $content_tabs = substr($content_tabs, 0, -1); // (Remove last \n)
-  $content_tabpanels = substr($content_tabpanels, 0, -1); // (Remove last \n)
   //  ------------------- Insert Code into Templates
   $output_DBHandler = str_replace('replaceDBName', $db_name, $output_DBHandler); // For Config-Include
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
-  $output_content = str_replace('<!--###TABS###-->', $content_tabs, $output_content); // Tabs (Headers on Top)
-  $output_content = str_replace('<!--###TAB_PANELS###-->', $content_tabpanels, $output_content); // Tabs (Panels)
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
   $output_content = str_replace('<!-- replaceAccountHandler -->', $AccountHandler, $output_content); // Account-URL
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
@@ -404,7 +361,7 @@
     // JavaScript
     createFile($project_dir."/js/main.js", $output_JS);
     if (!file_exists($project_dir."/js/custom.js"))
-      createFile($project_dir."/js/custom.js", "// Custom JS\ndocument.getElementById('dashboardcontent').innerHTML = '<h1>Dashboard</h1>';");
+      createFile($project_dir."/js/custom.js", "// Custom JS\ndocument.getElementById('dashboardcontent').innerHTML = '<h1>Dashboard</h1><p class=\"text-muted\">Change this in custom.js</p>';");
     // Styles
     createFile($project_dir."/css/main.css", $output_css);
     if (!file_exists($project_dir."/css/custom.css"))
@@ -426,6 +383,8 @@
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       createFile($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
+
+
 
     // Create Entrypoint (index)
     if ($redirectToLoginURL) {

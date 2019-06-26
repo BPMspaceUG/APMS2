@@ -14,21 +14,31 @@
   <!-- JS -->
   <script src="js/main.js"></script>
   <script>
-    $(document).ready(function() {
-      DB.API_URL = 'api.php';
+    document.addEventListener('DOMContentLoaded', function(){
+      DB.API_URL = 'api.php'; // TODO: Use the API from Config-File
       // Create objects
       DB.loadConfig(function(config){
         Object.keys(config).forEach(tablename => {
+
+          const icon = config[tablename].config.table_icon;
+          const alias = config[tablename].config.table_alias;
+          const html_TabHead = `<li class="nav-item"><a class="nav-link" href="#${tablename}" data-toggle="tab">${icon}<span class="table_alias ml-2">${alias}</span></a></li>`;
+          const html_TabPane = `<div role="tabpanel" class="tab-pane" id="${tablename}"><div id="table_${tablename}"></div></div>`;
+
+          // Add GUI Elements
+          document.getElementById('tab-headers').innerHTML += html_TabHead;
+          document.getElementById('tab-panels').innerHTML += html_TabPane;
+
           let tmp = new Table(tablename, 0);
           tmp.GUIOptions.showWorkflowButton = true;
           tmp.loadRows(function(){
             tmp.renderHTML('table_'+tablename);
           })
         });
+        // Loading disable
+        $('.initloadingtext').hide();
+        $('.mainapp').show();
       });
-      // Loading disable
-      $('.initloadingtext').hide();
-      $('.mainapp').show();
     });
   </script>
   <script src="js/custom.js"></script>

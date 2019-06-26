@@ -14,13 +14,21 @@
     </div>
     <div class="card mainapp collapse border-0">
       <div class="card-header">
-        <ul class="nav nav-tabs card-header-tabs">
-          <!--###TABS###-->
+        <ul class="nav nav-tabs card-header-tabs" id="tab-headers">
+          <!-- Dashboard -->
+          <li class="nav-item">
+            <a class="nav-link active" href="#dashboard" data-toggle="tab">
+              <i class="fas fa-tachometer-alt"></i><span class="table_alias ml-2">Dashboard</span>
+            </a>
+          </li>
         </ul>
       </div>
       <div class="card-body">
-        <div class="tab-content">
-          <!--###TAB_PANELS###-->
+        <div class="tab-content" id="tab-panels">
+          <!-- Dashboard -->
+          <div role="tabpanel" class="tab-pane show active" id="dashboard">
+            <div id="dashboardcontent"></div>
+          </div>
         </div>
       </div>
     </div>
