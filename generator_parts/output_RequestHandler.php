@@ -273,29 +273,20 @@
         $histStmt = $pdo->prepare($sql);
         $histStmt->execute([$token_uid, $tablename, json_encode($value), ($isCreate ? "1" : "0")]);
       }
-    }
-
-    //=======================================================
- 
+    }  
     private function inititalizeTable($tablename) {
       // Init Vars
-      $pdo = DB::getInstance()->getConnection();      
+      $pdo = DB::getInstance()->getConnection();
       $param = ["table" => $tablename];
       $config = json_decode(Config::getConfig(), true);
-      $result = null;
-      // Check if not hidden
-      if ($config[$tablename]["mode"] != "hi") {
-        $result = $config[$tablename];
-        // If Table = readonly then exclude formcreate
-        if ($config[$tablename]["mode"] != "ro") {
-          $result['formcreate'] = $this->getFormCreate($param);
-        }
-        // StateMachine
-        $SE = new StateMachine($pdo, $tablename);
-        if ($SE->getID() > 0) {
-          $result['sm_states'] = $SE->getStates();
-          $result['sm_rules'] = $SE->getLinks();
-        }
+      $result = $config[$tablename];
+      // FormCreate
+      $result['formcreate'] = $this->getFormCreate($param);
+      // StateMachine
+      $SE = new StateMachine($pdo, $tablename);
+      if ($SE->getID() > 0) {
+        $result['sm_states'] = $SE->getStates();
+        $result['sm_rules'] = $SE->getLinks();
       }
       return $result;
     }
@@ -371,34 +362,40 @@
       // Deliver
       return $result;
     }
-
+    //=======================================================
     // [GET] Reading
     //----->
-    public function init($param = null) {
-      $tablename = $param["table"];      
-      if (is_null($param) && empty($tablename)) {
-        // Read all Tables
-        $conf = json_decode(Config::getConfig(), true);
-        $result = [];
-        foreach ($conf as $tablename => $t) {
-          $x = $this->inititalizeTable($tablename);
-          if (!is_null($x))
-            $result[$tablename] = $x;
-        }
-      }
-      else {
-        // Init a single Table
-        if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
-        if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-        $result = $this->inititalizeTable($tablename);
-      }
-      // Append Token Information
+    public function init() {
       global $token;
-      $res = [
-        "user" => $token,
-        "tables" => $result
-      ];
-      // Output
+
+      // Collect ALL Tables!
+      $conf = json_decode(Config::getConfig(), true);
+      $result = [];
+      foreach ($conf as $tablename => $t) {
+        $x = $this->inititalizeTable($tablename);
+        if (!is_null($x)) $result[$tablename] = $x;
+      }
+
+      // Merge ConfigStd and ConfigRole and overwrite the Std.
+      $roleConf = [];
+      $query = "SELECT ConfigDiff FROM role AS r JOIN role_liamuser AS rl ON r.role_id = rl.role_id WHERE rl.user_id = ?";
+      $pdo = DB::getInstance()->getConnection();
+      $stmt = $pdo->prepare($query);
+      if ($stmt->execute([$token->uid])) {
+        $res = $stmt->fetch();
+        if (!empty($res) && !is_null($res[0]))
+          $roleConf = json_decode($res[0], true);
+      }
+      $newconf = array_replace_recursive($result, $roleConf);
+
+      // Remove Hidden Tables dynamically!
+      $cleanArr = [];
+      foreach ($newconf as $tname => $conf) {
+        if ($conf["mode"] != "hi")
+          $cleanArr[$tname] = $conf;
+      }
+      //===> Output to user
+      $res = ["user" => $token, "tables" => $cleanArr];
       return json_encode($res);
     }    
     public function read($param) {
@@ -517,7 +514,6 @@
         exit();
       }
     }
-
     // Stored Procedure can be Read and Write (GET and POST)
     //----->
     public function call($param) {
@@ -552,7 +548,6 @@
         exit();
       }
     }
-
     // [POST] Creating
     //----->
     public function create($param) {
@@ -644,7 +639,6 @@
       // Return
       return json_encode($script_result);
     }
-
     // [PATCH] Changing
     //----->
     // TODO: Remove Update function bzw. combine into 1 Function (update = specialcase)
@@ -782,7 +776,6 @@
       } else 
         die(fmtError("Transition not possible!"));
     }
-
     // [DELETE] Deleting
     //----->
     public function delete($param) {
@@ -806,36 +799,5 @@
       $success = ($pdo->rowCount() > 0);
       // Output
       return $success ? "1" : "0";
-    }  
-
-    //---------------------------------- File Handling (check Token) ... [GET]
-    /*
-    public function getFile($param) {
-      // Download File from Server
-
-      // Inputs
-      $filename = $param["name"];
-      $filepath = $param["path"];
-      $tmp_parts = explode(".", $param["name"]);
-      $filetype = end($tmp_parts);
-
-      // Whitelists
-      $whitelist_paths = WHITELIST_PATHS;
-      $whitelist_types = WHITELIST_TYPES;
-
-      if (in_array($filepath, $whitelist_paths) && in_array($filetype, $whitelist_types)) {
-        //echo "path and type in whitelist\n";
-        // File exists
-        $filepathcomplete = __DIR__."/../".$filepath . $filename;
-        //echo "Filepath: ".$filepathcomplete."\n";
-        if (file_exists($filepathcomplete)) {
-          //echo "File exists\n";
-          $filecontent = file_get_contents($filepathcomplete);
-          echo $filecontent;
-        } else 
-          die(fmtError("error"));
-      } else
-        die(fmtError("error"));
     }
-    */
   }
