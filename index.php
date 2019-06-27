@@ -269,23 +269,15 @@
                     </tr>
                     <!-- Columns END -->
 
-
                     <!---- CUSTOM FILTER ---->
-                    <!--
                     <tr ng-show="tbl.showKids">
-                      <td class="align-middle py-3" colspan="7">
-                        <small><span class="text-muted">Hier kommen Custom Filter hin mit [origin] => [filterJSON]</span></small>
-                        <div ng-repeat="(origin in tbl.origins)">
-                          <small class="m-2">{{origin.text}} -> {{origin.customfilter}}</small>
-                        </div>
-                        <small class="text-muted">Hier kommen Custom Filter hin mit [origin] => [filterJSON]</small>
+                      <td class="align-middle py-3" colspan="8">
+                        <small class="text-muted">StandardFilter on Serverside [filterJSON] i.e.: {"nin":["state_id","1,2,3"]}</small>
                         <form class="form-inline">
-                          <input type="text" class="form-control form-control-sm mr-2 w-100" ng-model="tbl.customfilter">
-                          <button class="btn btn-success btn-sm" ng-click="addNewOrigin()">+ new Origin</button>
+                          <input type="text" class="form-control form-control-sm mr-2 w-100" ng-model="tbl.stdfilter">
                         </form>
                       </td>
-                    </tr>
-                    -->                    
+                    </tr>                 
 
                   </tbody>
                 </table>

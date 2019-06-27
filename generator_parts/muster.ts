@@ -520,6 +520,7 @@ class Table extends RawTable {
     // Save Form Data
     let resp = JSON.parse(JSON.stringify(DB.Config.tables[tablename])); // Deep Copy!
     me.Config = resp;
+    me.setFilter(resp.stdfilter);
     me.Columns = resp.columns;
     me.ReadOnly = (resp.mode == 'ro');
     me.TableType = resp.table_type;

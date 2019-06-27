@@ -150,7 +150,6 @@
             $fieldtype = 'state';
             $TableHasStateMachine = true;
           }
-
           $additional_info = array(
             "column_alias" => $alias,
             "is_primary" => $col_isPrimary,
@@ -231,7 +230,8 @@
         "table_alias" => $table_alias,
         "table_type" => $table == 'state_rules' ? 'n_m' : 'obj', // Default = Object
         "order" => (int)$table_counter,
-        "mode" => 'rw',
+        "mode" => "rw",
+        "stdfilter" => "",
         "in_menu" => false,
         "se_active" => $TableHasStateMachine,
         "columns" => $columns
