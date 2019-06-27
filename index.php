@@ -95,11 +95,12 @@
                     <tr>
                       <th width="200px"><span class="text-muted">Order</span></th>
                       <th width="250px">Options</th>
-                      <th width="20%">TABLENAME</th>
-                      <th width="25%">ALIAS</th>
-                      <th width="5%">MODE</th>
-                      <th width="5%">STATE-ENGINE</th>
-                      <th width="30%" colspan="2">ICON</th>
+                      <th width="15%">Tablename</th>
+                      <th width="20%">Alias</th>
+                      <th width="5%">API-Mode</th>
+                      <th width="5%">InMenu</th>
+                      <th class="table-danger" width="5%">SM</th>
+                      <th width="30%" colspan="2">Icon</th>
                     </tr>
                   </thead>
 
@@ -134,7 +135,7 @@
                         </div>
                       </td>
                       <!-- Tablename -->
-                      <td class="align-middle"><b>{{name}}</b></td>
+                      <td class="align-middle">{{name}}</td>
                       <!--Table-Alias -->
                       <td><input type="text" class="form-control" ng-model="tbl.table_alias"/></td>
                       <!-- Mode (HI, RO, RW) -->
@@ -145,15 +146,21 @@
                           <option value="rw">RW</option>
                         </select>
                       </td>
+                      <!-- In Menu? -->
+                      <td>
+                        <input type="checkbox" class="form-control" ng-model="tbl.in_menu" ng-disabled="tbl.mode == 'hi'">
+                      </td>                    
                       <!-- Has Statemachine? -->
-                      <td><input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="tbl.table_name == 'state' || tbl.table_name == 'state_rules'"></td>
+                      <td style="background-color: #f5c6cb66;">
+                        <input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="tbl.table_name == 'state' || tbl.table_name == 'state_rules'">
+                      </td>
                       <!-- Table-Icon -->
-                      <td class="align-middle" style="background-color: #88aaee55 !important;">
-                        <div class="row">
-                          <div class="col-2 text-right">
-                            <span class="align-middle" ng-bind-html="tbl.table_icon"></span>
+                      <td class="align-middle">
+                        <div class="input-group input-group-sm">
+                          <div class="input-group-prepend">
+                            <span class="input-group-text"><span ng-bind-html="tbl.table_icon"></span></span>
                           </div>
-                          <div class="col-10"><input type="text" class="form-control form-control-sm" ng-model="tbl.table_icon"/></div>
+                          <input type="text" class="form-control" ng-model="tbl.table_icon"/>
                         </div>
                       </td>
                     </tr>
@@ -171,7 +178,7 @@
                       </td>
                       <!-- Name -->
                       <td class="align-middle">
-                        <div><b>{{colname}}</b></div>
+                        <div>{{colname}}</div>
                       </td>
                       <!-- Type -->
                       <td class="align-middle">
@@ -218,7 +225,7 @@
                         <label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_grid">Grid</label>
                       </td>
                       <!-- Show FK Menu if it is no Primary column -->
-                      <td class="align-middle" colspan="2" ng-if="!col.is_primary && !col.is_virtual">
+                      <td class="align-middle" colspan="3" ng-if="!col.is_primary && !col.is_virtual">
                         <!-- FK -->
                         <div ng-if="col.field_type == 'foreignkey'">
                           <b>ForeignKey:</b>
@@ -253,7 +260,9 @@
                           </div>
                           <div class="col-2">
                             <!-- Delete Virtual column -->
-                            <button class="btn btn-sm btn-danger" title="Delete virtual Column" ng-click="del_virtCol(tbl, colname)">X</button>
+                            <button class="btn btn-sm btn-danger mt-2" title="Delete virtual Column" ng-click="del_virtCol(tbl, colname)">
+                              <i class="fas fa-times"></i>
+                            </button>
                           </div>
                         </div>
                       </td>                      

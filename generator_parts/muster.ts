@@ -71,7 +71,10 @@ abstract class DB {
       }).join('&');
       url += '?' + getString;
     }
-    //else if (command == 'update') options.method = 'PATCH';
+    else if (command == 'update') {
+      HTTPMethod = 'PATCH';
+      HTTPBody = JSON.stringify(data);
+    }
     else if (command == 'delete') {
       HTTPMethod = 'DELETE';
     }
@@ -515,16 +518,13 @@ class Table extends RawTable {
     me.tablename = tablename;
     me.OrderBy = '';
     // Save Form Data
-    let resp = JSON.parse(JSON.stringify(DB.Config[tablename])); // Deep Copy!
-    me.Config = resp['config'];
-
-    me.Columns = me.Config.columns;
-    me.ReadOnly = (me.Config.mode == 'ro');
-    me.TableType = me.Config.table_type;
-
-    if (!me.ReadOnly) me.diffFormCreateObject = JSON.parse(resp['formcreate']);      
-    if (me.Config.se_active) me.SM = new StateMachine(me, resp['sm_states'], resp['sm_rules']);
-
+    let resp = JSON.parse(JSON.stringify(DB.Config.tables[tablename])); // Deep Copy!
+    me.Config = resp;
+    me.Columns = resp.columns;
+    me.ReadOnly = (resp.mode == 'ro');
+    me.TableType = resp.table_type;
+    if (!me.ReadOnly) me.diffFormCreateObject = JSON.parse(resp.formcreate);      
+    if (resp.se_active) me.SM = new StateMachine(me, resp.sm_states, resp.sm_rules);
     // check if is ReadOnly and NoSelect then hide first column
     if (me.ReadOnly && me.selType == SelectType.NoSelect)
       me.GUIOptions.showControlColumn = false;
@@ -1044,17 +1044,30 @@ class Table extends RawTable {
       const firstEl = cellContent;
       const fTablename = this.Columns[colname].foreignKey.table;
 
+      let fTbl = null;
+      try {
+        fTbl = new Table(fTablename);
+      }
+      catch (e) {
+        fTbl = null;
+      }
       // TODO: Check if Table exists in config
-      //const fTable = new Table(fTablename);
-      cols.forEach(col => {
-        //const htmlCell = this.renderCell(col, Object.keys(col)[0]);
-        const htmlCell = col; //recflattenObj(col);
+      cols.forEach(col => {    
+        let htmlCell = col;
+        if (isObject(col)) {
+          const vals = recflattenObj(col);
+          let v = vals.join(' | ');
+          v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+          htmlCell = v;
+        }
+        if (fTbl) htmlCell = fTbl.renderCell(col, Object.keys(col)[0]);
+        // TODO: Hier zu einem String machen
         content += '<td class="border-0" style="width: '+ split +'%">' + htmlCell + '</td>';
       });
-
-      // Add Edit Button Prefix
-      content = '<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle" \
-        onclick="gEdit(\''+fTablename+'\', '+ firstEl[Object.keys(firstEl)[0]] +')"><i class="far fa-edit"></i></td>' + content;
+      // Add Edit Button Prefix -> Only if is not ReadOnly
+      if (fTbl && !fTbl.ReadOnly)
+        content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle"
+          onclick="gEdit('${fTablename}', ${firstEl[Object.keys(firstEl)[0]]})"><i class="far fa-edit"></i></td>` + content;
 
       return '<table class="w-100 p-0 border-0"><tr class="border">' + content + '</tr></table>';
     }
@@ -1852,6 +1865,7 @@ class FormGenerator {
 
 //==================================================================== Global Helper Methods
 // Show the actual Tab in the URL and also open Tab by URL
+/*
 $(function(){
   let hash = window.location.hash;
   hash && $('ul.nav a[href="' + hash + '"]').tab('show');
@@ -1863,6 +1877,7 @@ $(function(){
     $('html,body').scrollTop(scrollmem);
   });
 });
+*/
 //-------------------------------------------
 //--- Special global functions
 function escapeHtml(string: string): string {
@@ -1909,7 +1924,13 @@ function loadFKTable(element, tablename, customfilter): void {
   placeholderTable.innerHTML = '<div id="' + randID + '"></div>';
   hiddenInput.value = null;
 
-  let tmpTable = new Table(tablename, SelectType.Single);
+  let tmpTable = null;
+  try {
+    tmpTable = new Table(tablename, SelectType.Single);
+  } catch(e) {
+    document.getElementById(randID).innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
+    return
+  }
   if (customfilter) tmpTable.setFilter(customfilter);
   // Load
   tmpTable.loadRows(async function(){

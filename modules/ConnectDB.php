@@ -115,7 +115,7 @@
           $column_name = $row2["COLUMN_NAME"];
           $col_datatype = $row2["DATA_TYPE"];
           $col_type_enums = $row2["COLUMN_TYPE"];
-          $col_isPrimary = ($row2['EXTRA'] == 'auto_increment'); // TODO: maybe look for primary and not AI
+          $col_isPrimary = ($row2['EXTRA'] == 'auto_increment'); // TODO: maybe look for primary and not AutoIncr
           $col_isFK = false;
           // Additional information
           //------------------------------------------------------
@@ -232,6 +232,7 @@
         "table_type" => $table == 'state_rules' ? 'n_m' : 'obj', // Default = Object
         "order" => (int)$table_counter,
         "mode" => 'rw',
+        "in_menu" => false,
         "se_active" => $TableHasStateMachine,
         "columns" => $columns
       );

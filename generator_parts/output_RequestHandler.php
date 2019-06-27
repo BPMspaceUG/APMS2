@@ -277,17 +277,15 @@
 
     //=======================================================
  
-    // [OPTIONS]
     private function inititalizeTable($tablename) {
       // Init Vars
       $pdo = DB::getInstance()->getConnection();      
-      $param = ["table" => $tablename];      
+      $param = ["table" => $tablename];
       $config = json_decode(Config::getConfig(), true);
       $result = null;
       // Check if not hidden
       if ($config[$tablename]["mode"] != "hi") {
-        $result = [];
-        $result['config'] = $config[$tablename];
+        $result = $config[$tablename];
         // If Table = readonly then exclude formcreate
         if ($config[$tablename]["mode"] != "ro") {
           $result['formcreate'] = $this->getFormCreate($param);
@@ -301,27 +299,6 @@
       }
       return $result;
     }
-    public function init($param = null) {
-      $tablename = $param["table"];
-      if (is_null($param) && empty($tablename)) {
-        // Read all Tables
-        $conf = json_decode(Config::getConfig(), true);
-        $result = [];
-        foreach ($conf as $tablename => $t) {
-          $x = $this->inititalizeTable($tablename);
-          if (!is_null($x))
-            $result[$tablename] = $x;
-        }
-      } else {
-        // Check Parameter
-        if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
-        if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-        $result = $this->inititalizeTable($tablename);
-      }
-      return json_encode($result);
-    }
-
-    // Helper functions for Tree rendering
     private static function rowPath2Tree(&$row, $path, $value) {
       $parts = explode("/", $path);
       if (count($parts) > 1) {
@@ -396,6 +373,34 @@
     }
 
     // [GET] Reading
+    //----->
+    public function init($param = null) {
+      $tablename = $param["table"];      
+      if (is_null($param) && empty($tablename)) {
+        // Read all Tables
+        $conf = json_decode(Config::getConfig(), true);
+        $result = [];
+        foreach ($conf as $tablename => $t) {
+          $x = $this->inititalizeTable($tablename);
+          if (!is_null($x))
+            $result[$tablename] = $x;
+        }
+      }
+      else {
+        // Init a single Table
+        if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
+        if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
+        $result = $this->inititalizeTable($tablename);
+      }
+      // Append Token Information
+      global $token;
+      $res = [
+        "user" => $token,
+        "tables" => $result
+      ];
+      // Output
+      return json_encode($res);
+    }    
     public function read($param) {
       //--------------------- Check Params
       $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter', 'search'];
@@ -514,6 +519,7 @@
     }
 
     // Stored Procedure can be Read and Write (GET and POST)
+    //----->
     public function call($param) {
       // Strcuture: {name: "sp_table", inputs: ["test", 13, 42, "2019-01-01"]}
       //--------------------- Check Params
@@ -548,6 +554,7 @@
     }
 
     // [POST] Creating
+    //----->
     public function create($param) {
       // Inputs
       $tablename = $param["table"];
@@ -639,6 +646,7 @@
     }
 
     // [PATCH] Changing
+    //----->
     // TODO: Remove Update function bzw. combine into 1 Function (update = specialcase)
     public function update($param, $allowUpdateFromSM = false) {
        // Parameter
@@ -774,14 +782,12 @@
       } else 
         die(fmtError("Transition not possible!"));
     }
-    // TODO => this function merges update + makeTransition
-    public function change($param) {
-    }
 
     // [DELETE] Deleting
+    //----->
     public function delete($param) {
       //---- NOT SUPPORTED FOR NOW [!]
-      die(fmtError('The Delete-Command is currently not supported!'));
+      die(fmtError('This Command is currently not supported!'));
       // Parameter
       $tablename = $param["table"];
       $row = $param["row"];

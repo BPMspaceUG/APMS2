@@ -85,6 +85,7 @@
       $sql = 'CREATE TABLE `Role` (
         `Role_id` bigint(20) NOT NULL AUTO_INCREMENT,
         `Role_name` varchar(45) DEFAULT NULL,
+        `ConfigDiff` LONGTEXT DEFAULT NULL,
         PRIMARY KEY (`Role_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
       $queries .= "\n$sql\n\n";
@@ -242,6 +243,8 @@
   }
 
 
+
+
   // TODO: Remove!
   // Generate a machine token
   $token_data = array();
@@ -250,6 +253,8 @@
   $token_data['lastname'] = 'Machine';
   $token = JWT::encode($token_data, $secretKey);
   $machine_token = $token;
+
+
 
 
   // Generate URLs
@@ -268,7 +273,8 @@
     <ul class="navbar-nav ml-auto">
       <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-          <i class="fas fa-user"></i> Account
+          <i class="fas fa-user"></i>
+          <span id="username">Account</span>
         </a>
         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
           <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_change_password.php">Change Password</a>
@@ -279,7 +285,6 @@
     </ul>
   </div>';
   
-
   // ------------------- Load complete Project
   $class_StateEngine = loadFile("./output_StateEngine.php");
   $output_RequestHandler = loadFile("./output_RequestHandler.php");  
@@ -300,7 +305,8 @@
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
   $output_content = str_replace('<!-- replaceAccountHandler -->', $AccountHandler, $output_content); // Account-URL
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
-  $output_all = $output_header.$output_content.$output_footer; // Compose Main HTML File
+  //===> Compose Main HTML-File
+  $output_all = $output_header.$output_content.$output_footer;
 
   // ------------------------------------ Generate Core File
   // Output information

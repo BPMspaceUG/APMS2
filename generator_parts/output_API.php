@@ -43,8 +43,9 @@
   //========================================= Parameter & Handling  
   try {
     $bodyData = json_decode(file_get_contents('php://input'), true);
+    
     if ($ReqMethod === 'GET') {
-      $command = 'read'; // or call
+      $command = 'read'; // or call      
       $param = $_GET;
       if (count($param) <= 0) {
         $command = 'init';
@@ -64,7 +65,7 @@
       $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
     }
     else {
-      die(json_encode(['error' => ['msg' => "This HTTP Method is not supported!"]]));
+      die(json_encode(['error' => ['msg' => "HTTP-Method not supported!"]]));
     }
   }
   catch (Exception $e) {
