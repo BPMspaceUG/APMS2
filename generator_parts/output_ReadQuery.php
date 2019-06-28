@@ -112,7 +112,8 @@ class ReadQuery {
   }
   public function addFilter($strFilter) {
     $strNewFilter = '{"and": ['.json_encode($this->filter).', '.$strFilter.']}';
-    $this->filter = json_decode($strNewFilter, true);
+    $json = json_decode($strNewFilter, true);
+    $this->filter = $json;
   }
   private function getFilter($prep = false) {
     if (is_null($this->filter)) return "";

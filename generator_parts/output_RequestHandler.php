@@ -132,7 +132,7 @@
       $cols = Config::getColsByTablename($tablename, $data);
       // Collect only virtual Columns
       foreach ($cols as $colname => $col) {
-        if ($col["is_virtual"])
+        if ($col["is_virtual"] && $col["field_type"] != "reversefk")
           $res[$colname] = $col["virtual_select"];
       }
       return $res;
@@ -393,14 +393,16 @@
       foreach ($newconf as $tname => $conf) {
         // Remove Std-Filter
         unset($conf["stdfilter"]);
-        if ($conf["mode"] != "hi")
-          $cleanArr[$tname] = $conf;
+        foreach ($conf["columns"] as $colname => $col) {
+          unset($conf["columns"][$colname]["virtual_select"]);
+        }
+        // Append to cleaned Array
+        if ($conf["mode"] != "hi") $cleanArr[$tname] = $conf;
       }
       //===> Output to user
       $res = ["user" => $token, "tables" => $cleanArr];
       return json_encode($res);
     }
-
     public function read($param) {
       //--------------------- Check Params
       $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter', 'search'];
@@ -458,13 +460,25 @@
       $rq->setLimit($limitSize, $limitStart);
       $rq->setSorting($orderby, $ascdesc);
 
+      //--- Virtual-Columns
+      $vColnames = [];
+      $vc = Config::getVirtualColnames($tablename);
+      foreach ($vc as $col => $sel) {
+        $rq->addSelect("$sel AS `$col`");
+        //$vColnames[] = "`$tablename`.`$col`"; // TODO
+      }
+
       //--- Filter
-      $rq->setFilter(Config::getStdFilter($tablename)); // inital Filter (set serverside!)
+      $rq->setFilter('{"=":[1,1]}'); // default Minimum (1=1 --> always true)
+      $stdFilter = Config::getStdFilter($tablename);
+      if (!is_null($stdFilter) && !empty($stdFilter))
+        $rq->setFilter($stdFilter); // standard Filter (set serverside!)
+
       // add Search for all columns
       if (!is_null($search)) {
         $search = "%".$search."%";
         $els = [];
-        $cols = Config::getColnamesByTablename($tablename);
+        $cols = array_merge(Config::getColnamesByTablename($tablename), $vColnames);
         foreach ($cols as $colname) {
           $els[] = "{\"like\": [\"$colname\", \"$search\"]}";
         }      
@@ -474,12 +488,6 @@
       // add Custom Filter
       if (!is_null($filter)) {
         $rq->addFilter($filter);
-      }
-
-      //--- Add Virtual Columns
-      $vc = Config::getVirtualColnames($tablename);
-      foreach ($vc as $col => $sel) {
-        $rq->addSelect("$sel AS $col");
       }
 
       //--- Get Joins from Config
