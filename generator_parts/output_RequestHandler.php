@@ -133,7 +133,7 @@
       // Collect only virtual Columns
       foreach ($cols as $colname => $col) {
         if ($col["is_virtual"])
-          $res[] = $colname;
+          $res[$colname] = $col["virtual_select"];
       }
       return $res;
     }
@@ -460,8 +460,6 @@
 
       //--- Filter
       $rq->setFilter(Config::getStdFilter($tablename)); // inital Filter (set serverside!)
-      //$rq->setFilter('{"=":[1,1]}'); // inital Filter (has no influence)
-
       // add Search for all columns
       if (!is_null($search)) {
         $search = "%".$search."%";
@@ -478,9 +476,15 @@
         $rq->addFilter($filter);
       }
 
-      //--- Add Joins from Config
+      //--- Add Virtual Columns
+      $vc = Config::getVirtualColnames($tablename);
+      foreach ($vc as $col => $sel) {
+        $rq->addSelect("$sel AS $col");
+      }
+
+      //--- Get Joins from Config
       $joins = Config::getJoinedCols($tablename);
-      // TODO: Multilayered JOINS
+      // TODO: Multilayered JOINS via Config (o -> a -> b -> c ...)
       foreach ($joins as $key => $value) {
         $localCol = $value["col_id"];
         $extCol = $value["replace"];
@@ -513,8 +517,9 @@
         $r = $this->parseResultData($tablename, $stmt);
         $result = ["count" => $count, "records" => $r];
         return json_encode($result, true);
-      } else {
-        // Error -> Return Error
+      }
+      else {
+        // Error -> Return Error        
         echo $stmt->queryString."\n\n";
         echo json_encode($rq->getValues())."\n\n";
         var_dump($stmt->errorInfo());

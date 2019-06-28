@@ -7,8 +7,9 @@ class ReadQuery {
   private $limit = null;
   private $offset = null;
   private $joins = null;
+  private $selectCustom = null;
 
-  const QUERY_SEPERATOR = " ";
+  const SEPERATOR = " "; // also "\n" for better debugging
 
   public function __construct($tablename) {
     $this->table = $tablename;
@@ -53,20 +54,35 @@ class ReadQuery {
     }
     return null;
   }
+  /*
   public function getSQL() {
-    return "SELECT * ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter().$this->getSorting().$this->getLimit().";";
+    return "SELECT * ".self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter().$this->getSorting().$this->getLimit().";";
   }
+  */
   public function getStatement() {
-    return "SELECT * ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).$this->getSorting().$this->getLimit().";";
+    return "SELECT ".$this->getSelect().self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).$this->getSorting().$this->getLimit().";";
   }
   public function getCountStmtWOLimits() {
-    return "SELECT COUNT(*) ".self::QUERY_SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).";";
+    return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).";";
   }
   public function getValues() {
     if (is_null($this->filter)) return [];
     $values = [];
     self::JsonLogicToSQL($this->filter, true, $values);
     return $values;
+  }
+  //--- Custom Selects
+  public function addSelect($strSelect) {
+    $this->selectCustom[] = $strSelect;
+  }
+  private function getSelect() {
+    $result = "*"; // default
+    if (!is_null($this->selectCustom)) {
+      foreach ($this->selectCustom as $k => $v) {
+        $result .= ',' . $v;
+      }
+    }
+    return $result;
   }
   //--- Joins
   public function addJoin($from, $to, $hasMany = false) {
@@ -80,7 +96,7 @@ class ReadQuery {
     // has 1 FK
     if (!$hasMany) $alias = implode('/', [$j[0], $j[3]]);
     $path = $j[0];
-    return self::QUERY_SEPERATOR."LEFT JOIN ".$j[2]." AS `".$alias."` ON `".$path."`.".$j[3]." = `".$alias."`.".$j[1];
+    return self::SEPERATOR."LEFT JOIN ".$j[2]." AS `".$alias."` ON `".$path."`.".$j[3]." = `".$alias."`.".$j[1];
   }
   private function getJoins() {
     if (is_null($this->joins)) return "";
@@ -100,8 +116,8 @@ class ReadQuery {
   }
   private function getFilter($prep = false) {
     if (is_null($this->filter)) return "";
-    if ($prep) return self::QUERY_SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter, true);
-    return self::QUERY_SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter);
+    if ($prep) return self::SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter, true);
+    return self::SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter);
   }
   //--- Order
   public function setSorting($column, $direction = "ASC") {
@@ -109,7 +125,7 @@ class ReadQuery {
     $this->sortDir = $direction;
   }
   private function getSorting() {
-    return is_null($this->sortCol) ? "" : self::QUERY_SEPERATOR."ORDER BY ".$this->sortCol." ".$this->sortDir;
+    return is_null($this->sortCol) ? "" : self::SEPERATOR."ORDER BY ".$this->sortCol." ".$this->sortDir;
   }
   //--- Limit
   public function setLimit($limit, $offset = 0) {
@@ -117,6 +133,6 @@ class ReadQuery {
     $this->offset = $offset;
   }
   private function getLimit() {
-    return is_null($this->limit) ? "" : self::QUERY_SEPERATOR."LIMIT ".$this->offset.",".$this->limit;
+    return is_null($this->limit) ? "" : self::SEPERATOR."LIMIT ".$this->offset.",".$this->limit;
   }
 }
