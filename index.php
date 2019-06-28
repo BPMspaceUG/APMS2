@@ -124,7 +124,7 @@
                             <i class="fa fa-plus-square" ng-if="!tbl.showKids"></i>
                             <i class="fa fa-minus-square" ng-if="tbl.showKids"></i>
                           </a>
-                          <button class="btn btn-sm btn-success" ng-click="add_virtCol(tbl)">+VCol</button>
+                          <button class="btn btn-sm btn-success" ng-click="add_virtCol(tbl, name)">+VCol</button>
                           <select class="custom-select" ng-model="tbl.table_type" style="width: 80px;">
                             <option value="obj">Obj</option>
                             <option value="1_1">1:1</option>
@@ -152,7 +152,7 @@
                       </td>                    
                       <!-- Has Statemachine? -->
                       <td style="background-color: #f5c6cb66;">
-                        <input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="tbl.table_name == 'state' || tbl.table_name == 'state_rules'">
+                        <input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="name == 'state' || name == 'state_rules'">
                       </td>
                       <!-- Table-Icon -->
                       <td class="align-middle">
@@ -231,7 +231,7 @@
                           <b>ForeignKey:</b>
                           <select class="custom-select custom-select-sm" style="width: 100px; display: inline !important;" ng-model="col.foreignKey.table">
                             <option value="" selected></option>
-                            <option ng-repeat="tbl in tables" value="{{tbl.table_name}}">{{tbl.table_name}}</option>
+                            <option ng-repeat="(name, tbl) in tables" value="{{name}}">{{name}}</option>
                           </select>
                           <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm" style="width: 80px; display: inline !important;" ng-model="col.foreignKey.col_id" placeholder="JoinID">
                           <span>

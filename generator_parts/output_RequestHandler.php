@@ -101,7 +101,6 @@
       // TODO: !!!
       return true;
     }
-    // Checks
     public static function doesTableExist($tablename) {
       $result = false;
       //$tablename = strtolower($tablename); // always lowercase
@@ -164,6 +163,10 @@
           );
       }
       return $res;
+    }
+    public static function getStdFilter($tablename) {
+      $data = json_decode(Config::getConfig(), true);
+      return $data[$tablename]["stdfilter"];
     }
   }
 
@@ -367,7 +370,6 @@
     //----->
     public function init() {
       global $token;
-
       // Collect ALL Tables!
       $conf = json_decode(Config::getConfig(), true);
       $result = [];
@@ -375,7 +377,6 @@
         $x = $this->inititalizeTable($tablename);
         if (!is_null($x)) $result[$tablename] = $x;
       }
-
       // Merge ConfigStd and ConfigRole and overwrite the Std.
       $roleConf = [];
       $query = "SELECT ConfigDiff FROM role AS r JOIN role_liamuser AS rl ON r.role_id = rl.role_id WHERE rl.user_id = ?";
@@ -387,20 +388,23 @@
           $roleConf = json_decode($res[0], true);
       }
       $newconf = array_replace_recursive($result, $roleConf);
-
       // Remove Hidden Tables dynamically!
       $cleanArr = [];
       foreach ($newconf as $tname => $conf) {
+        // Remove Std-Filter
+        unset($conf["stdfilter"]);
         if ($conf["mode"] != "hi")
           $cleanArr[$tname] = $conf;
       }
       //===> Output to user
       $res = ["user" => $token, "tables" => $cleanArr];
       return json_encode($res);
-    }    
+    }
+
     public function read($param) {
       //--------------------- Check Params
       $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter', 'search'];
+
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       // Parameters and default values
@@ -417,6 +421,8 @@
       global $token;
       $token_uid = -1;
       if (property_exists($token, 'uid')) $token_uid = $token->uid;
+
+
       // Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
@@ -453,7 +459,9 @@
       $rq->setSorting($orderby, $ascdesc);
 
       //--- Filter
-      $rq->setFilter('{"=":[1,1]}'); // inital Filter (has no influence)
+      $rq->setFilter(Config::getStdFilter($tablename)); // inital Filter (set serverside!)
+      //$rq->setFilter('{"=":[1,1]}'); // inital Filter (has no influence)
+
       // add Search for all columns
       if (!is_null($search)) {
         $search = "%".$search."%";
@@ -479,7 +487,6 @@
         $extTable = $value["table"];
         $rq->addJoin($tablename.'.'.$localCol, $extTable.'.'.$extCol);
       }
-
       //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
       //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)

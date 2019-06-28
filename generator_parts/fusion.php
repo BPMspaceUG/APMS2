@@ -19,7 +19,7 @@
     $_REQUEST = json_decode(file_get_contents('php://input'), true);
   
   // Parameters
-  $db_server = $_REQUEST['host']; //.':'.$_REQUEST['port'];
+  $db_server = $_REQUEST['host'];
   $db_user = $_REQUEST['user'];
   $db_pass = $_REQUEST['pwd'];
   $db_name = $_REQUEST['db_name'];
@@ -55,7 +55,7 @@
   // ---------------------- Get actual Version of APMS
   $filepath = __DIR__."/../.git/refs/heads/master";
   $act_version = trim(file_get_contents($filepath));
-  $act_version_link = "https://github.com/BPMspaceUG/APMS/tree/" . $act_version;
+  $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/" . $act_version;
   echo "Generator-Version: " . $act_version . "\n";
 
   // Open a new DB-Connection
@@ -141,9 +141,8 @@
   }  
   //---------------------------------
 
-  foreach ($data as $table) {
+  foreach ($data as $tablename => $table) {
     // Get Data
-    $tablename = $table["table_name"];
     $se_active = (bool)$table["se_active"];
     $table_type = $table["table_type"];
 
@@ -268,7 +267,6 @@
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
 
-
   $AccountHandler = '<div class="collapse navbar-collapse" id="navbarText">
     <ul class="navbar-nav ml-auto">
       <li class="nav-item dropdown">
@@ -279,7 +277,7 @@
         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
           <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_change_password.php">Change Password</a>
           <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_manage_emails.php">Manage E-Mails</a>
-          <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_logout.php">Logout</a>
+          <a class="dropdown-item" href="?logout">Logout</a>
         </div>
       </li>
     </ul>
@@ -297,33 +295,33 @@
   $output_header = loadFile("./output_header.html");
   $output_content = loadFile("./output_content.html");
   $output_footer = loadFile("./output_footer.html");
+  $output_index = loadFile("./output_index.php");
 
   //  ------------------- Insert Code into Templates
   $output_DBHandler = str_replace('replaceDBName', $db_name, $output_DBHandler); // For Config-Include
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
+  $output_index = str_replace('replaceDBName', $db_name, $output_index); // Project Name
+
   $output_content = str_replace('<!-- replaceAccountHandler -->', $AccountHandler, $output_content); // Account-URL
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
   //===> Compose Main HTML-File
   $output_all = $output_header.$output_content.$output_footer;
-
   // ------------------------------------ Generate Core File
   // Output information
   echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
   echo $queries;
-
   // ------------------------------------ Generate Config File
   // ---> ENCODE Data as JSON
   $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
   // ----------------------- Config File generator
   function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey, $machineToken) {
     global $act_version_link;
     return  "<?php
-    //  APMS Generated Project (".date("Y-m-d H:i:s").")
-    //  Version: $act_version_link
-    //  ==================================================
+    // APMS Generated Project (".date("Y-m-d H:i:s").")
+    // Version: $act_version_link
+    // ==================================================
     //-- Database
     define('DB_USER', '$dbUser');
     define('DB_PASS', '$dbPass');
@@ -334,9 +332,6 @@
     define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns JWT Token    
     define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
     define('MACHINE_TOKEN', '$machineToken'); // Machine-Token for internal API Calls
-    //-- WhiteLists for getFile Command
-    // @define('WHITELIST_PATHS', array('ordner/test/', 'ordner/'));
-    // @define('WHITELIST_TYPES', array('pdf', 'doc', 'txt'));
   ?>";
   }  
   function createSubDirIfNotExists($dirname) {
@@ -347,7 +342,6 @@
     file_put_contents($filename, $content);
     chmod($filename, 0660);
   }
-
   //----------------------------------------------
   // ===> Write Project to FileSystem
   //----------------------------------------------
@@ -356,13 +350,11 @@
   if (is_dir($Path_APMS_test)) {
   	// Path for Project
     $project_dir = $Path_APMS_test.'/'.$db_name;
-
     // Create Project directory
     createSubDirIfNotExists($project_dir);
     createSubDirIfNotExists($project_dir."/css");
     createSubDirIfNotExists($project_dir."/js");
     createSubDirIfNotExists($project_dir."/src");
-
     //---- Put Files
     // JavaScript
     createFile($project_dir."/js/main.js", $output_JS);
@@ -381,7 +373,8 @@
     // Main Directory
     createFile($project_dir."/api.php", $output_API);
     createFile($project_dir."/".$db_name.".inc.html", $output_all);
-
+    // Index File
+    createFile($project_dir."/index.php", $output_index);
     // Configuration
     createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user,$db_pass,$db_server,$db_name,$API_url,$LOGIN_url,$secretKey,$machine_token));
     createFile($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig('','','','','','','','')); // Example
@@ -389,68 +382,4 @@
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       createFile($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
-
-
-
-    // Create Entrypoint (index)
-    if ($redirectToLoginURL) {
-      // Redirect to LIAM
-      $output_index = '<?php
-        // Includes
-        require_once(__DIR__."/src/AuthHandler.inc.php");
-        include_once(__DIR__."/src/RequestHandler.inc.php");
-
-        function gotoLogin($error = "") {
-          // Get origin
-          $thisHost = (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] === "on" ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
-          $thisPath = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
-          $actual_link = $thisHost.$thisPath;
-          setcookie("token", "", time()-3600); // Delete cookies
-          
-          if ($error == "") {
-            header("Location: ".Config::getLoginSystemURL()."?origin=".$actual_link);
-            exit();
-          } else {
-            echo $error;
-            echo "<br><br><a style=\"color: white; text-decoration: none; display: inline-block; background: #33a; padding: 1em;\" href=\"".Config::getLoginSystemURL()."?origin=$actual_link\">Go to Login-Page</a>";
-            exit();
-          }
-        }
-
-        $rawtoken = JWT::getBearerToken(); // Check Cookies
-        // Check GET Parameter (if has token -> then if valid save as cookie)
-        if (is_null($rawtoken) && isset($_GET["token"])) {
-          $rawtoken = $_GET["token"];
-        }
-        //========================================= Authentification
-        // No token is set
-        if ($rawtoken == "") gotoLogin();
-        // Check if authenticated via Token
-        try {
-          $token = JWT::decode($rawtoken, AUTH_KEY);
-        }
-        catch (Exception $e) {
-          // Invalid Token!
-          gotoLogin("This Token is invalid!");
-        }
-        // Token is valid but expired?
-        if (property_exists($token, "exp")) {
-          if (($token->exp - time()) <= 0)
-            gotoLogin();
-        }
-        // If Token is not in Cookie -> save Token in a Cookie
-        if (is_null(JWT::getBearerToken())) {
-          // Save Cookie for 30 days
-          setcookie("token", $rawtoken, time()+(3600 * 24 * 30), "", "", false, true);
-          header("Location: ".dirname($_SERVER["PHP_SELF"])); // Redirect to remove ugly URL
-          exit();
-        }
-        // Success
-        require_once("'.$db_name.'.inc.html");
-      ?>';
-    } else
-      $output_index = "<?php\n\trequire_once(\"".$db_name.".inc.html\");\n?>";
-    
-    createFile($project_dir."/index.php", $output_index);
   }
-?>

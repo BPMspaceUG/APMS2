@@ -249,14 +249,15 @@ APMS.controller('APMScontrol', function ($scope, $http) {
   }
   // GUI------------------------------------
   // Add virtual column
-  $scope.add_virtCol = function(tbl){
-    const cols = $scope.tables[tbl.table_name].columns;
+  $scope.add_virtCol = function(tbl, tablename){
+    console.log("Add virtual Column for", tablename);
+    const cols = $scope.tables[tablename].columns;
     // TODO: Improve Name generation i.e. with Hash
     let new_virt_colname = 'virtualCol';
     while (cols[new_virt_colname]) {
       new_virt_colname = new_virt_colname + 'x';
     }
-    $scope.tables[tbl.table_name].columns[new_virt_colname] = {
+    $scope.tables[tablename].columns[new_virt_colname] = {
       field_type: 'reversefk',
       column_alias: "Table",
       show_in_grid: false,

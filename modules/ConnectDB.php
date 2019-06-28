@@ -97,7 +97,7 @@
     $tables = array();
     while ($row = $result->fetch_assoc()) {
       $tables[] = $row[$nameParam];
-    }    
+    }
     // Loop Tables
     $table_counter = 1;
     foreach ($tables as $table) {
@@ -226,7 +226,6 @@
         T A B L E S
       ------------------------------*/
       $res[$table] = array(
-        "table_name" => $table,
         "table_alias" => $table_alias,
         "table_type" => $table == 'state_rules' ? 'n_m' : 'obj', // Default = Object
         "order" => (int)$table_counter,
