@@ -289,7 +289,7 @@
   // ---> ENCODE Data as JSON
   $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
   // ----------------------- Config File generator
-  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey, $machineToken) {
+  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey) {
     global $act_version_link;
     return  "<?php
     // APMS Generated Project (".date("Y-m-d H:i:s").")
@@ -303,8 +303,7 @@
     //-- Authentication + API
     define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns a JWT-Token
     define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
-    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent
-    ";
+    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent";
   }  
   function createSubDirIfNotExists($dirname) {
     if (!is_dir($dirname))
@@ -348,7 +347,7 @@
     // Index File
     createFile($project_dir."/index.php", $output_index);
     // Configuration
-    createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user,$db_pass,$db_server,$db_name,$API_url,$LOGIN_url,$secretKey,$machine_token));
+    createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user,$db_pass,$db_server,$db_name,$API_url,$LOGIN_url,$secretKey));
     createFile($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig('','','','','','','','')); // Example
     createFile($project_dir."/".$db_name."-config.inc.json", $json);
     // GitIgnore for Secret Files

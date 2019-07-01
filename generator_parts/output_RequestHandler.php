@@ -5,25 +5,19 @@
   $file_RQ = __DIR__."/ReadQuery.inc.php"; if (file_exists($file_RQ)) include_once($file_RQ);
   $file_AH = __DIR__."/output_AuthHandler.inc.php"; if (file_exists($file_AH)) include_once($file_AH);
 
-
   // Global function for StateMachine
   function api($data) {
-    $url = API_URL;
-    $secretKey = AUTH_KEY;
-
     // Create temp Token
     $token_data = array();
     $token_data['uid'] = 1337;
-    $token = JWT::encode($token_data, $secretKey);
-
-
+    $token = JWT::encode($token_data, AUTH_KEY);
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_URL, API_URL);
     curl_setopt($ch, CURLOPT_VERBOSE, true);
     $headers = array();
     //JWT token for Authentication
-    $headers[] = 'Authorization: Bearer '.$token;
+    $headers[] = 'Cookie: token='.$token; // TODO: Do not use token
     if ($data) {
       $json = json_encode($data);
       curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
@@ -44,8 +38,6 @@
     $verboseLog = stream_get_contents($verbose);
     return $result;
   }
-
-
   function fmtError($errormessage) {
     return json_encode(['error' => ['msg' => $errormessage]]);
   }
