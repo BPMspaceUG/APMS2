@@ -18,12 +18,12 @@ class ReadQuery {
     $op = array_keys($arr)[0];
     $opLC = strtolower($op);
     // Compare Operators
-    if (in_array($opLC, ['=', '>', '<', '>=', '<=', '<>', '!=', 'nin', 'like'])) {
+    if (in_array($opLC, ['=', '>', '<', '>=', '<=', '<>', '!=', 'in', 'is', 'nin', 'like'])) {
       $col = $arr[$op][0];
       $val = $arr[$op][1];
       //--------------------- Convert Operator
-      if ($opLC == 'nin') {
-        $op = 'NOT IN';
+      if ($opLC == 'nin' || $opLC == 'in') {
+        if ($opLC == 'nin') $op = "NOT IN"; else $op = "IN";
         // Split Value
         $ids = preg_split('/\s*,\s*/', $val, -1, PREG_SPLIT_NO_EMPTY);
         $placeHolders = [];
@@ -35,9 +35,15 @@ class ReadQuery {
         $value = '('.implode(',', $placeHolders).')';
       }
       else {
-        $pname = ':p' . count($values); // param-name
-        $values[$pname] = $val;
-        $value = $prepStmt ? $pname : $val;
+        // Special Values
+        if (strtolower($val) == 'now()' || strtolower($val) == 'null') {
+          $value = $val;
+        }
+        else {
+          $pname = ':p' . count($values); // param-name
+          $values[$pname] = $val;
+          $value = $prepStmt ? $pname : $val;
+        }
       }
       // Result
       return "$col $op $value";
