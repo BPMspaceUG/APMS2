@@ -377,9 +377,9 @@
         $x = $this->inititalizeTable($tablename);
         if (!is_null($x)) $result[$tablename] = $x;
       }
-      // Merge ConfigStd and ConfigRole and overwrite the Std.
+      //------------- Merge ConfigStd and ConfigRole and overwrite the Std.
       $roleConf = [];
-      $query = "SELECT ConfigDiff FROM role AS r JOIN role_liamuser AS rl ON r.role_id = rl.role_id WHERE rl.user_id = ?";
+      $query = "SELECT ConfigDiff FROM `role` AS r JOIN `role_user` AS rl ON r.role_id = rl.role_id WHERE rl.user_id = ?";
       $pdo = DB::getInstance()->getConnection();
       $stmt = $pdo->prepare($query);
       if ($stmt->execute([$token->uid])) {
@@ -387,17 +387,21 @@
         if (!empty($res) && !is_null($res[0]))
           $roleConf = json_decode($res[0], true);
       }
+      // check if valid config
+      if (is_null($roleConf)) $roleConf = [];
+      //var_dump($roleConf);
       $newconf = array_replace_recursive($result, $roleConf);
+      //-------------
       // Remove Hidden Tables dynamically!
       $cleanArr = [];
-      foreach ($newconf as $tname => $conf) {
+      foreach ($newconf as $tname => $TConf) {
         // Remove Std-Filter
-        unset($conf["stdfilter"]);
-        foreach ($conf["columns"] as $colname => $col) {
-          unset($conf["columns"][$colname]["virtual_select"]);
-        }
+        unset($TConf["stdfilter"]);
+        foreach ($TConf["columns"] as $colname => $col) {
+          unset($TConf["columns"][$colname]["virtual_select"]);
+        }        
         // Append to cleaned Array
-        if ($conf["mode"] != "hi") $cleanArr[$tname] = $conf;
+        if ($TConf["mode"] != "hi") $cleanArr[$tname] = $TConf;
       }
       //===> Output to user
       $res = ["user" => $token, "tables" => $cleanArr];

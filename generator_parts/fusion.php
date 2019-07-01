@@ -82,39 +82,37 @@
     echo "\nCreating Role Management Tables...\n";
     try {
       // Table: Role
-      $sql = 'CREATE TABLE `Role` (
-        `Role_id` bigint(20) NOT NULL AUTO_INCREMENT,
-        `Role_name` varchar(45) DEFAULT NULL,
+      $sql = 'CREATE TABLE `role` (
+        `role_id` bigint(20) NOT NULL AUTO_INCREMENT,
+        `role_name` varchar(45) DEFAULT NULL,
         `ConfigDiff` LONGTEXT DEFAULT NULL,
-        PRIMARY KEY (`Role_id`)
+        PRIMARY KEY (`role_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
       $queries .= "\n$sql\n\n";
-      $con->exec($sql);
-      
-      // Table: Role_LIAMUSER
-      $sql = 'CREATE TABLE `Role_LIAMUSER` (
-        `Role_User_id` bigint(20) NOT NULL AUTO_INCREMENT,
-        `Role_id` bigint(20) NOT NULL,
-        `User_id` bigint(20) NOT NULL,
-        PRIMARY KEY (`Role_User_id`)
+      $con->exec($sql);      
+      // Table: Role_USER
+      $sql = 'CREATE TABLE `role_user` (
+        `role_user_id` bigint(20) NOT NULL AUTO_INCREMENT,
+        `role_id` bigint(20) NOT NULL,
+        `user_id` bigint(20) NOT NULL,
+        PRIMARY KEY (`role_user_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
       $queries .= "\n$sql\n\n";
       $con->exec($sql);
       
       // ForeignKeys
-      $sql = 'ALTER TABLE `Role_LIAMUSER` ADD INDEX `Role_id_fk` (`Role_id`)';
-      $queries .= "\n$sql\n\n";
-      $con->exec($sql);      
-      $sql = 'ALTER TABLE `Role_LIAMUSER` ADD CONSTRAINT `Role_id_fk` FOREIGN KEY (`Role_id`) REFERENCES `Role` (`Role_id`) ON DELETE NO ACTION ON UPDATE NO ACTION';
+      $sql = 'ALTER TABLE `role_user` ADD INDEX `role_id_fk` (`role_id`)';
       $queries .= "\n$sql\n\n";
       $con->exec($sql);
-
+      $sql = 'ALTER TABLE `role_user` ADD CONSTRAINT `role_id_fk` FOREIGN KEY (`role_id`) REFERENCES `role` (`role_id`) ON DELETE NO ACTION ON UPDATE NO ACTION';
+      $queries .= "\n$sql\n\n";
+      $con->exec($sql);
       // Insert default Roles
       $randomID = rand(1000, 10000);      
-      $sql = 'INSERT INTO Role (Role_id, Role_name) VALUES ('.$randomID.', \'Administrator\')';
+      $sql = 'INSERT INTO Role (role_id, role_name) VALUES ('.$randomID.', \'Administrator\')';
       $queries .= "\n$sql\n\n";
-      $con->exec($sql);      
-      $sql = 'INSERT INTO Role (Role_name) VALUES (\'User\')';
+      $con->exec($sql);
+      $sql = 'INSERT INTO Role (role_name) VALUES (\'User\')';
       $con->exec($sql);
       $queries .= "\n$sql\n\n";
     }
@@ -126,14 +124,14 @@
   //--------------------------------- create HistoryTable
   if ($createHistoryTable) {
     echo "\nCreating History Table...\n";
-    // Table: History
-    $sql = 'CREATE TABLE IF NOT EXISTS `History` (
-      `History_id` bigint(20) NOT NULL AUTO_INCREMENT,
-      `User_id` bigint(20) NOT NULL,
-      `History_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      `History_table` varchar(128) NOT NULL,
-      `History_valuenew` LONGTEXT NOT NULL,
-      `History_created` tinyint(1) NOT NULL DEFAULT 0,
+    // Table: History (all lowercase!)
+    $sql = 'CREATE TABLE IF NOT EXISTS `history` (
+      `history_id` bigint(20) NOT NULL AUTO_INCREMENT,
+      `user_id` bigint(20) NOT NULL,
+      `history_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `history_table` varchar(128) NOT NULL,
+      `history_valuenew` LONGTEXT NOT NULL,
+      `history_created` tinyint(1) NOT NULL DEFAULT 0,
       PRIMARY KEY (`History_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
     $queries .= $sql;
@@ -145,9 +143,7 @@
     // Get Data
     $se_active = (bool)$table["se_active"];
     $table_type = $table["table_type"];
-
     // TODO: Check if the "table" is no view
-
     //--- Create StateMachine
     if ($se_active) {
       // ------- StateMachine Creation
@@ -202,16 +198,13 @@
       $queries .= $SM->getQueryLog();
       $queries .= "\n\n";
       unset($SM); // Clean up
-
       // ------------ Connection to existing structure !
-
       // Set the default Entrypoint for the Table (when creating an entry the Process starts here)
       $SM = new StateMachine($con, $tablename); // Load correct Machine
       $EP_ID = $SM->getEntryPoint();
       $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD COLUMN `state_id` BIGINT(20) DEFAULT $EP_ID;";
       $queries .= $queries;
       $con->query($sql);
-
       // Generate CSS-Colors for states
       $allstates = $SM->getStates();
       $initColorHue = rand(0, 360); // le color
@@ -231,7 +224,6 @@
         }
         $content_css_statecolors .= $state_css;
       }
-
       // Add UNIQUE named foreign Key
       $uid = substr(md5($tablename), 0, 8);
       $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD CONSTRAINT `state_id_".$uid."` FOREIGN KEY (`state_id`) ".
@@ -246,12 +238,14 @@
 
   // TODO: Remove!
   // Generate a machine token
+  /*
   $token_data = array();
   $token_data['uid'] = 1337;
   $token_data['firstname'] = 'Machine';
   $token_data['lastname'] = 'Machine';
   $token = JWT::encode($token_data, $secretKey);
   $machine_token = $token;
+  */
 
 
 
@@ -266,7 +260,6 @@
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
-
   $AccountHandler = '<div class="collapse navbar-collapse" id="navbarText">
     <ul class="navbar-nav ml-auto">
       <li class="nav-item dropdown">
@@ -281,8 +274,7 @@
         </div>
       </li>
     </ul>
-  </div>';
-  
+  </div>';  
   // ------------------- Load complete Project
   $class_StateEngine = loadFile("./output_StateEngine.php");
   $output_RequestHandler = loadFile("./output_RequestHandler.php");  
@@ -296,14 +288,12 @@
   $output_content = loadFile("./output_content.html");
   $output_footer = loadFile("./output_footer.html");
   $output_index = loadFile("./output_index.php");
-
   //  ------------------- Insert Code into Templates
   $output_DBHandler = str_replace('replaceDBName', $db_name, $output_DBHandler); // For Config-Include
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
   $output_index = str_replace('replaceDBName', $db_name, $output_index); // Project Name
-
   $output_content = str_replace('<!-- replaceAccountHandler -->', $AccountHandler, $output_content); // Account-URL
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
   //===> Compose Main HTML-File
@@ -328,11 +318,11 @@
     define('DB_HOST', '$dbServer');
     define('DB_NAME', '$dbName');
     //-- Authentication + API
-    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent
-    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns JWT Token    
     define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
-    define('MACHINE_TOKEN', '$machineToken'); // Machine-Token for internal API Calls
-  ?>";
+    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns JWT Token  
+    // TODO: Remove the following things:
+    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent
+    ";
   }  
   function createSubDirIfNotExists($dirname) {
     if (!is_dir($dirname))
