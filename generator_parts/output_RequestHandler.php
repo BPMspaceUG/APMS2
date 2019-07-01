@@ -7,9 +7,19 @@
   $file_RQ = __DIR__."/ReadQuery.inc.php";
   if (file_exists($file_RQ)) include_once($file_RQ);
 
+
+
+
   // Global function for StateMachine
   function api($data) {
     $url = API_URL;
+
+    // Create temp Token
+    $token_data = array();
+    $token_data['uid'] = 1337;
+    $token = JWT::encode($token_data, $secretKey);
+    $machine_token = $token;
+    
     $token = MACHINE_TOKEN;
 
     $ch = curl_init();

@@ -233,23 +233,6 @@
     }
   }
 
-
-
-
-  // TODO: Remove!
-  // Generate a machine token
-  /*
-  $token_data = array();
-  $token_data['uid'] = 1337;
-  $token_data['firstname'] = 'Machine';
-  $token_data['lastname'] = 'Machine';
-  $token = JWT::encode($token_data, $secretKey);
-  $machine_token = $token;
-  */
-
-
-
-
   // Generate URLs
   $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
   $url_host = explode('APMS', $actual_link)[0];
