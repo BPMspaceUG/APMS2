@@ -1,26 +1,21 @@
 <?php
   // Includes
-  $file_DB = __DIR__."/DatabaseHandler.inc.php";
-  if (file_exists($file_DB)) include_once($file_DB);
-  $file_SM = __DIR__."/StateMachine.inc.php";
-  if (file_exists($file_SM)) include_once($file_SM);
-  $file_RQ = __DIR__."/ReadQuery.inc.php";
-  if (file_exists($file_RQ)) include_once($file_RQ);
-
-
+  $file_DB = __DIR__."/DatabaseHandler.inc.php"; if (file_exists($file_DB)) include_once($file_DB);
+  $file_SM = __DIR__."/StateMachine.inc.php"; if (file_exists($file_SM)) include_once($file_SM);
+  $file_RQ = __DIR__."/ReadQuery.inc.php"; if (file_exists($file_RQ)) include_once($file_RQ);
+  $file_AH = __DIR__."/output_AuthHandler.inc.php"; if (file_exists($file_AH)) include_once($file_AH);
 
 
   // Global function for StateMachine
   function api($data) {
     $url = API_URL;
+    $secretKey = AUTH_KEY;
 
     // Create temp Token
     $token_data = array();
     $token_data['uid'] = 1337;
     $token = JWT::encode($token_data, $secretKey);
-    $machine_token = $token;
-    
-    $token = MACHINE_TOKEN;
+
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
@@ -28,7 +23,7 @@
     curl_setopt($ch, CURLOPT_VERBOSE, true);
     $headers = array();
     //JWT token for Authentication
-    $headers[] = 'Cookie: token='.$token;
+    $headers[] = 'Authorization: Bearer '.$token;
     if ($data) {
       $json = json_encode($data);
       curl_setopt($ch, CURLOPT_POSTFIELDS, $json);

@@ -301,9 +301,8 @@
     define('DB_HOST', '$dbServer');
     define('DB_NAME', '$dbName');
     //-- Authentication + API
+    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns a JWT-Token
     define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
-    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns JWT Token  
-    // TODO: Remove the following things:
     define('API_URL', '$urlAPI'); // URL from the API where all requests are sent
     ";
   }  
