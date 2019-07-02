@@ -367,40 +367,35 @@ class StateMachine {
 // Class: RawTable !JQ
 //==============================================================
 class RawTable {
-  protected tablename: string;
-  public Columns: any;
-  private PrimaryColumn: string;
+  private tablename: string;
   private Sort: string = '';
   private Search: string = '';
   private Filter: string;
-  protected PageLimit: number;
-  protected PageIndex: number = 0;
-  protected Rows: any;
+  private PriColname: string = '';
+  private Config: any;
   protected actRowCount: number; // Count total
+  protected Rows: any;
+  protected PageLimit: number = 10;
+  protected PageIndex: number = 0;
+  public Columns: any;
 
   constructor (tablename: string) {
-    this.tablename = tablename;
-    this.actRowCount = 0;
-    this.resetFilter();
+    const t = this;
+    t.actRowCount = 0;
+    t.tablename = tablename;
+    t.Config = JSON.parse(JSON.stringify(DB.Config.tables[tablename])); // Deep Copy!
+    t.Columns = t.Config.columns;
+    for (const colname of Object.keys(t.Columns)) {
+      if (t.Columns[colname].is_primary) {t.PriColname = colname; return; }
+    }
+    t.resetFilter();
   }
   public createRow(data: any, callback) {
-    DB.request('create', {table: this.tablename, row: data}, function(r){
-      callback(r);
-    });
-  }
-  public deleteRow(RowID: number, callback) {
-    let me = this;
-    let data = {}
-    data[this.PrimaryColumn] = RowID
-    DB.request('delete', {table: this.tablename, row: data}, function(response) {
-      me.loadRows(function(){
-        callback(response);
-      })
-    })
+    DB.request('create', {table: this.tablename, row: data}, function(r){ callback(r); });
   }
   public updateRow(RowID: number, new_data: any, callback) {
     let data = new_data
-    data[this.PrimaryColumn] = RowID
+    data[this.PriColname] = RowID
     DB.request('update', {table: this.tablename, row: new_data}, function(response) {
       callback(response);
     })
@@ -410,7 +405,7 @@ class RawTable {
     if (trans_data) data = trans_data
     // PrimaryColID and TargetStateID are the minimum Parameters which have to be set
     // also RowData can be updated in the client -> has also be transfered to server
-    data[this.PrimaryColumn] = RowID
+    data[this.PriColname] = RowID
     data.state_id = TargetStateID
     DB.request('makeTransition', {table: this.tablename, row: data}, function(response) {
       callback(response);
@@ -418,7 +413,7 @@ class RawTable {
   }
   public loadRow(RowID: number, callback) {
     let data = {table: this.tablename, limitStart: 0, limitSize: 1, filter: {}};
-    data.filter = '{"=": ["'+ this.PrimaryColumn +'", ' + RowID + ']}';
+    data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
     // HTTP Request
     DB.request('read', data, function(response){
       const row = response.records[0];
@@ -481,12 +476,20 @@ class RawTable {
   public getRows() {
     return this.Rows;
   }
+  public getConfig(): any {
+    return this.Config;
+  }
+  public getTableType(): TableType {
+    return this.Config.table_type;
+  }
+  public getPrimaryColname(): string {
+    return this.PriColname;
+  }
 }
 //==============================================================
 // Class: Table
 //==============================================================
 class Table extends RawTable {
-  private Config: any;
   private GUID: string;
   private SM: StateMachine = null;
   private isExpanded: boolean = true;
@@ -522,20 +525,14 @@ class Table extends RawTable {
     // Check this values
     me.selType = SelType;
     // Inherited
-    me.PageIndex = 0;
-    me.PageLimit = 10;
     me.selectedRow = undefined;
-    me.tablename = tablename;
     // Save Form Data
-    let resp = JSON.parse(JSON.stringify(DB.Config.tables[tablename])); // Deep Copy!
-    me.Config = resp;
-    me.Columns = resp.columns;
-    me.ReadOnly = (resp.mode == 'ro');
-    me.TableType = resp.table_type;
-    me.setSort(me.Config.stdsorting);
+    me.ReadOnly = (me.getConfig().mode == 'ro');
+    me.TableType = me.getTableType();
+    me.setSort(me.getConfig().stdsorting);
 
-    if (!me.ReadOnly) me.diffFormCreateObject = JSON.parse(resp.formcreate);      
-    if (resp.se_active) me.SM = new StateMachine(me, resp.sm_states, resp.sm_rules);
+    if (!me.ReadOnly) me.diffFormCreateObject = JSON.parse(me.getConfig().formcreate);      
+    if (me.getConfig().se_active) me.SM = new StateMachine(me, me.getConfig().sm_states, me.getConfig().sm_rules);
     // check if is ReadOnly and NoSelect then hide first column
     if (me.ReadOnly && me.selType == SelectType.NoSelect)
       me.GUIOptions.showControlColumn = false;
@@ -549,17 +546,11 @@ class Table extends RawTable {
   public setCustomFormCreateOptions(customData: any) {
     this.customFormCreateOptions = customData;
   }
-  public getPrimaryColname(): string {
-    const cols = this.Columns;
-    for (const colname of Object.keys(cols)) {
-      if (cols[colname].is_primary) return colname;      
-    }
-  }
   public getTableIcon(): string {
-    return this.Config.table_icon;
+    return this.getConfig().table_icon;
   }
   public getTableAlias(): string {
-    return this.Config.table_alias;
+    return this.getConfig().table_alias;
   }
   private toggleSort(ColumnName: string): void {
     let t = this;
@@ -934,7 +925,7 @@ class Table extends RawTable {
       //------------------------------------ NO SELECT / EDITABLE / READ-ONLY
       // Exit if it is a ReadOnly Table
       if (t.ReadOnly) {
-        alert("Can not modify!\nTable \"" + t.tablename + "\" is read-only!");
+        alert("Can not modify!\nTable \"" + t.getTablename() + "\" is read-only!");
         return
       }
       // Get Row
@@ -1150,11 +1141,11 @@ class Table extends RawTable {
       const withDropdown = !(t.ReadOnly || isExitNode);
       return t.renderStateButton(stateID, withDropdown);
     }
-    else if (col == 'name' && t.tablename == 'state') {
+    else if (col == 'name' && t.getTablename() == 'state') {
       const stateID = parseInt(row['state_id']);
       return t.renderStateButton(stateID, false, value);
     }
-    else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.tablename == 'state_rules') {
+    else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.getTablename() == 'state_rules') {
       const stateID = parseInt(value['state_id']);
       return t.renderStateButton(stateID, false, value['name']);
     }
@@ -1618,14 +1609,12 @@ class FormGenerator {
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
-      const me = this;
       const tmpGUID = GUI.getID();
       const OriginRowID = this.oRowID;
       const extTablename = el.revfk_tablename;
       const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID      
       const tmpTable = new Table(extTablename, SelectType.NoSelect);
       const hideCol = '`' + extTablename + '`.' + extTableColSelf;
-
 
       //--- TODO: Probably do this via configuration
       let fkCols = [];
@@ -1637,7 +1626,6 @@ class FormGenerator {
       const colnamex = fkCols[0];
       //---/      
       
-
       // Special Settings
       tmpTable.Columns[extTableColSelf].show_in_grid = false; // Hide the primary column
       tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false; // Hide the origin column
@@ -1652,7 +1640,6 @@ class FormGenerator {
         customFormCreate[extTableColSelf]['value'] = OriginRowID;
         customFormCreate[extTableColSelf]['mode_form'] = 'ro';
         
-
         if (tmpTable.isRelationTable()) {
           // -------- Relation Table
           // Filter all elements which are already connected
@@ -1878,7 +1865,7 @@ class FormGenerator {
 
 //==================================================================== Global Helper Methods
 // Show the actual Tab in the URL and also open Tab by URL
-/*
+
 $(function(){
   let hash = window.location.hash;
   hash && $('ul.nav a[href="' + hash + '"]').tab('show');
@@ -1890,7 +1877,7 @@ $(function(){
     $('html,body').scrollTop(scrollmem);
   });
 });
-*/
+
 //-------------------------------------------
 //--- Special global functions
 function escapeHtml(string: string): string {

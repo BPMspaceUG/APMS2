@@ -345,29 +345,28 @@ class RawTable {
     constructor(tablename) {
         this.Sort = '';
         this.Search = '';
+        this.PriColname = '';
+        this.PageLimit = 10;
         this.PageIndex = 0;
-        this.tablename = tablename;
-        this.actRowCount = 0;
-        this.resetFilter();
+        const t = this;
+        t.actRowCount = 0;
+        t.tablename = tablename;
+        t.Config = JSON.parse(JSON.stringify(DB.Config.tables[tablename]));
+        t.Columns = t.Config.columns;
+        for (const colname of Object.keys(t.Columns)) {
+            if (t.Columns[colname].is_primary) {
+                t.PriColname = colname;
+                return;
+            }
+        }
+        t.resetFilter();
     }
     createRow(data, callback) {
-        DB.request('create', { table: this.tablename, row: data }, function (r) {
-            callback(r);
-        });
-    }
-    deleteRow(RowID, callback) {
-        let me = this;
-        let data = {};
-        data[this.PrimaryColumn] = RowID;
-        DB.request('delete', { table: this.tablename, row: data }, function (response) {
-            me.loadRows(function () {
-                callback(response);
-            });
-        });
+        DB.request('create', { table: this.tablename, row: data }, function (r) { callback(r); });
     }
     updateRow(RowID, new_data, callback) {
         let data = new_data;
-        data[this.PrimaryColumn] = RowID;
+        data[this.PriColname] = RowID;
         DB.request('update', { table: this.tablename, row: new_data }, function (response) {
             callback(response);
         });
@@ -376,7 +375,7 @@ class RawTable {
         let data = { state_id: 0 };
         if (trans_data)
             data = trans_data;
-        data[this.PrimaryColumn] = RowID;
+        data[this.PriColname] = RowID;
         data.state_id = TargetStateID;
         DB.request('makeTransition', { table: this.tablename, row: data }, function (response) {
             callback(response);
@@ -384,7 +383,7 @@ class RawTable {
     }
     loadRow(RowID, callback) {
         let data = { table: this.tablename, limitStart: 0, limitSize: 1, filter: {} };
-        data.filter = '{"=": ["' + this.PrimaryColumn + '", ' + RowID + ']}';
+        data.filter = '{"=": ["' + this.PriColname + '", ' + RowID + ']}';
         DB.request('read', data, function (response) {
             const row = response.records[0];
             callback(row);
@@ -447,6 +446,15 @@ class RawTable {
     getRows() {
         return this.Rows;
     }
+    getConfig() {
+        return this.Config;
+    }
+    getTableType() {
+        return this.Config.table_type;
+    }
+    getPrimaryColname() {
+        return this.PriColname;
+    }
 }
 class Table extends RawTable {
     constructor(tablename, SelType = SelectType.NoSelect) {
@@ -476,20 +484,14 @@ class Table extends RawTable {
         let me = this;
         me.GUID = GUI.getID();
         me.selType = SelType;
-        me.PageIndex = 0;
-        me.PageLimit = 10;
         me.selectedRow = undefined;
-        me.tablename = tablename;
-        let resp = JSON.parse(JSON.stringify(DB.Config.tables[tablename]));
-        me.Config = resp;
-        me.Columns = resp.columns;
-        me.ReadOnly = (resp.mode == 'ro');
-        me.TableType = resp.table_type;
-        me.setSort(me.Config.stdsorting);
+        me.ReadOnly = (me.getConfig().mode == 'ro');
+        me.TableType = me.getTableType();
+        me.setSort(me.getConfig().stdsorting);
         if (!me.ReadOnly)
-            me.diffFormCreateObject = JSON.parse(resp.formcreate);
-        if (resp.se_active)
-            me.SM = new StateMachine(me, resp.sm_states, resp.sm_rules);
+            me.diffFormCreateObject = JSON.parse(me.getConfig().formcreate);
+        if (me.getConfig().se_active)
+            me.SM = new StateMachine(me, me.getConfig().sm_states, me.getConfig().sm_rules);
         if (me.ReadOnly && me.selType == SelectType.NoSelect)
             me.GUIOptions.showControlColumn = false;
     }
@@ -502,18 +504,11 @@ class Table extends RawTable {
     setCustomFormCreateOptions(customData) {
         this.customFormCreateOptions = customData;
     }
-    getPrimaryColname() {
-        const cols = this.Columns;
-        for (const colname of Object.keys(cols)) {
-            if (cols[colname].is_primary)
-                return colname;
-        }
-    }
     getTableIcon() {
-        return this.Config.table_icon;
+        return this.getConfig().table_icon;
     }
     getTableAlias() {
-        return this.Config.table_alias;
+        return this.getConfig().table_alias;
     }
     toggleSort(ColumnName) {
         let t = this;
@@ -831,7 +826,7 @@ class Table extends RawTable {
         }
         else {
             if (t.ReadOnly) {
-                alert("Can not modify!\nTable \"" + t.tablename + "\" is read-only!");
+                alert("Can not modify!\nTable \"" + t.getTablename() + "\" is read-only!");
                 return;
             }
             let TheRow = null;
@@ -1012,11 +1007,11 @@ class Table extends RawTable {
             const withDropdown = !(t.ReadOnly || isExitNode);
             return t.renderStateButton(stateID, withDropdown);
         }
-        else if (col == 'name' && t.tablename == 'state') {
+        else if (col == 'name' && t.getTablename() == 'state') {
             const stateID = parseInt(row['state_id']);
             return t.renderStateButton(stateID, false, value);
         }
-        else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.tablename == 'state_rules') {
+        else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.getTablename() == 'state_rules') {
             const stateID = parseInt(value['state_id']);
             return t.renderStateButton(stateID, false, value['name']);
         }
@@ -1419,7 +1414,6 @@ class FormGenerator {
         </div>`;
         }
         else if (el.field_type == 'reversefk') {
-            const me = this;
             const tmpGUID = GUI.getID();
             const OriginRowID = this.oRowID;
             const extTablename = el.revfk_tablename;
@@ -1627,6 +1621,16 @@ class FormGenerator {
         }
     }
 }
+$(function () {
+    let hash = window.location.hash;
+    hash && $('ul.nav a[href="' + hash + '"]').tab('show');
+    $('.nav-tabs a').click(function (e) {
+        $(this).tab('show');
+        const scrollmem = $('body').scrollTop() || $('html').scrollTop();
+        window.location.hash = this.hash;
+        $('html,body').scrollTop(scrollmem);
+    });
+});
 function escapeHtml(string) {
     const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
     return String(string).replace(/[&<>"'`=\/]/g, function (s) {
