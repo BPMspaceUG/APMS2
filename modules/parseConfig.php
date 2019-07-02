@@ -5,7 +5,6 @@
     $_POST = json_decode(file_get_contents('php://input'), true);
   }
   $params = $_POST;
-
   //============================ Parse by Content
 	// Param
 	$data = @htmlspecialchars($params['config_data']);
@@ -17,7 +16,6 @@
 		echo json_encode(array("DBName" => DB_NAME, "login_url" => API_URL_LIAM, "secret_key" => AUTH_KEY, "data" => $config_tables_json));
 		exit();
 	}
-
 	//============================ Parse by Filename
 	// Param
 	$data = @htmlspecialchars($params['file_name']);
@@ -37,4 +35,3 @@
 		}
 		exit();
 	}
-?>

@@ -3,14 +3,18 @@
   $file_DB = __DIR__."/DatabaseHandler.inc.php"; if (file_exists($file_DB)) include_once($file_DB);
   $file_SM = __DIR__."/StateMachine.inc.php"; if (file_exists($file_SM)) include_once($file_SM);
   $file_RQ = __DIR__."/ReadQuery.inc.php"; if (file_exists($file_RQ)) include_once($file_RQ);
-  $file_AH = __DIR__."/output_AuthHandler.inc.php"; if (file_exists($file_AH)) include_once($file_AH);
+  $file_AH = __DIR__."/AuthHandler.inc.php"; if (file_exists($file_AH)) include_once($file_AH);
 
   // Global function for StateMachine
   function api($data) {
+
+    // TODO: Do not even connect outside -> just call the functions internally
+
     // Create temp Token
     $token_data = array();
     $token_data['uid'] = 1337;
     $token = JWT::encode($token_data, AUTH_KEY);
+
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
     curl_setopt($ch, CURLOPT_URL, API_URL);
@@ -406,7 +410,7 @@
     }
     public function read($param) {
       //--------------------- Check Params
-      $validParams = ['table', 'limitStart', 'limitSize', 'ascdesc', 'orderby', 'filter', 'search'];
+      $validParams = ['table', 'limitStart', 'limitSize', 'sort', 'filter', 'search'];
 
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
@@ -415,8 +419,8 @@
       // -- Ordering, Limit, and Pagination
       @$limitStart = isset($param["limitStart"]) ? $param["limitStart"] : null;
       @$limitSize = isset($param["limitSize"]) ? $param["limitSize"] : null;
-      @$ascdesc = isset($param["ascdesc"]) ? $param["ascdesc"] : null; 
-      @$orderby = isset($param["orderby"]) ? $param["orderby"] : null; // has to be a column name
+
+      @$sort = isset($param["sort"]) ? $param["sort"] : null;
       @$filter = isset($param["filter"]) ? $param["filter"] : null;
       @$search = isset($param["search"]) ? $param["search"] : null; // all columns in OR
 
@@ -424,7 +428,6 @@
       global $token;
       $token_uid = -1;
       if (property_exists($token, 'uid')) $token_uid = $token->uid;
-
 
       // Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
@@ -442,11 +445,16 @@
         $limitStart = null;
         $limitSize = null;
       }
-      //--- OrderBy
-      if (!is_null($ascdesc) && is_null($orderby)) die(fmtError("AscDesc can not be set without OrderBy!"));
-      if (!is_null($orderby)) {
+      //--- Sorting
+      if (!is_null($sort)) {
         //if (!Config::isValidColname($orderby)) die(fmtError('OrderBy: Invalid Columnname!'));
         //if (!Config::doesColExistInTable($tablename, $orderby)) die(fmtError('OrderBy: Column does not exist in this Table!'));
+        $ascdesc = "ASC"; // Default
+        $sortParts = explode(",", $sort);
+        $orderby = $sortParts[0];
+        if (count($sortParts) == 2) {
+          $ascdesc = $sortParts[1];
+        }
         //--- ASC/DESC
         $ascdesc = strtolower(trim($ascdesc));
         if ($ascdesc == "") $ascdesc == "ASC";

@@ -6,30 +6,28 @@
 
     <!-- CONTENT -->
     <div class="container">
-
-
-    <form class="bpm-server-connect" action="modules/ConnectDB.php">
-      <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
-      <hr>
-		  <div class="form-group row p-0 m-0">
-		    <label for="sqlServer" class="col-sm-1 mt-1 form-control-label">Hostname</label>
-		    <div class="col-sm-3">
-		      <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer" value='{{sqlServer}}'>
-		    </div>
-		    <label for="username" class="col-sm-1 mt-1 form-control-label">Username</label>
-		    <div class="col-sm-2">
-		        <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" value='{{username}}'>
-		    </div>
-		    <label for="password" class="col-sm-1 mt-1 form-control-label">Password</label>
-		    <div class="col-sm-2">
-		      <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw" value='{{pw}}'>
-		    </div>
-        <div class="col-sm-2">
-		      <button type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()"><i class="fas fa-plug"></i> Connect</button>
-		    </div>
-		  </div>
-			</form>
-
+      <!-- Connect to Database-Server -->
+      <form class="bpm-server-connect" action="modules/ConnectDB.php">
+        <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
+        <hr>
+        <div class="form-group row p-0 m-0">
+          <label for="sqlServer" class="col-sm-1 mt-1 form-control-label">Hostname</label>
+          <div class="col-sm-3">
+            <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer" value='{{sqlServer}}'>
+          </div>
+          <label for="username" class="col-sm-1 mt-1 form-control-label">Username</label>
+          <div class="col-sm-2">
+              <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" value='{{username}}'>
+          </div>
+          <label for="password" class="col-sm-1 mt-1 form-control-label">Password</label>
+          <div class="col-sm-2">
+            <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw" value='{{pw}}'>
+          </div>
+          <div class="col-sm-2">
+            <button type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()"><i class="fas fa-plug"></i> Connect</button>
+          </div>
+        </div>
+      </form>
       <!-- Loading -->
       <div class="alert alert-info" ng-show="isLoading">
         <p class="m-0"><i class="fa fa-cog fa-spin"></i> Loading...</p>
@@ -38,7 +36,6 @@
       <div class="alert alert-danger" ng-show="isError">
         <p class="m-0"><i class="fa fa-exclamation"></i> <strong>Error:</strong> Login data is not correct.</p>
       </div>
-
       <!-- DB Configuration -->
 		  <div ng-if="dbNames">
 
@@ -165,15 +162,19 @@
                       </td>
                     </tr>
 
-                    <!-- C O L U M N S -->
-                    <!-- Columns START -->
+                    <!-- ========================================================= -->
+                    <!-- ===================== C O L U M N S ===================== -->
+                    <!-- ========================================================= -->
+                    
                     <tr ng-repeat="(colname, col) in tbl.columns" ng-show="tbl.showKids" ng-class="{'bg-warning' : col.is_virtual}" style="font-size: .8em;">
                       <!-- Order -->
-                      <td class="align-middle">
+                      <td class="align-middle" style="background-color: #cccccc66;">
                         <div style="white-space:nowrap;overflow:hidden;">
-                          <input type="text" class="form-control-plaintext d-inline" style="width: 30px" ng-model="col.col_order">                        
-                          <a ng-click="changeSortOrder(col, 1)"><i class="fa fa-angle-down p-1 pl-2"></i></a>
-                          <a ng-click="changeSortOrder(col, -1)"><i class="fa fa-angle-up p-1"></i></a>
+                          <input type="text" class="form-control-plaintext d-inline float-left" style="width: 30px" ng-model="col.col_order">
+                          <div class="float-left">
+                            <a style="width:20px;" href="#" ng-click="changeSortOrder(col, -1)"><i class="fa fa-angle-up p-1"></i></a><br>
+                            <a style="width:20px;" href="#" ng-click="changeSortOrder(col, 1)"><i class="fa fa-angle-down p-1"></i></a>
+                          </div>
                         </div>
                       </td>
                       <!-- Name -->
@@ -229,11 +230,11 @@
                         <!-- FK -->
                         <div ng-if="col.field_type == 'foreignkey'">
                           <b>ForeignKey:</b>
-                          <select class="custom-select custom-select-sm" style="width: 100px; display: inline !important;" ng-model="col.foreignKey.table">
+                          <select class="custom-select custom-select-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.table">
                             <option value="" selected></option>
                             <option ng-repeat="(name, tbl) in tables" value="{{name}}">{{name}}</option>
                           </select>
-                          <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm" style="width: 80px; display: inline !important;" ng-model="col.foreignKey.col_id" placeholder="JoinID">
+                          <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.col_id" placeholder="JoinID">
                           <span>
                             <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.col_subst" placeholder="ReplacedCloumn">
                           </span>
@@ -271,11 +272,23 @@
 
                     <!---- CUSTOM FILTER ---->
                     <tr ng-show="tbl.showKids">
-                      <td class="align-middle py-3" colspan="8">
-                        <small class="text-muted">StandardFilter on Serverside [filterJSON] i.e.: {"nin":["state_id","1,2,3"]}</small>
-                        <form class="form-inline">
-                          <input type="text" class="form-control form-control-sm mr-2 w-100" ng-model="tbl.stdfilter">
-                        </form>
+                      <td class="align-middle pb-3" colspan="8">
+                        <div class="row">
+                          <!-- Std. Filter -->
+                          <div class="col">
+                            <small class="text-muted">Standard-Filter on Serverside [filterJSON] i.e.: {"nin":["state_id","1,2,3"]}</small>
+                            <form class="form-inline">
+                              <input type="text" class="form-control form-control-sm w-100" ng-model="tbl.stdfilter">
+                            </form>
+                          </div>
+                          <!-- Std. Sorting -->
+                          <div class="col">
+                            <small class="text-muted">Standard-Sorting i.e.: "columnname,DESC"</small>
+                            <form class="form-inline">
+                              <input type="text" class="form-control form-control-sm w-100" ng-model="tbl.stdsorting">
+                            </form>
+                          </div>
+                        </div>
                       </td>
                     </tr>                 
 

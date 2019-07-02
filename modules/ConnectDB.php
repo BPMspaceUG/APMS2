@@ -109,13 +109,17 @@
       if ($res2) {
         // Loop Columns
         $column_counter = 1;
+        $sort_col = "";
         while ($row2 = $res2->fetch_assoc()) {
           // Column information
           $column_info = $row2;
           $column_name = $row2["COLUMN_NAME"];
           $col_datatype = $row2["DATA_TYPE"];
           $col_type_enums = $row2["COLUMN_TYPE"];
-          $col_isPrimary = ($row2['EXTRA'] == 'auto_increment'); // TODO: maybe look for primary and not AutoIncr
+          $col_isPrimary = ($row2['EXTRA'] == 'auto_increment');
+          if ($col_isPrimary) {
+            $sort_col = $column_name.",DESC";
+          }
           $col_isFK = false;
           // Additional information
           //------------------------------------------------------
@@ -231,6 +235,7 @@
         "order" => (int)$table_counter,
         "mode" => "rw",
         "stdfilter" => "",
+        "stdsorting" => $sort_col,
         "in_menu" => false,
         "se_active" => $TableHasStateMachine,
         "columns" => $columns
