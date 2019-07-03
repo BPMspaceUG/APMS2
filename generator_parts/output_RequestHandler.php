@@ -411,7 +411,6 @@
     public function read($param) {
       //--------------------- Check Params
       $validParams = ['table', 'limitStart', 'limitSize', 'sort', 'filter', 'search'];
-
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       // Parameters and default values
@@ -419,7 +418,6 @@
       // -- Ordering, Limit, and Pagination
       @$limitStart = isset($param["limitStart"]) ? $param["limitStart"] : null;
       @$limitSize = isset($param["limitSize"]) ? $param["limitSize"] : null;
-
       @$sort = isset($param["sort"]) ? $param["sort"] : null;
       @$filter = isset($param["filter"]) ? $param["filter"] : null;
       @$search = isset($param["search"]) ? $param["search"] : null; // all columns in OR
@@ -429,7 +427,8 @@
       $token_uid = -1;
       if (property_exists($token, 'uid')) $token_uid = $token->uid;
 
-      // Table
+
+      //--- Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
 
@@ -446,6 +445,7 @@
         $limitSize = null;
       }
       //--- Sorting
+      $orderby = null;
       if (!is_null($sort)) {
         //if (!Config::isValidColname($orderby)) die(fmtError('OrderBy: Invalid Columnname!'));
         //if (!Config::doesColExistInTable($tablename, $orderby)) die(fmtError('OrderBy: Column does not exist in this Table!'));
@@ -467,7 +467,7 @@
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
       $rq->setLimit($limitSize, $limitStart);
-      $rq->setSorting($orderby, $ascdesc);
+      if (!is_null($orderby)) $rq->setSorting($orderby, $ascdesc); // optional sorting
 
       //--- Virtual-Columns
       $vColnames = [];

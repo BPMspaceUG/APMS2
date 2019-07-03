@@ -1,7 +1,22 @@
 <?php
-  // Helper Methods
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
+  }
+  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey) {
+    global $act_version_link;
+    return  "<?php
+    // APMS Generated Project (".date("Y-m-d H:i:s").")
+    // Version: $act_version_link
+    // ==================================================
+    //-- Database
+    define('DB_USER', '$dbUser');
+    define('DB_PASS', '$dbPass');
+    define('DB_HOST', '$dbServer');
+    define('DB_NAME', '$dbName');
+    //-- Authentication + API
+    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns a JWT-Token
+    define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
+    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent";
   }
   function loadFile($fname) {
     $fh = fopen($fname, "r");
@@ -9,15 +24,21 @@
     fclose($fh);
     return $content;
   }
+  function createSubDirIfNotExists($dirname) {
+    if (!is_dir($dirname))
+      mkdir($dirname, 0750, true);
+  }  
+  function createFile($filename, $content) {
+    file_put_contents($filename, $content);
+    chmod($filename, 0660);
+  }
 
   // Global Variables
   $queries = '';
   $content = "";
-
 	// Load data from Angular
   if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
-    $_REQUEST = json_decode(file_get_contents('php://input'), true);
-  
+    $_REQUEST = json_decode(file_get_contents('php://input'), true);  
   // Parameters
   $db_server = $_REQUEST['host'];
   $db_user = $_REQUEST['user'];
@@ -29,15 +50,11 @@
   $redirectToLoginURL = $_REQUEST['redirectToLogin'];
   $loginURL = $_REQUEST['login_URL'];
   $secretKey = $_REQUEST['secret_KEY'];
-
   //--------------------------------------
-  // Sort Data-Array by subkey values
-  function cmp($a, $b) {
-    return ((int)$a['order']) - ((int)$b['order']);
-  }
+  // Sort Tables - from Data-Array by subkey values
+  function cmp($a, $b) { return ((int)$a['order']) - ((int)$b['order']); }
   uasort($data, "cmp");
   //--------------------------------------
-
   // check if LIAM is present and create a Directory if not exists  
   $content = @file_get_contents("../../.git/config");
   echo "Looking for LIAM...\n";
@@ -51,19 +68,16 @@
     }
   }
   echo "\n";
-
   // ---------------------- Get actual Version of APMS
   $filepath = __DIR__."/../.git/refs/heads/master";
   $act_version = trim(file_get_contents($filepath));
   $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/" . $act_version;
   echo "Generator-Version: " . $act_version . "\n";
-
   // Open a new DB-Connection
   define('DB_HOST', $db_server);
   define('DB_NAME', $db_name);
   define('DB_USER', $db_user);
   define('DB_PASS', $db_pass);
-
   require_once("output_DatabaseHandler.php");
   require_once("output_StateEngine.php");
   require_once("output_RequestHandler.php");
@@ -72,10 +86,9 @@
   /* ------------------------------------- Statemachine ------------------------------------- */
   // Loop each Table with StateMachine checked create a StateMachine Column
   // -------------------- FormData --------------------
-  $content_css_statecolors = '';
-  
+  $content_css_statecolors = '';  
   // Database Connection
-  $con = DB::getInstance()->getConnection();  
+  $con = DB::getInstance()->getConnection();
   //--------------------------------- create RoleManagement
   if ($createRoleManagement) {
     $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); //Error Handling
@@ -89,7 +102,7 @@
         PRIMARY KEY (`role_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
       $queries .= "\n$sql\n\n";
-      $con->exec($sql);      
+      $con->exec($sql);
       // Table: Role_USER
       $sql = 'CREATE TABLE `role_user` (
         `role_user_id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -99,7 +112,6 @@
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
       $queries .= "\n$sql\n\n";
       $con->exec($sql);
-      
       // ForeignKeys
       $sql = 'ALTER TABLE `role_user` ADD INDEX `role_id_fk` (`role_id`)';
       $queries .= "\n$sql\n\n";
@@ -138,7 +150,6 @@
     $con->exec($sql);
   }  
   //---------------------------------
-
   foreach ($data as $tablename => $table) {
     // Get Data
     $se_active = (bool)$table["se_active"];
@@ -151,7 +162,6 @@
       $SM->createDatabaseStructure();
       $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
       $cols = $table["columns"];
-
       if ($table_type != 'obj') {
         //----------- RELATION Table
         echo "Create Relation Scripts ($table_type)\n";
@@ -281,41 +291,12 @@
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
   //===> Compose Main HTML-File
   $output_all = $output_header.$output_content.$output_footer;
-  // ------------------------------------ Generate Core File
-  // Output information
-  echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
-  echo $queries;
-  // ------------------------------------ Generate Config File
-  // ---> ENCODE Data as JSON
-  $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-  // ----------------------- Config File generator
-  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey) {
-    global $act_version_link;
-    return  "<?php
-    // APMS Generated Project (".date("Y-m-d H:i:s").")
-    // Version: $act_version_link
-    // ==================================================
-    //-- Database
-    define('DB_USER', '$dbUser');
-    define('DB_PASS', '$dbPass');
-    define('DB_HOST', '$dbServer');
-    define('DB_NAME', '$dbName');
-    //-- Authentication + API
-    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns a JWT-Token
-    define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
-    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent";
-  }  
-  function createSubDirIfNotExists($dirname) {
-    if (!is_dir($dirname))
-      mkdir($dirname, 0750, true);
-  }  
-  function createFile($filename, $content) {
-    file_put_contents($filename, $content);
-    chmod($filename, 0660);
-  }
   //----------------------------------------------
   // ===> Write Project to FileSystem
   //----------------------------------------------
+  // ---> ENCODE Data as JSON
+  $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+  // Define ProjectPath
   $Path_APMS_test = __DIR__ . "/../../APMS_test";
 	// check if APMS test exists
   if (is_dir($Path_APMS_test)) {
@@ -353,4 +334,8 @@
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       createFile($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
+
+    //------> Output information
+    echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
+    echo $queries;
   }
