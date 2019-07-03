@@ -410,64 +410,73 @@
     }
     public function read($param) {
       //--------------------- Check Params
-      $validParams = ['table', 'limitStart', 'limitSize', 'sort', 'filter', 'search'];
+      $validParams = ['table', 'limit', 'sort', 'filter', 'search'];      
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       // Parameters and default values
       @$tablename = isset($param["table"]) ? $param["table"] : die(fmtError('Table is not set!'));
-      // -- Ordering, Limit, and Pagination
-      @$limitStart = isset($param["limitStart"]) ? $param["limitStart"] : null;
-      @$limitSize = isset($param["limitSize"]) ? $param["limitSize"] : null;
+      @$limit = isset($param["limit"]) ? $param["limit"] : null;
       @$sort = isset($param["sort"]) ? $param["sort"] : null;
-      @$filter = isset($param["filter"]) ? $param["filter"] : null;
-      @$search = isset($param["search"]) ? $param["search"] : null; // all columns in OR
+      @$filter = isset($param["filter"]) ? $param["filter"] : null; // additional Filter
+      @$search = isset($param["search"]) ? $param["search"] : null; // all columns: [like this] OR [like this] OR ...
 
       // Identify via Token
       global $token;
       $token_uid = -1;
       if (property_exists($token, 'uid')) $token_uid = $token->uid;
 
-
       //--- Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
 
+      //================================================  New Version:
+      // Build a new Read Query Object
+      $rq = new ReadQuery($tablename);
+
       //--- Limit
-      if (!is_null($limitStart) && is_null($limitSize)) die(fmtError("Error in Limit Params (LimitSize is not set)!"));
-      if (is_null($limitStart) && !is_null($limitSize)) die(fmtError("Error in Limit Params (LimitStart is not set)!"));
-      if (!is_null($limitStart) && !is_null($limitSize)) {
-        // Valid structure
-        if (!is_numeric($limitStart)) die(fmtError("LimitStart is not numeric!"));
-        if (!is_numeric($limitSize)) die(fmtError("LimitSize is not numeric!"));
-      } else {
-        // default:
-        $limitStart = null;
-        $limitSize = null;
+      if (!is_null($limit)) {
+        $limitParts = explode(",", $limit);
+        $lim = $limitParts[0];
+        $offset = 0;
+        if (empty(trim($lim))) die(fmtError("Limit is empty!"));
+        if (!is_numeric($lim)) die(fmtError("Limit is not numeric!"));
+        // with Offset
+        if (count($limitParts) == 1) {
+          $rq->setLimit($lim);
+        }
+        elseif (count($limitParts) == 2) {
+          $off = $limitParts[1];
+          if (empty(trim($off))) die(fmtError("Offset is empty!"));
+          if (!is_numeric($off)) die(fmtError("Offset is not numeric!"));
+          $rq->setLimit($lim, $off);
+        }
+        else {
+          die(fmtError("Limit-Param has too many values!"));
+        }        
       }
+
       //--- Sorting
-      $orderby = null;
       if (!is_null($sort)) {
         //if (!Config::isValidColname($orderby)) die(fmtError('OrderBy: Invalid Columnname!'));
         //if (!Config::doesColExistInTable($tablename, $orderby)) die(fmtError('OrderBy: Column does not exist in this Table!'));
-        $ascdesc = "ASC"; // Default
+        $sortDir = "ASC"; // Default
         $sortParts = explode(",", $sort);
-        $orderby = $sortParts[0];
+        $sortColumn = $sortParts[0];
+        if (empty(trim($sortColumn))) die(fmtError("Sort-Param: Column is empty!"));
         if (count($sortParts) == 2) {
-          $ascdesc = $sortParts[1];
+          $sortDir = $sortParts[1];
+        } elseif (count($sortParts) > 2) {
+          die(fmtError("Sort-Param has too many values (only 1 or 2 allowed i.e. sort=col1,DESC)!"));
         }
-        //--- ASC/DESC
-        $ascdesc = strtolower(trim($ascdesc));
-        if ($ascdesc == "") $ascdesc == "ASC";
-        elseif ($ascdesc == "asc") $ascdesc == "ASC";
-        elseif ($ascdesc == "desc") $ascdesc == "DESC";
-        else die(fmtError("AscDesc has no valid value (value has to be empty, ASC or DESC)!"));
+        // ASC/DESC
+        $sortDir = strtolower(trim($sortDir));
+        if ($sortDir == "") $sortDir == "ASC";
+        elseif ($sortDir == "asc") $sortDir == "ASC";
+        elseif ($sortDir == "desc") $sortDir == "DESC";
+        else die(fmtError("Sort-Param has invalid value (has to be empty, ASC or DESC)!"));
+        //--> Set Sorting
+        $rq->setSorting($sortColumn, $sortDir);
       }
-      //================================================  New Version:
-
-      // Build a new Read Query Object
-      $rq = new ReadQuery($tablename);
-      $rq->setLimit($limitSize, $limitStart);
-      if (!is_null($orderby)) $rq->setSorting($orderby, $ascdesc); // optional sorting
 
       //--- Virtual-Columns
       $vColnames = [];
@@ -489,6 +498,7 @@
         $els = [];
         $cols = array_merge(Config::getColnamesByTablename($tablename), $vColnames);
         foreach ($cols as $colname) {
+          // TODO: Check Columnname if has valid chars: A-z,a-z,_,()
           $els[] = "{\"like\": [\"$colname\", \"$search\"]}";
         }      
         $term = '{"or":['. implode(',', $els) .']}';
@@ -537,8 +547,9 @@
       }
       else {
         // Error -> Return Error        
-        echo $stmt->queryString."\n\n";
-        echo json_encode($rq->getValues())."\n\n";
+        //echo $stmt->queryString."\n\n";
+        //echo json_encode($rq->getValues())."\n\n";
+        die(fmtError($stmt->errorInfo()[2]));
         var_dump($stmt->errorInfo());
         exit();
       }

@@ -382,7 +382,7 @@ class RawTable {
         });
     }
     loadRow(RowID, callback) {
-        let data = { table: this.tablename, limitStart: 0, limitSize: 1, filter: {} };
+        let data = { table: this.tablename, limit: 1, filter: {} };
         data.filter = '{"=": ["' + this.PriColname + '", ' + RowID + ']}';
         DB.request('read', data, function (response) {
             const row = response.records[0];
@@ -396,10 +396,9 @@ class RawTable {
             data['filter'] = me.Filter;
         if (me.Search && me.Search !== '')
             data['search'] = me.Search;
-        if (me.PageLimit && me.PageLimit) {
-            data['limitStart'] = me.PageIndex * me.PageLimit;
-            data['limitSize'] = me.PageLimit;
-        }
+        const offset = me.PageIndex * me.PageLimit;
+        if (me.PageLimit && me.PageLimit)
+            data['limit'] = me.PageLimit + (offset == 0 ? '' : ',' + offset);
         DB.request('read', data, function (response) {
             me.Rows = response.records;
             me.actRowCount = response.count;
