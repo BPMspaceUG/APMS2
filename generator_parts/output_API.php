@@ -60,10 +60,12 @@
       $command = 'update'; // TODO: transit
       $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
     }
+    /*
     else if ($ReqMethod === 'DELETE') {
       $command = 'delete';
       $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
     }
+    */
     else {
       die(json_encode(['error' => ['msg' => "HTTP-Method not supported!"]]));
     }

@@ -69,7 +69,7 @@ class ReadQuery {
     return "SELECT ".$this->getSelect().self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).$this->getSorting().$this->getLimit().";";
   }
   public function getCountStmtWOLimits() {
-    return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).";";
+    return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`"/*.$this->getJoins()*/.$this->getFilter(true).";";
   }
   public function getValues() {
     if (is_null($this->filter)) return [];
@@ -91,18 +91,17 @@ class ReadQuery {
     return $result;
   }
   //--- Joins
-  public function addJoin($from, $to, $hasMany = false) {
+  public function addJoin($from, $to, $hasManyAlias = "") {
     $arrFrom = explode(".", $from);
     $arrTo = explode(".", $to);
-    $this->joins[] = [$arrFrom[0], $arrFrom[1], $arrTo[0], $arrTo[1], $hasMany];
+    $this->joins[] = [$arrFrom[0], $arrFrom[1], $arrTo[0], $arrTo[1], $hasManyAlias];
   }
   private function getJoin($j) {
-    $hasMany = $j[4];
-    $alias = implode('/', [$j[0], $j[2]]);
-    // has 1 FK
-    if (!$hasMany) $alias = implode('/', [$j[0], $j[3]]);
     $path = $j[0];
-    return self::SEPERATOR."LEFT JOIN ".$j[2]." AS `".$alias."` ON `".$path."`.".$j[3]." = `".$alias."`.".$j[1];
+    $hasMany = $j[4] != "";
+    // has 1 FK
+    $alias = $hasMany ? $j[4] /*implode('/', [$j[0], $j[2]])*/ :  implode('/', [$j[0], $j[3]]);
+    return self::SEPERATOR."LEFT JOIN ".$j[2]." AS `$alias` ON `$path`.".$j[3]." = `$alias`.".$j[1];
   }
   private function getJoins() {
     if (is_null($this->joins)) return "";

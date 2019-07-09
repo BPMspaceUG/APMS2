@@ -42,10 +42,12 @@
     $verboseLog = stream_get_contents($verbose);
     return $result;
   }
-  function fmtError($errormessage) {
-    return json_encode(['error' => ['msg' => $errormessage]]);
-  }
 
+
+
+  function fmtError($errormessage) { return json_encode(['error' => ['msg' => $errormessage]]); }
+
+  //-------------------------------------------------------
   class Config {
     public static function getConfig() {
       return file_get_contents(__DIR__.'/../'.DB_NAME.'-config.inc.json');
@@ -110,8 +112,7 @@
       return $result;
     }
     public static function doesColExistInTable($tablename, $colname) {
-      $cols = Config::getColsByTablename($tablename);
-      $colnames = array_keys($cols);
+      $colnames = Config::getRealColnames($tablename);
       return in_array($colname, $colnames);
     }
     public static function hasColumnFK($tablename, $colname) {
@@ -135,6 +136,19 @@
       foreach ($cols as $colname => $col) {
         if ($col["is_virtual"] && $col["field_type"] != "reversefk")
           $res[$colname] = $col["virtual_select"];
+      }
+      return $res;
+    }
+    public static function getRevFKs($tablename, $data = null) {
+      $res = array();
+      $cols = Config::getColsByTablename($tablename, $data);
+      // Collect only virtual Columns
+      foreach ($cols as $colname => $col) {
+        if ($col["is_virtual"] && $col["field_type"] == "reversefk")
+          $res[$colname] = [
+            "revfk_tablename" => $col["revfk_tablename"],
+            "revfk_colname" => $col["revfk_colname"]
+          ];
       }
       return $res;
     }
@@ -217,7 +231,6 @@
     }
     private function fmtCell($dtype, $inp) {
       if (is_null($inp)) return null;
-      //echo $dtype." (".$test.")\n";
       // TIME, DATE, DATETIME, FLOAT, VAR_STRING
       switch ($dtype) {
         case 'TINY': // Bool
@@ -225,12 +238,10 @@
         case 'LONGLONG':
           return (int)$inp;
           break;
-        
         case 'NEWDECIMAL':
         case 'FLOAT':
           return (float)$inp;
           break;
-
         default:
           return (string)$inp;
           break;
@@ -294,83 +305,54 @@
       }
       return $result;
     }
-    private static function rowPath2Tree(&$row, $path, $value) {
+    private static function path2tree(&$tree, $path, $value) {
       $parts = explode("/", $path);
       if (count($parts) > 1) {
         $first = $parts[0];
-        array_shift($parts);
+        array_shift($parts); // remove first element
         $path = implode("/", $parts);
-        if (!array_key_exists($first, $row) || !is_array($row[$first])) // overwrite
-          $row[$first] = [];
-        self::rowPath2Tree($row[$first], $path, $value); // go deeper
-      }
-      else {
-        $row[$path] = $value;
-      }
-    }
-    private static function arr_multi_compare($array1, $array2){
-      $result = array();
-      foreach ($array1 as $key => $value) {
-        if (!is_array($array2) || !array_key_exists($key, $array2)) {
-          $result[$key] = $value;
-          continue;
+        if (!array_key_exists($first, $tree)) {
+          $tree[$first] = []; // overwrite
+        } else if (!is_array($tree[$first])) {
+          $tree[$first] = [];
         }
-        if (is_array($value)) {
-          $recursiveArrayDiff = static::arr_multi_compare($value, $array2[$key]);
-          if (count($recursiveArrayDiff)) {
-              $result[$key] = $recursiveArrayDiff;
-          }
-          continue;
-        }
-        if ($value != $array2[$key]) {
-          $result[$key] = $value;
-        }
+        self::path2tree($tree[$first], $path, $value); // go deeper
       }
-      return $result;
+      else
+        $tree[$path] = $value;
     }
     private function parseResultData($tablename, $stmt) {
-      $priColname = Config::getPrimaryColNameByTablename($tablename);
-      $result = [];
+      $tree = [];
+      //-------- Loop Row
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
-        $row = [];
+        $x = random_int(10000, 99999); // Roffl
+        $ID = $singleRow[0]; // PrimaryID
+        //-----------------------------------
         // Loop Cell
         foreach($singleRow as $i => $value) {
           $meta = $stmt->getColumnMeta($i);
-          $parts = explode('/', $meta["table"]);
-          array_shift($parts);
-          $parts[] = $meta["name"];
-          $val = $this->fmtCell($meta['native_type'], $value);
-
+          //--- Make a good Path
+          $strPath = $meta["table"];
+          $parts = explode('/', $strPath);
+          array_shift($parts); // Remove first element of Path (= Origin-Table)
+          array_unshift($parts, $ID); // Prepend ID
+          $parts[] = $meta["name"]; // Append Colname
+          // ------------ Path 👍
+          $val = $this->fmtCell($meta['native_type'], $value); // Convert Value ??
           if (!is_null($val)) {
-            //--- TODO: Trick for merging! (has many)
-            if (!Config::doesColExistInTable($tablename, $parts[0]))
-              $parts[0] .= '/0';
+            //--- Trick for later merging! (has many)
+            if (!Config::doesColExistInTable($tablename, $parts[1])) {
+              $parts[1] .= '/' . $x; // has Many --> TODO: instead of X use primaryID
+            }
             $path = implode('/', $parts);
-            self::rowPath2Tree($row, $path, $val);
+            self::path2tree($tree, $path, $val);
           }
         }
-        // Only append the differences
-        $found = false;
-        foreach ($result as $key => $rw) {
-          if ($rw[$priColname] == $row[$priColname]) {
-            // Already exists
-            $found = true;
-            $diff = self::arr_multi_compare($row, $rw);
-            $result[$key] = array_merge_recursive($rw, $diff);
-            break;
-          }
-        }
-        if (!$found)
-          $result[] = $row;
       }
       // Deliver
-      return $result;
+      return $tree;
     }
-    //=======================================================
-    // [GET] Reading
-    //----->
-    public function init() {
-      global $token;
+    private function getConfigByRoleID($RoleID) {
       // Collect ALL Tables!
       $conf = json_decode(Config::getConfig(), true);
       $result = [];
@@ -379,18 +361,16 @@
         if (!is_null($x)) $result[$tablename] = $x;
       }
       //------------- Merge ConfigStd and ConfigRole and overwrite the Std.
-      $roleConf = [];
-      $query = "SELECT ConfigDiff FROM `role` AS r JOIN `role_user` AS rl ON r.role_id = rl.role_id WHERE rl.user_id = ?";
       $pdo = DB::getInstance()->getConnection();
-      $stmt = $pdo->prepare($query);
-      if ($stmt->execute([$token->uid])) {
+      $roleConf = [];
+      $stmt = $pdo->prepare("SELECT ConfigDiff FROM `role` AS r JOIN `role_user` AS rl ON r.role_id = rl.role_id WHERE rl.user_id = ?");
+      if ($stmt->execute([$RoleID])) {
         $res = $stmt->fetch();
         if (!empty($res) && !is_null($res[0]))
           $roleConf = json_decode($res[0], true);
       }
       // check if valid config
       if (is_null($roleConf)) $roleConf = [];
-      //var_dump($roleConf);
       $newconf = array_replace_recursive($result, $roleConf);
       //-------------
       // Remove Hidden Tables dynamically!
@@ -404,8 +384,16 @@
         // Append to cleaned Array
         if ($TConf["mode"] != "hi") $cleanArr[$tname] = $TConf;
       }
+      return $cleanArr;
+    }
+    //=======================================================
+    // [GET] Reading
+    //----->
+    public function init() {
+      global $token;
+      $config = $this->getConfigByRoleID($token->uid);
       //===> Output to user
-      $res = ["user" => $token, "tables" => $cleanArr];
+      $res = ["user" => $token, "tables" => $config];
       return json_encode($res);
     }
     public function read($param) {
@@ -420,14 +408,13 @@
       @$filter = isset($param["filter"]) ? $param["filter"] : null; // additional Filter
       @$search = isset($param["search"]) ? $param["search"] : null; // all columns: [like this] OR [like this] OR ...
 
-      // Identify via Token
-      global $token;
-      $token_uid = -1;
-      if (property_exists($token, 'uid')) $token_uid = $token->uid;
-
       //--- Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
+      // Identify via Token -> check Rights
+      global $token;
+      $allowedTablenames = array_keys($this->getConfigByRoleID($token->uid));
+      if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
 
       //================================================  New Version:
       // Build a new Read Query Object
@@ -483,7 +470,6 @@
       $vc = Config::getVirtualColnames($tablename);
       foreach ($vc as $col => $sel) {
         $rq->addSelect("$sel AS `$col`");
-        //$vColnames[] = "`$tablename`.`$col`"; // TODO
       }
 
       //--- Filter
@@ -505,9 +491,8 @@
         $rq->addFilter($term);
       }
       // add Custom Filter
-      if (!is_null($filter)) {
+      if (!is_null($filter))
         $rq->addFilter($filter);
-      }
 
       //--- Get Joins from Config
       $joins = Config::getJoinedCols($tablename);
@@ -518,14 +503,28 @@
         $extTable = $value["table"];
         $rq->addJoin($tablename.'.'.$localCol, $extTable.'.'.$extCol);
       }
+
+      //--- Get Reverse Tables
+      $revTbls = Config::getRevFKs($tablename);
+      $priColname = Config::getPrimaryColNameByTablename($tablename);
+      foreach ($revTbls as $colname => $tbl) {
+        /*var_dump($colname);
+        var_dump($tbl["revfk_tablename"]);
+        var_dump($tbl["revfk_colname"]);*/
+        $extLink = $tbl["revfk_tablename"].'.'.$tbl["revfk_colname"];
+        $rq->addJoin($tablename.'.'.$priColname, $extLink, $tablename."/".$colname);
+      }
+      //var_dump($rq->getStatement());
+
       //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
-      //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)
+      //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)      
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)
       //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'/product_store.store_id', 'store.store_id'); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'.storechef_id', 'employee.chef', true); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
       //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
+
       //$rq->addJoin('connections.test_id', 'testtableA.test_id'); // 1st level    
       //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
@@ -546,12 +545,12 @@
         return json_encode($result, true);
       }
       else {
-        // Error -> Return Error        
+        // Error -> Return Error
+        die(fmtError($stmt->errorInfo()[2].' -> '.$stmt->queryString));
         //echo $stmt->queryString."\n\n";
         //echo json_encode($rq->getValues())."\n\n";
-        die(fmtError($stmt->errorInfo()[2]));
-        var_dump($stmt->errorInfo());
-        exit();
+        //var_dump($stmt->errorInfo());
+        //exit();
       }
     }
     // Stored Procedure can be Read and Write (GET and POST)
@@ -582,10 +581,13 @@
       }
       else {
         // Query-Error
+        die(fmtError($stmt->errorInfo()[2]));
+        /*
         echo $stmt->queryString."<br>";
         echo json_encode($vals)."<br>";
         var_dump($stmt->errorInfo());
         exit();
+        */
       }
     }
     // [POST] Creating
@@ -619,7 +621,6 @@
         // NO StateMachine => goto next step (write min data)
         $script_result[] = array("allow_transition" => true);
       }
-
 
       //--- If allow transition then Create
       if (@$script_result[0]["allow_transition"] == true) {
@@ -818,6 +819,7 @@
     }
     // [DELETE] Deleting
     //----->
+    /*
     public function delete($param) {
       //---- NOT SUPPORTED FOR NOW [!]
       die(fmtError('This Command is currently not supported!'));
@@ -840,4 +842,5 @@
       // Output
       return $success ? "1" : "0";
     }
+    */
   }
