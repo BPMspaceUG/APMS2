@@ -460,6 +460,7 @@ class Table extends RawTable {
         super(tablename);
         this.SM = null;
         this.isExpanded = true;
+        this.selType = SelectType.NoSelect;
         this.customFormCreateOptions = {};
         this.diffFormCreateObject = {};
         this.TableType = TableType.obj;
@@ -480,19 +481,21 @@ class Table extends RawTable {
         };
         this.onSelectionChanged = new LiteEvent();
         this.onEntriesModified = new LiteEvent();
-        let me = this;
-        me.GUID = GUI.getID();
-        me.selType = SelType;
-        me.selectedRow = undefined;
-        me.ReadOnly = (me.getConfig().mode == 'ro');
-        me.TableType = me.getTableType();
-        me.setSort(me.getConfig().stdsorting);
-        if (!me.ReadOnly)
-            me.diffFormCreateObject = JSON.parse(me.getConfig().formcreate);
-        if (me.getConfig().se_active)
-            me.SM = new StateMachine(me, me.getConfig().sm_states, me.getConfig().sm_rules);
-        if (me.ReadOnly && me.selType == SelectType.NoSelect)
-            me.GUIOptions.showControlColumn = false;
+        this.GUID = GUI.getID();
+        this.selType = SelType;
+        this.selectedRow = undefined;
+        this.TableType = this.getConfig().table_type;
+        this.setSort(this.getConfig().stdsorting);
+        this.setReadOnly(this.getConfig().mode == 'ro');
+        if (this.getConfig().se_active)
+            this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
+        if (!this.ReadOnly)
+            this.diffFormCreateObject = JSON.parse(this.getConfig().formcreate);
+    }
+    setReadOnly(isRO) {
+        this.ReadOnly = isRO;
+        if (this.ReadOnly && this.selType == SelectType.NoSelect)
+            this.GUIOptions.showControlColumn = false;
     }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
@@ -1093,7 +1096,7 @@ class Table extends RawTable {
       ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
     </button>`;
         let html = '<div class="tbl_header form-inline">';
-        if (!t.PageLimit && t.TableType !== TableType.obj) { }
+        if ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit) { }
         else
             html += searchBar;
         if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount > 0) { }
@@ -1414,64 +1417,24 @@ class FormGenerator {
         }
         else if (el.field_type == 'reversefk') {
             const tmpGUID = GUI.getID();
-            const OriginRowID = this.oRowID;
             const extTablename = el.revfk_tablename;
             const extTableColSelf = el.revfk_colname;
-            const tmpTable = new Table(extTablename, SelectType.NoSelect);
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
-            let fkCols = [];
-            for (const colname of Object.keys(tmpTable.Columns)) {
-                if (tmpTable.Columns[colname].field_type == 'foreignkey')
-                    fkCols.push(colname);
+            const extTable = new Table(extTablename);
+            extTable.setReadOnly(el.mode_form == 'ro');
+            if (extTable.isRelationTable()) {
+                extTable.Columns[extTableColSelf].show_in_grid = false;
+                extTable.setColumnFilter(hideCol, this.oRowID.toString());
+                let custFormCreate = {};
+                custFormCreate[extTableColSelf] = {};
+                custFormCreate[extTableColSelf]['value'] = this.oRowID;
+                custFormCreate[extTableColSelf]['mode_form'] = 'ro';
+                extTable.setCustomFormCreateOptions(custFormCreate);
             }
-            const i = fkCols.indexOf(extTableColSelf);
-            if (i > -1)
-                fkCols.splice(i, 1);
-            const colnamex = fkCols[0];
-            tmpTable.Columns[extTableColSelf].show_in_grid = false;
-            tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false;
-            tmpTable.ReadOnly = (el.mode_form == 'ro');
-            tmpTable.GUIOptions.showControlColumn = !tmpTable.ReadOnly;
-            const refreshSel = function () {
-                let customFormCreate = {};
-                customFormCreate[extTableColSelf] = {};
-                customFormCreate[extTableColSelf]['value'] = OriginRowID;
-                customFormCreate[extTableColSelf]['mode_form'] = 'ro';
-                if (tmpTable.isRelationTable()) {
-                    const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
-                    let ids = [];
-                    for (const Row of tmpTable.getRows()) {
-                        ids.push(Row[colnamex][Tbl2.col_id]);
-                    }
-                    const tt = tmpTable.getTableType();
-                    if (tt == TableType.tn_1 || tt == TableType.t1_1) {
-                        ids = [];
-                    }
-                    if (ids.length > 0) {
-                        customFormCreate[colnamex] = {};
-                        customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"' + Tbl2.col_id + '\", \"' + ids.join(',') + '\"]}';
-                    }
-                    tmpTable.setColumnFilter(hideCol, '' + OriginRowID);
-                    tmpTable.loadRows(function () {
-                        tmpTable.renderHTML(tmpGUID);
-                        tmpTable.resetFilter();
-                        tmpTable.loadRows(function () { });
-                    });
-                }
-                else {
-                    tmpTable.setColumnFilter(hideCol, '' + OriginRowID);
-                    tmpTable.loadRows(function () {
-                        tmpTable.renderHTML(tmpGUID);
-                    });
-                }
-                tmpTable.setCustomFormCreateOptions(customFormCreate);
-            };
-            tmpTable.resetLimit();
-            tmpTable.EntriesHaveChanged.on(refreshSel);
-            tmpTable.loadRows(function () {
-                refreshSel();
+            extTable.loadRows(function () {
+                extTable.renderHTML(tmpGUID);
             });
-            result += `<div id="${tmpGUID}"></div>`;
+            result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
         }
         else if (el.field_type == 'htmleditor') {
             const newID = GUI.getID();

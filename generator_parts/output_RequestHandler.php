@@ -349,6 +349,8 @@
           }
         }
       }
+      // Re-Index Tree (--> start Lists at 0)
+      $tree = array_values($tree); // TODO: Make Recursive
       // Deliver
       return $tree;
     }
@@ -419,7 +421,6 @@
       //================================================  New Version:
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
-
       //--- Limit
       if (!is_null($limit)) {
         $limitParts = explode(",", $limit);
@@ -441,7 +442,6 @@
           die(fmtError("Limit-Param has too many values!"));
         }        
       }
-
       //--- Sorting
       if (!is_null($sort)) {
         //if (!Config::isValidColname($orderby)) die(fmtError('OrderBy: Invalid Columnname!'));
@@ -464,14 +464,12 @@
         //--> Set Sorting
         $rq->setSorting($sortColumn, $sortDir);
       }
-
       //--- Virtual-Columns
       $vColnames = [];
       $vc = Config::getVirtualColnames($tablename);
       foreach ($vc as $col => $sel) {
         $rq->addSelect("$sel AS `$col`");
       }
-
       //--- Filter
       $rq->setFilter('{"=":[1,1]}'); // default Minimum (1=1 --> always true)
       $stdFilter = Config::getStdFilter($tablename);
@@ -505,17 +503,20 @@
       }
 
       //--- Get Reverse Tables
+      /*
       $revTbls = Config::getRevFKs($tablename);
       $priColname = Config::getPrimaryColNameByTablename($tablename);
       foreach ($revTbls as $colname => $tbl) {
-        /*var_dump($colname);
-        var_dump($tbl["revfk_tablename"]);
-        var_dump($tbl["revfk_colname"]);*/
-        $extLink = $tbl["revfk_tablename"].'.'.$tbl["revfk_colname"];
-        $rq->addJoin($tablename.'.'.$priColname, $extLink, $tablename."/".$colname);
+        $rq->addJoin(
+          $tablename.'.'.$priColname,
+          $tbl["revfk_tablename"].'.'.$tbl["revfk_colname"],
+          $tablename."/".$colname
+        );
       }
-      //var_dump($rq->getStatement());
+      */
+      //$rq->addJoin($tablename.'.'.$priColname, 'demo_order_person.demo_order_person_ID'); // 3rd level
 
+      //var_dump($rq->getStatement());
       //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
       //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)      
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id', true); // belongs to Many (via PrimaryKEY)
@@ -524,7 +525,6 @@
       //$rq->addJoin($tablename.'.storechef_id', 'employee.chef', true); // has 1 (NOT PrimaryKEY!)
       //$rq->addJoin($tablename.'.store_id', 'product_store.store_id'); // 1st level
       //$rq->addJoin($tablename.'/product_store.product_id', 'product.product_id'); // 2nd level
-
       //$rq->addJoin('connections.test_id', 'testtableA.test_id'); // 1st level    
       //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
@@ -599,13 +599,10 @@
       // Check Parameter
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-
       // New State Machine
       $pdo = DB::getInstance()->getConnection();
       $SM = new StateMachine($pdo, $tablename);
-
       $script_result = []; // init
-
       //--- Has StateMachine? then execute Scripts
       if ($SM->getID() > 0) {
         // Override/Set EP
@@ -621,7 +618,6 @@
         // NO StateMachine => goto next step (write min data)
         $script_result[] = array("allow_transition" => true);
       }
-
       //--- If allow transition then Create
       if (@$script_result[0]["allow_transition"] == true) {
       	// Reload row, because maybe the TransitionScript has changed some params
@@ -637,7 +633,6 @@
             $vals[] = $el["value"];
           }
         }
-
         // --- Operation CREATE
         // Build Query
         $strKeys = implode(",", $keys); // Build str for keys
@@ -646,7 +641,6 @@
         $stmt = $pdo->prepare("INSERT INTO $tablename ($strKeys) VALUES ($strVals)");
         $stmt->execute($vals);
         $newElementID = $pdo->lastInsertId();
-
 
         // INSERT successful
         if ($newElementID > 0) {

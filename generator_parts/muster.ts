@@ -491,13 +491,13 @@ class Table extends RawTable {
   private GUID: string;
   private SM: StateMachine = null;
   private isExpanded: boolean = true;
-  private selType: SelectType;
+  private selType: SelectType = SelectType.NoSelect;
   private selectedRow: any;
   private customFormCreateOptions: any = {};
   private diffFormCreateObject: any = {};
-  public ReadOnly: boolean;
+  private ReadOnly: boolean;
   private TableType: TableType = TableType.obj;
-  public GUIOptions = {
+  private GUIOptions = {
     maxCellLength: 30,
     showControlColumn: true,
     showWorkflowButton: false,
@@ -518,22 +518,24 @@ class Table extends RawTable {
 
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
     super(tablename); // Call parent constructor
-    let me = this;
-    me.GUID = GUI.getID();
-    // Check this values
-    me.selType = SelType;
-    // Inherited
-    me.selectedRow = undefined;
-    // Save Form Data
-    me.ReadOnly = (me.getConfig().mode == 'ro');
-    me.TableType = me.getTableType();
-    me.setSort(me.getConfig().stdsorting);
 
-    if (!me.ReadOnly) me.diffFormCreateObject = JSON.parse(me.getConfig().formcreate);      
-    if (me.getConfig().se_active) me.SM = new StateMachine(me, me.getConfig().sm_states, me.getConfig().sm_rules);
-    // check if is ReadOnly and NoSelect then hide first column
-    if (me.ReadOnly && me.selType == SelectType.NoSelect)
-      me.GUIOptions.showControlColumn = false;
+    this.GUID = GUI.getID();
+    this.selType = SelType;
+    this.selectedRow = undefined;
+    this.TableType = this.getConfig().table_type;
+    this.setSort(this.getConfig().stdsorting);
+
+    this.setReadOnly(this.getConfig().mode == 'ro');
+
+    if (this.getConfig().se_active)
+      this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
+    if (!this.ReadOnly)
+      this.diffFormCreateObject = JSON.parse(this.getConfig().formcreate);
+  }
+  public setReadOnly(isRO: boolean) {
+    this.ReadOnly = isRO;
+    if (this.ReadOnly && this.selType == SelectType.NoSelect)
+      this.GUIOptions.showControlColumn = false;
   }
   public isRelationTable() {
     return (this.TableType !== TableType.obj);
@@ -1229,7 +1231,7 @@ class Table extends RawTable {
       <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } w-100 filterText"
         ${ (Text != '' ? ' value="' + Text + '"' : '') }
         placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
-    </div>`;
+    </div>`;    
     const btnCreate = `<button class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'light text-success' : 'success'} btnCreateEntry mr-1">
       ${ t.TableType != TableType.obj ?
         '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : 
@@ -1245,7 +1247,7 @@ class Table extends RawTable {
     // Concat HTML
     let html: string = '<div class="tbl_header form-inline">';
 
-    if (!t.PageLimit && t.TableType !== TableType.obj) {}
+    if ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit ) {}
     else html += searchBar;
 
     if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount > 0) {}
@@ -1608,6 +1610,31 @@ class FormGenerator {
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
       const tmpGUID = GUI.getID();
+      const extTablename = el.revfk_tablename;
+      const extTableColSelf = el.revfk_colname;
+      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
+      
+      const extTable = new Table(extTablename);
+      extTable.setReadOnly(el.mode_form == 'ro');
+      //console.log(this.oTable.getTablename() ,' <---------> ', extTablename, '(' + extTable.getTableType() + ')');
+
+      if (extTable.isRelationTable()) {
+        // Relation:
+        extTable.Columns[extTableColSelf].show_in_grid = false; // Hide self column
+        extTable.setColumnFilter(hideCol, this.oRowID.toString()); // Find OWN relations
+        // Set Origin element Fixed
+        let custFormCreate = {};
+        custFormCreate[extTableColSelf] = {};
+        custFormCreate[extTableColSelf]['value'] = this.oRowID;
+        custFormCreate[extTableColSelf]['mode_form'] = 'ro';
+        extTable.setCustomFormCreateOptions(custFormCreate);
+      }
+      // Load Rows
+      extTable.loadRows(function(){
+        extTable.renderHTML(tmpGUID);
+      });
+
+/*
       const OriginRowID = this.oRowID;
       const extTablename = el.revfk_tablename;
       const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID      
@@ -1643,8 +1670,6 @@ class FormGenerator {
           // Filter all elements which are already connected
           const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
           let ids = [];
-
-          //console.log('Relation [', me.oTable.getTablename() ,']---------', extTablename ,'---------[', Tbl2.table ,']');
           
           for (const Row of tmpTable.getRows()) {
             ids.push(Row[colnamex][Tbl2.col_id]); // find all IDs from Table2
@@ -1663,12 +1688,15 @@ class FormGenerator {
 
           tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
 
+          // Why 2x ?
           tmpTable.loadRows(function(){
             tmpTable.renderHTML(tmpGUID);
             tmpTable.resetFilter();
-            tmpTable.loadRows(function(){});
+            //tmpTable.loadRows(function(){});
           });
-        } else {
+
+        }
+        else {
           // -------- Object Table
           tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
           tmpTable.loadRows(function(){
@@ -1686,8 +1714,9 @@ class FormGenerator {
       tmpTable.loadRows(function(){
         refreshSel();
       });
+*/
       // Container for Table
-      result += `<div id="${tmpGUID}"></div>`;
+      result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
     }
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
