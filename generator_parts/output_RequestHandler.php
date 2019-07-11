@@ -192,7 +192,7 @@
           $extTblCols = Config::getColnamesByTablename($col["foreignKey"]['table']);
           foreach ($extTblCols as $extColname) {
             $arr = explode(".", $extColname);
-            $alias = '`'.$tablename.'/'.$col["foreignKey"]['col_id'].'`.'.end($arr);          
+            $alias = '`'.$tablename.'/'.$colname.'`.'.end($arr);          
             $res[] = $alias;
           }
         }
