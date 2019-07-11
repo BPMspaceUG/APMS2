@@ -14,6 +14,11 @@ class ReadQuery {
   public function __construct($tablename) {
     $this->table = $tablename;
   }
+  private static function isValidColname($colname) {
+    // check if contains only vaild letters
+    $isValid = (!preg_match('/[^A-Za-z0-9_.`]/', $colname));
+    return $isValid;
+  }
   private static function JsonLogicToSQL($arr, $prepStmt = false, &$values = []) {
     $op = array_keys($arr)[0];
     $opLC = strtolower($op);
@@ -21,6 +26,8 @@ class ReadQuery {
     if (in_array($opLC, ['=', '>', '<', '>=', '<=', '<>', '!=', 'in', 'is', 'nin', 'like'])) {
       $col = $arr[$op][0];
       $val = $arr[$op][1];
+      // check if colname is valid
+      if (!self::isValidColname($col)) return null;
       //--------------------- Convert Operator
       if ($opLC == 'nin' || $opLC == 'in') {
         if ($opLC == 'nin') $op = "NOT IN"; else $op = "IN";

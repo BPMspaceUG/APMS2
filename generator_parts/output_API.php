@@ -1,7 +1,6 @@
 <?php
   $param = null;
-  $ReqMethod = $_SERVER['REQUEST_METHOD'];
-  
+  $ReqMethod = $_SERVER['REQUEST_METHOD'];  
   //========================================= API Header
   header('Access-Control-Allow-Origin: *');
   if ($ReqMethod === 'OPTIONS') {
@@ -11,7 +10,6 @@
     exit();
   }
   header('Content-Type: application/json; charset=utf-8');
-
   // Includes
   require_once(__DIR__.'/src/AuthHandler.inc.php');
   include_once(__DIR__."/src/RequestHandler.inc.php");
@@ -54,26 +52,25 @@
     }
     else if ($ReqMethod === 'POST') {
       $command = $bodyData["cmd"]; // TODO: --> create only
-      $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
+      $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
     }
     else if ($ReqMethod === 'PATCH') {
       $command = 'update'; // TODO: transit
-      $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
+      $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
     }
     /*
     else if ($ReqMethod === 'DELETE') {
       $command = 'delete';
-      $param = isset($bodyData["paramJS"]) ? $bodyData["paramJS"] : null;
+      $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
     }
     */
     else {
       die(json_encode(['error' => ['msg' => "HTTP-Method not supported!"]]));
     }
-  }
-  catch (Exception $e) {
-    die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
-  }
-
+    }
+    catch (Exception $e) {
+      die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
+    }
   //========================= Handle the Requests
   if ($command != "") {
     $RH = new RequestHandler();

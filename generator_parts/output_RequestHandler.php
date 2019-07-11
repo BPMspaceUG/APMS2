@@ -7,14 +7,24 @@
 
   // Global function for StateMachine
   function api($data) {
+    // Do not even connect outside -> just call the functions internally
+    $cmd = $data["cmd"];
+    $param = $data["param"];
 
-    // TODO: Do not even connect outside -> just call the functions internally
-
+    if ($cmd != "") {
+      $RH = new RequestHandler();
+      if (!is_null($param)) // are there parameters?
+        $result = $RH->$cmd($param); // execute with params
+      else
+        $result = $RH->$cmd(); // execute
+      // Output result
+      return $result;
+    }
     // Create temp Token
+    /*
     $token_data = array();
     $token_data['uid'] = 1337;
     $token = JWT::encode($token_data, AUTH_KEY);
-
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
     curl_setopt($ch, CURLOPT_URL, API_URL);
@@ -41,11 +51,10 @@
     rewind($verbose);
     $verboseLog = stream_get_contents($verbose);
     return $result;
+    */
   }
-
-
-
   function fmtError($errormessage) { return json_encode(['error' => ['msg' => $errormessage]]); }
+
 
   //-------------------------------------------------------
   class Config {
@@ -115,6 +124,10 @@
       $colnames = Config::getRealColnames($tablename);
       return in_array($colname, $colnames);
     }
+    public static function doesVirtualColExistInTable($tablename, $colname) {
+      $colnames = Config::getVirtualColnames($tablename);
+      return in_array($colname, $colnames);
+    }
     public static function hasColumnFK($tablename, $colname) {
       $allCols = Config::getColsByTablename($tablename);
       $hasFK = array_key_exists('foreignKey', $allCols[$colname]);
@@ -129,7 +142,7 @@
       // = boolean // check if contains only vaild letters
       return (!preg_match('/[^A-Za-z0-9_]/', $colname));
     }
-    public static function getVirtualColnames($tablename, $data = null) {
+    public static function getVirtualSelects($tablename, $data = null) {
       $res = array();
       $cols = Config::getColsByTablename($tablename, $data);
       // Collect only virtual Columns
@@ -160,6 +173,16 @@
         if ($col["is_virtual"])
           continue;
         else
+          $res[] = $colname;
+      }
+      return $res;
+    }
+    public static function getVirtualColnames($tablename) {
+      $res = array();
+      $cols = Config::getColsByTablename($tablename);
+      // Collect only virtual Columns
+      foreach ($cols as $colname => $col) {
+        if ($col["is_virtual"] && $col["field_type"] != "reversefk")
           $res[] = $colname;
       }
       return $res;
@@ -229,24 +252,6 @@
     private function isValidFilterStruct($input) {
       return !is_null($input) && is_array($input) && (array_key_exists('all', $input) || array_key_exists('columns', $input));
     }
-    private function fmtCell($dtype, $inp) {
-      if (is_null($inp)) return null;
-      // TIME, DATE, DATETIME, FLOAT, VAR_STRING
-      switch ($dtype) {
-        case 'TINY': // Bool
-        case 'LONG':
-        case 'LONGLONG':
-          return (int)$inp;
-          break;
-        case 'NEWDECIMAL':
-        case 'FLOAT':
-          return (float)$inp;
-          break;
-        default:
-          return (string)$inp;
-          break;
-      }
-    }
     private function getFormCreate($param) {
       $tablename = $param["table"];
       // Check Parameter
@@ -305,6 +310,25 @@
       }
       return $result;
     }
+
+    private static function fmtCell($dtype, $inp) {
+      if (is_null($inp)) return null;
+      // TIME, DATE, DATETIME, FLOAT, VAR_STRING
+      switch ($dtype) {
+        case 'TINY': // Bool
+        case 'LONG':
+        case 'LONGLONG':
+          return (int)$inp;
+          break;
+        case 'NEWDECIMAL':
+        case 'FLOAT':
+          return (float)$inp;
+          break;
+        default:
+          return (string)$inp;
+          break;
+      }
+    }
     private static function path2tree(&$tree, $path, $value) {
       $parts = explode("/", $path);
       if (count($parts) > 1) {
@@ -321,7 +345,7 @@
       else
         $tree[$path] = $value;
     }
-    private function parseResultData($tablename, $stmt) {
+    private static function parseResultData($tablename, $stmt) {
       $tree = [];
       //-------- Loop Row
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
@@ -338,10 +362,12 @@
           array_unshift($parts, $ID); // Prepend ID
           $parts[] = $meta["name"]; // Append Colname
           // ------------ Path 👍
-          $val = $this->fmtCell($meta['native_type'], $value); // Convert Value ??
+          $val = self::fmtCell($meta['native_type'], $value); // Convert Value ??
           if (!is_null($val)) {
+            $col = $parts[1];
             //--- Trick for later merging! (has many)
-            if (!Config::doesColExistInTable($tablename, $parts[1])) {
+            if (!Config::doesColExistInTable($tablename, $col)
+             && !Config::doesVirtualColExistInTable($tablename, $col)) {
               $parts[1] .= '/' . $x; // has Many --> TODO: instead of X use primaryID
             }
             $path = implode('/', $parts);
@@ -354,6 +380,8 @@
       // Deliver
       return $tree;
     }
+
+
     private function getConfigByRoleID($RoleID) {
       // Collect ALL Tables!
       $conf = json_decode(Config::getConfig(), true);
@@ -466,7 +494,7 @@
       }
       //--- Virtual-Columns
       $vColnames = [];
-      $vc = Config::getVirtualColnames($tablename);
+      $vc = Config::getVirtualSelects($tablename);
       foreach ($vc as $col => $sel) {
         $rq->addSelect("$sel AS `$col`");
       }
@@ -482,7 +510,6 @@
         $els = [];
         $cols = array_merge(Config::getColnamesByTablename($tablename), $vColnames);
         foreach ($cols as $colname) {
-          // TODO: Check Columnname if has valid chars: A-z,a-z,_,()
           $els[] = "{\"like\": [\"$colname\", \"$search\"]}";
         }      
         $term = '{"or":['. implode(',', $els) .']}';
@@ -546,7 +573,7 @@
       }
       else {
         // Error -> Return Error
-        die(fmtError($stmt->errorInfo()[2].' -> '.$stmt->queryString));
+        die(fmtError($stmt->errorInfo()[2]));
         //echo $stmt->queryString."\n\n";
         //echo json_encode($rq->getValues())."\n\n";
         //var_dump($stmt->errorInfo());

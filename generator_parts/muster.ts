@@ -53,7 +53,7 @@ abstract class DB {
     let url = me.API_URL;
 
     if (params) {
-      data['paramJS'] = params; // append to data Object 
+      data['param'] = params; // append to data Object 
     }
     // Set HTTP Method
     if (command == 'init') {

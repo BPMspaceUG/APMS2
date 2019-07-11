@@ -55,7 +55,7 @@ class DB {
         let HTTPBody = undefined;
         let url = me.API_URL;
         if (params) {
-            data['paramJS'] = params;
+            data['param'] = params;
         }
         if (command == 'init') {
             HTTPMethod = 'GET';
