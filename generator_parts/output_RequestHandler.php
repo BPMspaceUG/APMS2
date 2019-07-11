@@ -492,36 +492,40 @@
         //--> Set Sorting
         $rq->setSorting($sortColumn, $sortDir);
       }
-      //--- Virtual-Columns
-      $vColnames = [];
+      //--- Virtual-Columns      
       $vc = Config::getVirtualSelects($tablename);
       foreach ($vc as $col => $sel) {
         $rq->addSelect("$sel AS `$col`");
       }
+
       //--- Filter
       $rq->setFilter('{"=":[1,1]}'); // default Minimum (1=1 --> always true)
       $stdFilter = Config::getStdFilter($tablename);
       if (!is_null($stdFilter) && !empty($stdFilter))
         $rq->setFilter($stdFilter); // standard Filter (set serverside!)
 
-      // add Search for all columns
+      //--- Search for all columns
       if (!is_null($search)) {
-        $search = "%".$search."%";
+        $search = "'%".$search."%'";
         $els = [];
-        $cols = array_merge(Config::getColnamesByTablename($tablename), $vColnames);
+        //-- Search real cols + virtCols + joins
+        $cols = array_merge(
+          Config::getColnamesByTablename($tablename),
+          Config::getVirtualColnames($tablename)
+        );
         foreach ($cols as $colname) {
           $els[] = "{\"like\": [\"$colname\", \"$search\"]}";
         }      
         $term = '{"or":['. implode(',', $els) .']}';
-        $rq->addFilter($term);
+        $rq->setHaving($term);
       }
-      // add Custom Filter
+
+      //--- add Custom Filter
       if (!is_null($filter))
         $rq->addFilter($filter);
 
-      //--- Get Joins from Config
+      //--- Joins (via Config)
       $joins = Config::getJoinedCols($tablename);
-      // TODO: Multilayered JOINS via Config (o -> a -> b -> c ...)
       foreach ($joins as $key => $value) {
         $localCol = $value["col_id"];
         $extCol = $value["replace"];
@@ -542,7 +546,6 @@
       }
       */
       //$rq->addJoin($tablename.'.'.$priColname, 'demo_order_person.demo_order_person_ID'); // 3rd level
-
       //var_dump($rq->getStatement());
       //$rq->addJoin($tablename.'.store_id', 'store.store_id'); // Normal FK
       //$rq->addJoin($tablename.'.storechef_id', 'employee.employee_id'); // has 1 (NOT PrimaryKEY!)      
@@ -556,6 +559,7 @@
       //$rq->addJoin('connections/testtableA.state_id', 'state.state_id'); // 2nd level
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
       //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
+
 
       $pdo = DB::getInstance()->getConnection();
       // Retrieve Number of Entries
@@ -573,7 +577,7 @@
       }
       else {
         // Error -> Return Error
-        die(fmtError($stmt->errorInfo()[2]));
+        die(fmtError($stmt->errorInfo()[2] . ' -> ' . $stmt->queryString ));
         //echo $stmt->queryString."\n\n";
         //echo json_encode($rq->getValues())."\n\n";
         //var_dump($stmt->errorInfo());

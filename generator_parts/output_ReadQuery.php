@@ -2,6 +2,7 @@
 class ReadQuery {
   private $table = '';
   private $filter = null;
+  private $having = null;
   private $sortCol = null;
   private $sortDir = null;
   private $limit = null;
@@ -67,13 +68,14 @@ class ReadQuery {
     }
     return null;
   }
-  /*
-  public function getSQL() {
-    return "SELECT * ".self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter().$this->getSorting().$this->getLimit().";";
-  }
-  */
   public function getStatement() {
-    return "SELECT ".$this->getSelect().self::SEPERATOR."FROM `".$this->table."`".$this->getJoins().$this->getFilter(true).$this->getSorting().$this->getLimit().";";
+    return "SELECT ".
+      $this->getSelect().self::SEPERATOR."FROM `".$this->table."`".
+      $this->getJoins().
+      $this->getFilter(true).
+      $this->getHaving().
+      $this->getSorting().
+      $this->getLimit().";";
   }
   public function getCountStmtWOLimits() {
     return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`"/*.$this->getJoins()*/.$this->getFilter(true).";";
@@ -124,13 +126,24 @@ class ReadQuery {
   }
   public function addFilter($strFilter) {
     $strNewFilter = '{"and": ['.json_encode($this->filter).', '.$strFilter.']}';
-    $json = json_decode($strNewFilter, true);
-    $this->filter = $json;
+    $this->filter = json_decode($strNewFilter, true);
   }
   private function getFilter($prep = false) {
     if (is_null($this->filter)) return "";
     if ($prep) return self::SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter, true);
     return self::SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter);
+  }
+  //--- Having
+  public function setHaving($strHaving) {
+    $this->having = json_decode($strHaving, true);
+  }
+  public function addHaving($strHaving) {
+    $strNewHave = '{"and": ['.json_encode($this->having).', '.$strHaving.']}';
+    $this->having = json_decode($strNewHave, true);
+  }
+  private function getHaving() {
+    if (is_null($this->having)) return "";
+    return self::SEPERATOR."HAVING ".self::JsonLogicToSQL($this->having);
   }
   //--- Order
   public function setSorting($column, $direction = "ASC") {
