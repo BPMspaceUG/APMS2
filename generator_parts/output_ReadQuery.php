@@ -17,7 +17,7 @@ class ReadQuery {
   }
   private static function isValidColname($colname) {
     // check if contains only vaild letters
-    $isValid = (!preg_match('/[^A-Za-z0-9_.`]/', $colname));
+    $isValid = (!preg_match('/[^A-Za-z0-9\/_.`]/', $colname));
     return $isValid;
   }
   private static function JsonLogicToSQL($arr, $prepStmt = false, &$values = []) {

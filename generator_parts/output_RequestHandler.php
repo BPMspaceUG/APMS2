@@ -72,10 +72,7 @@
       $result = [];
       foreach ($cols as $colname => $col) {
         if (array_key_exists('foreignKey', $col)) {
-          /*$t = $col['foreignKey']['table'];
-          $c = $col['foreignKey']['col_id'];
-          $alias = implode('/', [$t, $c]);
-          $result[] = '`' . $alias . '`.' . $colname;*/
+          # foreign Key
         }
         elseif ($col['is_virtual']) {
           # virtual Column
@@ -184,6 +181,21 @@
       foreach ($cols as $colname => $col) {
         if ($col["is_virtual"] && $col["field_type"] != "reversefk")
           $res[] = $colname;
+      }
+      return $res;
+    }
+    public static function getJoinedColnames($tablename) {
+      $res = array();
+      $cols = Config::getColsByTablename($tablename);
+      foreach ($cols as $colname => $col) {
+        if (array_key_exists('foreignKey', $col) && $col["foreignKey"]['table'] != '') {
+          $extTblCols = Config::getColnamesByTablename($col["foreignKey"]['table']);
+          foreach ($extTblCols as $extColname) {
+            $arr = explode(".", $extColname);
+            $alias = '`'.$tablename.'/'.$col["foreignKey"]['col_id'].'`.'.end($arr);          
+            $res[] = $alias;
+          }
+        }
       }
       return $res;
     }
@@ -437,7 +449,6 @@
       @$sort = isset($param["sort"]) ? $param["sort"] : null;
       @$filter = isset($param["filter"]) ? $param["filter"] : null; // additional Filter
       @$search = isset($param["search"]) ? $param["search"] : null; // all columns: [like this] OR [like this] OR ...
-
       //--- Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
@@ -445,8 +456,7 @@
       global $token;
       $allowedTablenames = array_keys($this->getConfigByRoleID($token->uid));
       if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
-
-      //================================================  New Version:
+      //================================================
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
       //--- Limit
@@ -497,29 +507,28 @@
       foreach ($vc as $col => $sel) {
         $rq->addSelect("$sel AS `$col`");
       }
-
-      //--- Filter
+      //--- Filter      
       $rq->setFilter('{"=":[1,1]}'); // default Minimum (1=1 --> always true)
       $stdFilter = Config::getStdFilter($tablename);
       if (!is_null($stdFilter) && !empty($stdFilter))
-        $rq->setFilter($stdFilter); // standard Filter (set serverside!)
-
-      //--- Search for all columns
+      $rq->setFilter($stdFilter); // standard Filter (set serverside!)
+      
+      //--- Search (Having & all columns)
       if (!is_null($search)) {
         $search = "'%".$search."%'";
         $els = [];
         //-- Search real cols + virtCols + joins
         $cols = array_merge(
           Config::getColnamesByTablename($tablename),
-          Config::getVirtualColnames($tablename)
+          Config::getVirtualColnames($tablename),
+          Config::getJoinedColnames($tablename)
         );
         foreach ($cols as $colname) {
-          $els[] = "{\"like\": [\"$colname\", \"$search\"]}";
+          $els[] = '{"like":["'.$colname.'","'.$search.'"]}';
         }      
         $term = '{"or":['. implode(',', $els) .']}';
         $rq->setHaving($term);
       }
-
       //--- add Custom Filter
       if (!is_null($filter))
         $rq->addFilter($filter);
