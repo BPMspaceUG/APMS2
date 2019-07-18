@@ -798,10 +798,9 @@
         $res["allow_transition"] = true;
         $feedbackMsgs[] = $res;
         return json_encode($feedbackMsgs);
-        exit;
-
-      } else 
-        die(fmtError("Transition not possible!"));
+      }
+      else 
+        return fmtError("Transition not possible!");
     }
     // [DELETE] Deleting
     //----->
