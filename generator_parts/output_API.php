@@ -34,20 +34,21 @@
         die(json_encode(['error' => ['msg' => "This Token has expired. Please renew your Token."]]));
       }
     }
-  } else {
-    // Has no token
-    $token = null;
   }
   //========================================= Parameter & Handling  
   try {
     $bodyData = json_decode(file_get_contents('php://input'), true);
-    
+    //--> Check Methods (GET, POST, PATCH)
     if ($ReqMethod === 'GET') {
       $command = 'read'; // or call      
       $param = $_GET;
       if (count($param) <= 0) {
         $command = 'init';
         $param = null;
+      } else {
+        // TODO: Check if Token is allowed to READ
+        //$allowedTablenames = array_keys($this->getConfigByRoleID($token->uid));
+        //if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
       }
     }
     else if ($ReqMethod === 'POST') {
@@ -67,10 +68,9 @@
     else {
       die(json_encode(['error' => ['msg' => "HTTP-Method not supported!"]]));
     }
-    }
-    catch (Exception $e) {
-      die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
-    }
+  } catch (Exception $e) {
+    die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
+  }
   //========================= Handle the Requests
   if ($command != "") {
     $RH = new RequestHandler();

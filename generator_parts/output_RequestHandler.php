@@ -10,7 +10,6 @@
     // Do not even connect outside -> just call the functions internally
     $cmd = $data["cmd"];
     $param = $data["param"];
-
     if ($cmd != "") {
       $RH = new RequestHandler();
       if (!is_null($param)) // are there parameters?
@@ -20,38 +19,6 @@
       // Output result
       return $result;
     }
-    // Create temp Token
-    /*
-    $token_data = array();
-    $token_data['uid'] = 1337;
-    $token = JWT::encode($token_data, AUTH_KEY);
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-    curl_setopt($ch, CURLOPT_URL, API_URL);
-    curl_setopt($ch, CURLOPT_VERBOSE, true);
-    $headers = array();
-    //JWT token for Authentication
-    $headers[] = 'Cookie: token='.$token; // TODO: Do not use token
-    if ($data) {
-      $json = json_encode($data);
-      curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
-      $headers[] = 'Content-Type: application/json';
-      $headers[] = 'Content-Length: '.strlen($json);
-    }
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $verbose = fopen('php://temp', 'w+');
-    curl_setopt($ch, CURLOPT_STDERR, $verbose);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    $result = curl_exec($ch);
-    // Debug Info
-    if ($result === FALSE)
-      printf("cUrl error (#%d): %s<br>\n", curl_errno($ch), htmlspecialchars(curl_error($ch)));
-    rewind($verbose);
-    $verboseLog = stream_get_contents($verbose);
-    return $result;
-    */
   }
   function fmtError($errormessage) { return json_encode(['error' => ['msg' => $errormessage]]); }
 
@@ -296,14 +263,17 @@
     private function logHistory($tablename, $value, $isCreate) {
       if (Config::hasHistory()) {
         // Identify via Token
+        /*
         global $token;
         $token_uid = -1;
         if (property_exists($token, 'uid')) $token_uid = $token->uid;
+        */
         // Write into Database
+        $UserID = 0; // TODO: TokenID
         $sql = "INSERT INTO History (User_id, History_table, History_valuenew, History_created) VALUES (?,?,?,?)";
         $pdo = DB::getInstance()->getConnection();
         $histStmt = $pdo->prepare($sql);
-        $histStmt->execute([$token_uid, $tablename, json_encode($value), ($isCreate ? "1" : "0")]);
+        $histStmt->execute([$UserID, $tablename, json_encode($value), ($isCreate ? "1" : "0")]);
       }
     }  
     private function inititalizeTable($tablename) {
@@ -452,10 +422,6 @@
       //--- Table
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-      // Identify via Token -> check Rights
-      global $token;
-      $allowedTablenames = array_keys($this->getConfigByRoleID($token->uid));
-      if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
       //================================================
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
