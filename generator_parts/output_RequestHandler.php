@@ -553,10 +553,6 @@
       else {
         // Error -> Return Error
         die(fmtError($stmt->errorInfo()[2] . ' -> ' . $stmt->queryString ));
-        //echo $stmt->queryString."\n\n";
-        //echo json_encode($rq->getValues())."\n\n";
-        //var_dump($stmt->errorInfo());
-        //exit();
       }
     }
     // Stored Procedure can be Read and Write (GET and POST)
@@ -588,12 +584,6 @@
       else {
         // Query-Error
         die(fmtError($stmt->errorInfo()[2]));
-        /*
-        echo $stmt->queryString."<br>";
-        echo json_encode($vals)."<br>";
-        var_dump($stmt->errorInfo());
-        exit();
-        */
       }
     }
     // [POST] Creating
@@ -731,10 +721,6 @@
       }
       else {
         // ErrorHandling
-        //echo $stmt->queryString."<br />";
-        //var_dump($stmt->errorInfo());
-        //$script_result[0]["element_id"] = 0;
-        //$script_result[0]["errormsg"] = $stmt->errorInfo()[2];
         die(fmtError($stmt->errorInfo()[2]));
       }
       // Log History
@@ -811,7 +797,7 @@
         $res = $SE->executeScript($in_script, $param, $tablename);
         $res["allow_transition"] = true;
         $feedbackMsgs[] = $res;
-        echo json_encode($feedbackMsgs);
+        return json_encode($feedbackMsgs);
         exit;
 
       } else 

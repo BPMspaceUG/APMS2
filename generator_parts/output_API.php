@@ -40,7 +40,7 @@
     $bodyData = json_decode(file_get_contents('php://input'), true);
     //--> Check Methods (GET, POST, PATCH)
     if ($ReqMethod === 'GET') {
-      $command = 'read'; // or call      
+      $command = 'read'; // or call
       $param = $_GET;
       if (count($param) <= 0) {
         $command = 'init';
