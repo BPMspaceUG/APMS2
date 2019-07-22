@@ -78,7 +78,9 @@ class ReadQuery {
       $this->getLimit().";";
   }
   public function getCountStmtWOLimits() {
-    return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`"/*.$this->getJoins()*/.$this->getFilter(true).";";
+    return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`".
+      $this->getFilter(true).
+      $this->getHaving().";";
   }
   public function getValues() {
     if (is_null($this->filter)) return [];
