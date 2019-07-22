@@ -68,19 +68,18 @@ class ReadQuery {
     }
     return null;
   }
-  public function getStatement() {
+  public function getStatement($forCounting = false) {
     return "SELECT ".
       $this->getSelect().self::SEPERATOR."FROM `".$this->table."`".
-      $this->getJoins().
+      ($forCounting ? '' : $this->getJoins()).
       $this->getFilter(true).
       $this->getHaving().
-      $this->getSorting().
-      $this->getLimit().";";
+      ($forCounting ? '' : $this->getSorting()).
+      ($forCounting ? '' : $this->getLimit());
   }
   public function getCountStmtWOLimits() {
-    return "SELECT COUNT(*) ".self::SEPERATOR."FROM `".$this->table."`".
-      $this->getFilter(true).
-      $this->getHaving().";";
+    $sql = "SELECT COUNT(*) FROM (" . $this->getStatement(true) . ") AS n";
+    return $sql;
   }
   public function getValues() {
     if (is_null($this->filter)) return [];
