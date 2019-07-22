@@ -1214,13 +1214,7 @@ class Table extends RawTable {
                 t.setSearch(filterText);
                 t.loadRows(function () {
                     return __awaiter(this, void 0, void 0, function* () {
-                        if (t.Rows.length == t.PageLimit) {
-                            yield t.renderFooter();
-                        }
-                        else {
-                            t.actRowCount = t.Rows.length;
-                            yield t.renderFooter();
-                        }
+                        yield t.renderFooter();
                         yield t.renderContent();
                     });
                 });

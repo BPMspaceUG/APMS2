@@ -1384,16 +1384,10 @@ class Table extends RawTable {
       const filterText = element.value;
       t.setSearch(filterText);
       t.loadRows(async function(){
-        if (t.Rows.length == t.PageLimit) {
-          await t.renderFooter();
-        }
-        else {
-          t.actRowCount = t.Rows.length;
-          await t.renderFooter();
-        }
+        await t.renderFooter();
         await t.renderContent();
       })
-    }    
+    }
     let el = null;
     // hitting Return on searchbar at Filter (OK)
     el = tableEl.getElementsByClassName('filterText')[0];
