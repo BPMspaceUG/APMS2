@@ -70,7 +70,7 @@
   echo "\n";
   // ---------------------- Get actual Version of APMS
   $filepath = __DIR__."/../.git/refs/heads/master";
-  $act_version = trim(file_get_contents($filepath));
+  $act_version = trim(@file_get_contents($filepath));
   $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/" . $act_version;
   echo "Generator-Version: " . $act_version . "\n";
   // Open a new DB-Connection

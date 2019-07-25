@@ -40,6 +40,7 @@
     $bodyData = json_decode(file_get_contents('php://input'), true);
     //--> Check Methods (GET, POST, PATCH)
     if ($ReqMethod === 'GET') {
+      // [GET]
       $command = 'read'; // or call
       $param = $_GET;
       if (count($param) <= 0) {
@@ -52,32 +53,23 @@
       }
     }
     else if ($ReqMethod === 'POST') {
+      // [POST]
       $command = $bodyData["cmd"]; // TODO: --> create only
       $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
     }
     else if ($ReqMethod === 'PATCH') {
+      // [PATCH]
       $command = 'update'; // TODO: transit
       $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
     }
-    /*
-    else if ($ReqMethod === 'DELETE') {
-      $command = 'delete';
-      $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
-    }
-    */
-    else {
+    else
       die(json_encode(['error' => ['msg' => "HTTP-Method not supported!"]]));
-    }
-  } catch (Exception $e) {
+  }
+  catch (Exception $e) {
     die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
   }
+
   //========================= Handle the Requests
-  if ($command != "") {
-    $RH = new RequestHandler();
-    if (!is_null($param)) // are there parameters?
-      $result = $RH->$command($param); // execute with params
-    else
-      $result = $RH->$command(); // execute
-    // Output result
-    echo $result;
-  }
+
+  $result = api(["cmd" => $command, "param" => $param]);
+  echo $result;

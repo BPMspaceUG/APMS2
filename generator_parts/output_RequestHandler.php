@@ -22,16 +22,17 @@
   }
   function fmtError($errormessage) { return json_encode(['error' => ['msg' => $errormessage]]); }
 
-
   //-------------------------------------------------------
   class Config {
     public static function getConfig() {
-      return file_get_contents(__DIR__.'/../'.DB_NAME.'-config.inc.json');
+      $filepath = __DIR__.'/../'.DB_NAME.'-config.inc.json';
+      if (file_exists($filepath)) return file_get_contents($filepath);
+      return null;
     }
     public static function getColsByTablename($tablename, $data = null) {
       if (is_null($data))
         $data = json_decode(Config::getConfig(), true);
-      $cols = $data[$tablename]["columns"];      
+      $cols = $data[$tablename]["columns"];
       return $cols;
     }
     public static function getColnamesByTablename($tablename) {
@@ -144,6 +145,7 @@
     public static function getVirtualColnames($tablename) {
       $res = array();
       $cols = Config::getColsByTablename($tablename);
+      if (is_null($cols)) return [];
       // Collect only virtual Columns
       foreach ($cols as $colname => $col) {
         if ($col["is_virtual"] && $col["field_type"] != "reversefk")
@@ -292,7 +294,6 @@
       }
       return $result;
     }
-
     private static function fmtCell($dtype, $inp) {
       if (is_null($inp)) return null;
       // TIME, DATE, DATETIME, FLOAT, VAR_STRING
@@ -362,8 +363,6 @@
       // Deliver
       return $tree;
     }
-
-
     private function getConfigByRoleID($RoleID) {
       // Collect ALL Tables!
       $conf = json_decode(Config::getConfig(), true);
