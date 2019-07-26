@@ -500,6 +500,9 @@ class Table extends RawTable {
         if (this.ReadOnly && this.selType == SelectType.NoSelect)
             this.GUIOptions.showControlColumn = false;
     }
+    setGUID(newGUID) {
+        this.GUID = newGUID;
+    }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
     }
@@ -1298,6 +1301,7 @@ class Table extends RawTable {
                         const tmpTable = new Table(Tablename);
                         tmpTable.loadRow(ID, function (Row) {
                             tmpTable.setRows([Row]);
+                            tmpTable.setGUID(t.GUID);
                             const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
                             if (nextstates.length > 0) {
                                 DropDownMenu.innerHTML = '';
