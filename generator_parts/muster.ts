@@ -483,6 +483,9 @@ class RawTable {
   public getPrimaryColname(): string {
     return this.PriColname;
   }
+  public setRows(ArrOfRows: any) {
+    this.Rows = ArrOfRows;
+  }
 }
 //==============================================================
 // Class: Table
@@ -716,6 +719,7 @@ class Table extends RawTable {
     let t = this;
     let actStateID = undefined;
     const pcname = t.getPrimaryColname();
+    console.log("SETSTATE:", t.getTablename(), ':', RowID, '-->', targetStateID);
     // Get Actual State
     for (const row of t.Rows) {
       if (row[pcname] == RowID)
@@ -899,6 +903,7 @@ class Table extends RawTable {
   public modifyRow(id: number, ExistingModal: Modal = null) {
     let t = this
     const pcname = t.getPrimaryColname();
+
     // Check Selection-Type
     if (t.selType == SelectType.Single) {
       //------------------------------------ SINGLE SELECT
@@ -931,6 +936,7 @@ class Table extends RawTable {
       // Get Row
       let TheRow = null;
       this.Rows.forEach(row => { if (row[pcname] == id) TheRow = row; });
+
       // Set Form
       if (t.SM) {
         //-------- EDIT-Modal WITH StateMachine
@@ -1005,8 +1011,9 @@ class Table extends RawTable {
     const cssClass = 'state' + StateID;
     if (withDropdown) {
       // Dropdown
-      return `<div class="dropdown showNextStates">
-            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnGridState btn-sm label-state ${cssClass}" data-toggle="dropdown">${name}</button>
+      return `<div class="dropdown">
+            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnGridState loadStates btn-sm label-state ${cssClass}"
+              data-stateid="${StateID}" data-toggle="dropdown">${name}</button>
             <div class="dropdown-menu p-0">
               <p class="m-0 p-3 text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading...</p>
             </div>
@@ -1048,14 +1055,9 @@ class Table extends RawTable {
       const split = (100 * (1 / cols.length)).toFixed(0);
       const firstEl = cellContent;
       const fTablename = this.Columns[colname].foreignKey.table;
+      let rowID = null;
 
-      let fTbl = null;
-      try {
-        fTbl = new Table(fTablename);
-      }
-      catch (e) {
-        fTbl = null;
-      }
+      let fTbl = new Table(fTablename);
       // TODO: Check if Table exists in config
       cols.forEach(col => {    
         let htmlCell = col;
@@ -1070,11 +1072,11 @@ class Table extends RawTable {
         content += '<td class="border-0" style="width: '+ split +'%">' + htmlCell + '</td>';
       });
       // Add Edit Button Prefix -> Only if is not ReadOnly
-      if (fTbl && !fTbl.ReadOnly)
-        content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle"
-          onclick="gEdit('${fTablename}', ${firstEl[Object.keys(firstEl)[0]]})"><i class="far fa-edit"></i></td>` + content;
-
-      return '<table class="w-100 p-0 border-0"><tr class="border">' + content + '</tr></table>';
+      if (fTbl && !fTbl.ReadOnly) {
+        rowID = firstEl[Object.keys(firstEl)[0]];
+        content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle modRow"><i class="far fa-edit"></i></td>` + content;
+      }
+      return `<table class="w-100 p-0 border-0"><tr data-rowid="${fTablename}:${rowID}" class="border">${content}</tr></table>`;
     }
     // Cell is no String and no Object   
     return escapeHtml(cellContent);
@@ -1282,14 +1284,13 @@ class Table extends RawTable {
       const RowID: number = row[pcname];
       let data_string: string = '';
       let isSelected: boolean = false;
-
       // Check if selected
       if (t.selectedRow) {
         isSelected = (t.selectedRow[pcname] == RowID);
       }
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn) {
-        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0" data-rowid="${row[pcname]}">
+        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0">
           ${ (t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>') 
             : ( t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>') )
           }
@@ -1301,18 +1302,21 @@ class Table extends RawTable {
         if (t.Columns[col].show_in_grid) 
           data_string += '<td class="align-middle py-0 px-0 border-0">' + t.renderCell(row, col) + '</td>';
       })
+
+      //--------------------------------- ROW
+
       // Add row to table
       if (t.GUIOptions.showControlColumn) {
         // Edit via first column
-        tds += `<tr class="datarow row-${row[pcname] + (isSelected ? ' table-info' : '')}">${data_string}</tr>`;
+        tds += `<tr class="datarow${(isSelected ? ' table-info' : '')}" data-rowid="${t.getTablename()+':'+row[pcname]}">${data_string}</tr>`;
       }
       else {
         if (t.ReadOnly) {
           // Edit via click
-          tds += '<tr class="datarow row-'+row[pcname]+'" data-rowid="'+row[pcname]+'">'+data_string+'</tr>';
+          tds += '<tr class="datarow" data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
         } else {
           // Edit via click on full Row
-          tds += '<tr class="datarow row-'+row[pcname]+' editFullRow modRow" data-rowid="'+row[pcname]+'">'+data_string+'</tr>';
+          tds += '<tr class="datarow editFullRow modRow" data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
         }
       }
     })
@@ -1412,8 +1416,10 @@ class Table extends RawTable {
   private async renderContent() {
     let t = this;
     const output = await t.getContent();
-    const tableEl = document.getElementById(t.GUID);
-    tableEl.innerHTML = output;
+
+    const tableEl = document.getElementById(t.GUID); // Find Table-Div
+    tableEl.innerHTML = output; // overwrite content
+
     //---------------------- Link jquery
     let els = null;
     // Table-Header - Sort
@@ -1433,41 +1439,55 @@ class Table extends RawTable {
       for (const el of els) {
         el.addEventListener('click', function(e){
           e.preventDefault();
-          const RowID = el.getAttribute('data-rowid'); // $(this).data('rowid');
-          t.modifyRow(RowID);
+          const RowData = el.parentNode.getAttribute('data-rowid').split(':');
+          const Tablename = RowData[0];
+          const ID = RowData[1];
+          //console.log("EDIT: ", Tablename, ' -> ', ID);
+          if (t.getTablename() !== Tablename) {
+            // External Table
+            const tmpTable = new Table(Tablename);
+            tmpTable.loadRow(ID, function(Row){
+              tmpTable.setRows([Row]); // Set Rows with 1 Row
+              tmpTable.modifyRow(ID);
+            })
+          } else 
+            t.modifyRow(ID);
         });
       }
     }
-    // State PopUp Menu
-    $('#'+t.GUID+' .showNextStates').off('show.bs.dropdown').on('show.bs.dropdown', function(){
-      let jQRow = $(this).parent().parent();
-      let RowID = jQRow.find('td:first').data('rowid');
-      let Row = {};
-      const pc = t.getPrimaryColname();
-      for (const row of t.Rows) {
-        if (row[pc] == RowID) {
-          Row = row;
-          break;
-        }
-      }
-      const nextstates = t.SM.getNextStates(Row['state_id']);
-      // Any Target States?
-      if (nextstates.length > 0) {        
-        jQRow.find('.dropdown-menu').empty();
-        let btns = '';
-        nextstates.map(state => {
-          btns += `<a class="dropdown-item btnState btnStateChange state${state.id}" data-rowid="${RowID}" data-targetstate="${state.id}">${state.name}</a>`;
-        });
-        jQRow.find('.dropdown-menu').html(btns);
-        // Bind function to StateButtons
-        $('#'+t.GUID+' .btnState').click(function(e){
+    // Set State
+    els = tableEl.getElementsByClassName('loadStates');
+    if (els) {
+      for (const el of els) {
+        el.addEventListener('click', function(e) {
           e.preventDefault();
-          const RowID = $(this).data('rowid');
-          const TargetStateID = $(this).data('targetstate');
-          t.setState('', RowID, TargetStateID, undefined, false);
+          const DropDownMenu = el.parentNode.querySelectorAll('.dropdown-menu')[0];
+          const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');         
+          const Tablename = RowData[0];
+          const ID = RowData[1];
+          if (DropDownMenu.classList.contains("show")) return;
+          console.log("LOADSTATES: ", Tablename, ' -> ', ID);
+          // External Table
+          const tmpTable = new Table(Tablename);
+          tmpTable.loadRow(ID, function(Row){
+            tmpTable.setRows([Row]); // Set Rows with 1 Row
+            const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
+            if (nextstates.length > 0) {
+              DropDownMenu.innerHTML = '';
+              nextstates.map(state => {
+                const btn = document.createElement('a');
+                btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state'+state.id);
+                btn.text = state.name;
+                btn.addEventListener("click", function(){
+                  tmpTable.setState('', ID, state.id, undefined, false);
+                })
+                DropDownMenu.appendChild(btn);
+              });
+            }
+          })
         })
       }
-    })
+    }
   }
   private renderFooter() {
     let t = this;
@@ -1575,7 +1595,6 @@ class FormGenerator {
       // Concat value if is object
       let ID = 0;
       const x = el.value;
-
       if (x){
         ID = x
         if (isObject(x)) {
@@ -1585,7 +1604,6 @@ class FormGenerator {
           v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
         }
       }
-
       result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
@@ -1963,12 +1981,4 @@ function loadFKTable(element, tablename, customfilter): void {
     const selRowID = tmpTable.getSelectedRowID();
     hiddenInput.value = '' || selRowID;
   })
-}
-function gEdit(tablename: string, RowID: number) {
-  // Load Table, load Row, display Edit-Modal
-  const tmpTable = new Table(tablename, 0);
-  tmpTable.setColumnFilter(tmpTable.getPrimaryColname(), ''+RowID);
-  tmpTable.loadRows(function(){
-    tmpTable.modifyRow(RowID);
-  });
 }
