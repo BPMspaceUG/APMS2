@@ -125,7 +125,8 @@
         if ($col["is_virtual"] && $col["field_type"] == "reversefk")
           $res[$colname] = [
             "revfk_tablename" => $col["revfk_tablename"],
-            "revfk_colname" => $col["revfk_colname"]
+            "revfk_colname1" => $col["revfk_colname1"],
+            "revfk_colname2" => $col["revfk_colname2"]
           ];
       }
       return $res;

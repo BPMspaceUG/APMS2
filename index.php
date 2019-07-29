@@ -5,7 +5,7 @@
 
 
     <!-- CONTENT -->
-    <div class="container">
+    <div class="container-fluid w-75">
       <!-- Connect to Database-Server -->
       <form class="bpm-server-connect" action="modules/ConnectDB.php">
         <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
@@ -206,8 +206,8 @@
                             <option value="enum">Enum</option>
                             <option value="foreignkey">ForeignKey</option>
                             <option value="reversefk">Virtual-Table</option>
-                            <option value="htmleditor">HTML-Editor</option>
-                            <option value="codeeditor">Code-Editor</option>
+                            <option value="htmleditor">Editor (HTML)</option>
+                            <option value="codeeditor">Editor (Code)</option>
                             <option value="rawhtml">Raw HTML</option>
                           </optgroup>
                         </select>
@@ -229,19 +229,17 @@
                       <td class="align-middle" colspan="3" ng-if="!col.is_primary && !col.is_virtual">
                         <!-- FK -->
                         <div ng-if="col.field_type == 'foreignkey'">
-                          <b>ForeignKey:</b>
                           <select class="custom-select custom-select-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.table">
                             <option value="" selected></option>
                             <option ng-repeat="(name, tbl) in tables" value="{{name}}">{{name}}</option>
                           </select>
                           <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.col_id" placeholder="JoinID">
-                          <span>
-                            <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.col_subst" placeholder="ReplacedCloumn">
-                          </span>
+                          <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.col_subst" placeholder="ReplacedCloumn">
+                          <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.customfilter" placeholder="Filter">
                         </div>
                         <!-- Enum -->
                         <div ng-if="col.field_type == 'enum'">
-                            <input class="form-control form-control-sm" type="text" ng-model="col.col_options" style="width: 400px" placeholder='i. e. [{"name": "male", "value": "M"}]'>
+                            <input class="form-control form-control-sm" type="text" ng-model="col.col_options" style="width: 400px" placeholder='i.e.: [{"name": "male", "value": "M"}]'>
                         </div>
                       </td>
                       <!-- VIRTUAL GRID COLUMN -->
@@ -256,7 +254,9 @@
                             <!-- Reverse Foreign Key -->
                             <div ng-if="col.field_type == 'reversefk'">
                               <input type="text" ng-model="col.revfk_tablename" style="width: 300px" placeholder="External Table">
-                              <input type="text" ng-model="col.revfk_colname" style="width: 300px" placeholder="Columnname">
+                              <input type="text" ng-model="col.revfk_colname1" style="width: 300px" placeholder="N-Column (Self)">
+                              <input type="text" ng-model="col.revfk_colname2" style="width: 300px" placeholder="M-Column (External)">
+                              <input type="text" ng-model="col.revfk_col2filter" style="width: 300px" placeholder="Create-Filter">
                             </div>
                           </div>
                           <div class="col-2">

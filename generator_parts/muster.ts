@@ -274,7 +274,7 @@ class StateMachine {
     const idOffset = 100;
 
     // Map data to ready for VisJs
-    let nodes = this.myStates.map(state => {
+    let _nodes = this.myStates.map(state => {
       let node = {};
       node['id'] = (idOffset + state.id);
       node['label'] = state.name;
@@ -286,7 +286,7 @@ class StateMachine {
       node['color'] = css.background;
       return node;
     });
-    let edges = this.myLinks.map(link => {
+    let _edges = this.myLinks.map(link => {
       let edge = {};
       edge['from'] = (idOffset + link.from);
       edge['to'] = (idOffset + link.to);
@@ -295,11 +295,11 @@ class StateMachine {
 
     // Add Entrypoints
     let counter = 1;
-    nodes.forEach(node => {
+    _nodes.forEach(node => {
       // Entries
       if (node.isEntryPoint) {
-        nodes.push({id: counter, color: 'LimeGreen', shape: 'dot', size: 10, title: 'Entrypoint'}); // Entry-Node
-        edges.push({from: counter, to: node.id}); // Link to state
+        _nodes.push({id: counter, color: 'LimeGreen', shape: 'dot', size: 10, title: 'Entrypoint'}); // Entry-Node
+        _edges.push({from: counter, to: node.id}); // Link to state
         counter++;
       }
       // Exits
@@ -311,7 +311,6 @@ class StateMachine {
       }
     });
 
-    let data = {nodes: nodes, edges: edges};
     let options = {
       edges: {color: {color: '#888888'}, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {}},
       nodes: {
@@ -328,8 +327,9 @@ class StateMachine {
       physics: {enabled: false},
       interaction: {}
     };
+
     // Render
-    let network = new vis.Network(container, data, options);
+    let network = new vis.Network(container, {nodes: _nodes, edges: _edges}, options);
 
     M.show();
     network.fit({scale: 1, offset: {x:0, y:0}});
@@ -501,10 +501,14 @@ class Table extends RawTable {
   private ReadOnly: boolean;
   private TableType: TableType = TableType.obj;
   private GUIOptions = {
-    maxCellLength: 30,
+    maxCellLength: 50,
     showControlColumn: true,
     showWorkflowButton: false,
     smallestTimeUnitMins: true,
+    Relation : {
+      createTitle: "New Relation",
+      createBtnRelate: "Add Relation"
+    },
     modalHeaderTextCreate: 'Create Entry',
     modalHeaderTextModify: 'Modify Entry',
     modalButtonTextCreate: 'Create',
@@ -687,7 +691,33 @@ class Table extends RawTable {
         //const RowID: number = parseInt(btn.getAttribute('data-rowid'));
         const TargetStateID: number = parseInt(btn.getAttribute('data-targetstate'));
         const closeModal: boolean = btn.classList.contains('btnSaveAndClose');
-        t.setState(newForm.getValues(), RowID, TargetStateID, M, closeModal);
+
+        t.setState(newForm.getValues(), RowID, TargetStateID, function(){
+          // changed state via modal-button (=> refresh the modal)
+          // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
+          t.loadRows(function(){
+            t.renderContent();
+            // Refresh Form-Data if Modal exists
+              const diffObject = t.SM.getFormDiffByState(TargetStateID); // Refresh Form-Content
+              // Refresh Row
+              let newRow = null;
+              t.Rows.forEach(row => {
+                if (row[pcname] == RowID) newRow = row;
+              });
+              // check if the row is already loaded in the grid
+              if (newRow)
+                t.renderEditForm(newRow, diffObject, M); // The circle begins again
+              else {
+                // Reload specific Row
+                t.loadRow(RowID, res => {
+                  t.renderEditForm(res, diffObject, M); // The circle begins again
+                })
+              }
+            // close Modal if it was save and close
+            if (closeModal)
+              M.close();
+          });
+        });
       });
     }
     //--- finally show Modal if it is a new one
@@ -718,70 +748,44 @@ class Table extends RawTable {
       }
     })
   }
-  private setState(data: any, RowID: number, targetStateID: number, myModal: Modal, closeModal: boolean): void {
+  private setState(data: any, RowID: number, targetStateID: number, callback) {
     let t = this;
     let actStateID = undefined;
     const pcname = t.getPrimaryColname();
-    console.log("SETSTATE:", t.getTablename(), ':', RowID, '-->', targetStateID);
+
+    console.log("SETSTATE:", t.getTablename(), ':', RowID, '[', actStateID, '-->', targetStateID, ']');
+
     // Get Actual State
-    for (const row of t.Rows) {
-      if (row[pcname] == RowID)
-        actStateID = row['state_id'];
-    }
+    for (const row of t.Rows) { if (row[pcname] == RowID) actStateID = row['state_id']; }
     // REQUEST
-    t.transitRow(RowID, targetStateID, data, function(response) {      
+    t.transitRow(RowID, targetStateID, data, function(response) {
+      t.onEntriesModified.trigger();
       // Handle Transition Feedback
       let counter: number = 0;
-      let messages = [];
+      const messages = [];
       response.forEach(msg => {
         if (msg.show_message)
           messages.push({type: counter, text: msg.message}); // for GUI
         counter++;
       });
-      // Re-Sort the messages
-      messages.reverse(); // sort in Order of the process => [1. Out, 2. Transition, 3. In]
-      // Check if Transition was successful
-      if (counter === 3) {
-        // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
-        t.loadRows(function(){
-          t.renderContent();
-          t.onEntriesModified.trigger();
-          // Refresh Form-Data if Modal exists
-          if (myModal) {
-            const diffObject = t.SM.getFormDiffByState(targetStateID); // Refresh Form-Content
-            // Refresh Row
-            let newRow = null;
-            t.Rows.forEach(row => {
-              if (row[pcname] == RowID) newRow = row;
-            });
-            // check if the row is already loaded in the grid
-            if (newRow)
-              t.renderEditForm(newRow, diffObject, myModal); // The circle begins again
-            else {
-              // Reload specific Row
-              t.loadRow(RowID, res => {
-                t.renderEditForm(res, diffObject, myModal); // The circle begins again
-              })
-            }
-          }
-          // close Modal if it was save and close
-          if (myModal && closeModal)
-            myModal.close();
-        });
-      }
-      // GUI: Show all Script-Result Messages
-      let htmlStateFrom: string = t.renderStateButton(actStateID, false);
-      let htmlStateTo: string = t.renderStateButton(targetStateID, false);
+      // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
+      messages.reverse();
+      // Show all Script-Result Messages
+      const htmlStateFrom: string = t.renderStateButton(actStateID, false);
+      const htmlStateTo: string = t.renderStateButton(targetStateID, false);
       for (const msg of messages) {
-        let tmplTitle = '';
-        if (msg.type == 0) tmplTitle = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
-        if (msg.type == 1) tmplTitle = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
-        if (msg.type == 2) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
+        let title = '';
+        if (msg.type == 0) title = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
+        if (msg.type == 1) title = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
+        if (msg.type == 2) title = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
         // Render a new Modal
-        let resM = new Modal(tmplTitle, msg.text)
+        const resM = new Modal(title, msg.text); // Display relevant MsgBoxes
         resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
         resM.show();
       }
+      // Successful Transition
+      if (counter === 3)
+        callback();
     })
   }
   private getDefaultFormObject(): any {
@@ -800,11 +804,20 @@ class Table extends RawTable {
   //--------------------------------------------------
   public createEntry(): void {
     let me = this
-    const ModalTitle = this.GUIOptions.modalHeaderTextCreate + '<span class="text-muted ml-3">in ' + this.getTableIcon() + ' ' + this.getTableAlias()+'</span>';
-    const CreateBtns = `<div class="ml-auto mr-0">
-  <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
-  <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
-</div>`;
+
+    // Object
+    let ModalTitle = this.GUIOptions.modalHeaderTextCreate + `<span class="text-muted ml-3">in ${ this.getTableIcon() + ' ' + this.getTableAlias() }</span>`;
+    let CreateBtns = `<div class="ml-auto mr-0">
+    <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
+    <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
+  </div>`;
+    // Relation
+    if (this.TableType !== TableType.obj) {
+      ModalTitle = this.GUIOptions.Relation.createTitle + `<span class="text-muted ml-3">in ${ this.getTableAlias() }</span>`;
+      CreateBtns = `<div class="ml-auto mr-0"><button class="btn btn-success btnCreateEntry" type="button">${this.GUIOptions.Relation.createBtnRelate}</button></div>`;
+    }
+
+    
     //--- Overwrite and merge the differences from diffObject
     let defFormObj = me.getDefaultFormObject();
     const diffFormCreate = me.diffFormCreateObject;
@@ -1255,7 +1268,7 @@ class Table extends RawTable {
     if ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit ) {}
     else html += searchBar;
 
-    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount > 0) {}
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) {}
     else if (!t.ReadOnly)
       html += btnCreate;
 
@@ -1353,8 +1366,13 @@ class Table extends RawTable {
         }
       })
     }
+
+    // special cases
     if (t.selType == SelectType.Single && !t.isExpanded)
+      return `<div class="tbl_footer"></div>`;     
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
       return `<div class="tbl_footer"></div>`;
+
     //--- StatusText
     let statusText = '';
     if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
@@ -1368,7 +1386,8 @@ class Table extends RawTable {
     else {
       // No Entries
       statusText = this.GUIOptions.statusBarTextNoEntries;
-    }
+    }    
+
     // Normal
     return `<div class="tbl_footer">
       <div class="text-muted p-0 px-2">
@@ -1465,17 +1484,16 @@ class Table extends RawTable {
         el.addEventListener('click', function(e) {
           e.preventDefault();
           const DropDownMenu = el.parentNode.querySelectorAll('.dropdown-menu')[0];
-          const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');         
+          const StateID = el.getAttribute('data-stateid');
+          const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');
           const Tablename = RowData[0];
           const ID = RowData[1];
           if (DropDownMenu.classList.contains("show")) return;
-          console.log("LOADSTATES: ", Tablename, ' -> ', ID);
-          // External Table
-          const tmpTable = new Table(Tablename);
-          tmpTable.loadRow(ID, function(Row){
-            tmpTable.setRows([Row]); // Set Rows with 1 Row
-            tmpTable.setGUID(t.GUID);
-            const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
+
+          // Check if Same table?
+          if (Tablename === t.getTablename()) {
+            // Internal Table
+            const nextstates = t.SM.getNextStates(StateID);
             if (nextstates.length > 0) {
               DropDownMenu.innerHTML = '';
               nextstates.map(state => {
@@ -1483,12 +1501,40 @@ class Table extends RawTable {
                 btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state'+state.id);
                 btn.text = state.name;
                 btn.addEventListener("click", function(){
-                  tmpTable.setState('', ID, state.id, undefined, false);
+                  t.setState('', ID, state.id, function(){
+                    // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
+                    t.loadRows(function(){ t.renderContent(); });
+                  }); // Refresh same Table (or only the Row)
                 })
                 DropDownMenu.appendChild(btn);
               });
             }
-          })
+          }
+          else {
+            // External Table
+            const tmpTable = new Table(Tablename);
+            tmpTable.loadRow(ID, function(Row){
+              tmpTable.setRows([Row]); // Set Rows with 1 Row
+              const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
+              if (nextstates.length > 0) {
+                DropDownMenu.innerHTML = '';
+                nextstates.map(state => {
+                  const btn = document.createElement('a');
+                  btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state'+state.id);
+                  btn.text = state.name;
+                  btn.addEventListener("click", function(){
+                    tmpTable.setState('', ID, state.id, function(){
+                      // Refresh relation Table
+                      t.loadRows(function(){ t.renderContent(); });
+                    });
+                    // Achtung! Table wird neu geladen!
+                  })
+                  DropDownMenu.appendChild(btn);
+                });
+              }
+            })          
+          }
+
         })
       }
     }
@@ -1611,7 +1657,7 @@ class FormGenerator {
       result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
-          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table +'\', ' + ('' || el.customfilter) + ')"' : ''}>
+          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table +'\', \'' + ('' || escape(el.customfilter)) + '\')"' : ''}>
             <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
             ${ el.mode_form == 'ro' ? '' :
               `<div class="input-group-append">
@@ -1627,110 +1673,35 @@ class FormGenerator {
     else if (el.field_type == 'reversefk') {
       const tmpGUID = GUI.getID();
       const extTablename = el.revfk_tablename;
-      const extTableColSelf = el.revfk_colname;
-      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
-      
-      const extTable = new Table(extTablename);
-      extTable.setReadOnly(el.mode_form == 'ro');
-      //console.log(this.oTable.getTablename() ,' <---------> ', extTablename, '(' + extTable.getTableType() + ')');
+      const extTableColSelf = el.revfk_colname1;
+      const extTableColExt = el.revfk_colname2;
+      const extTableColExtFilter = el.revfk_col2filter;
 
+      const hideCol = '`' + extTablename + '`.' + extTableColSelf;      
+      const extTable = new Table(extTablename); 
+
+      console.log(this.oTable.getTablename() ,' -> [', extTablename, ' : ' + extTable.getTableType() + '] -> ', el.revfk_colname2);
+
+      extTable.setReadOnly(el.mode_form == 'ro');
       if (extTable.isRelationTable()) {
         // Relation:
         extTable.Columns[extTableColSelf].show_in_grid = false; // Hide self column
-        extTable.setColumnFilter(hideCol, this.oRowID.toString()); // Find OWN relations
-        // Set Origin element Fixed
+        extTable.setColumnFilter(hideCol, this.oRowID.toString()); // Filter -> show only OWN relations
+        // [N] Set Origin element Fixed
         let custFormCreate = {};
         custFormCreate[extTableColSelf] = {};
         custFormCreate[extTableColSelf]['value'] = this.oRowID;
         custFormCreate[extTableColSelf]['mode_form'] = 'ro';
+        // [M] Set External Element
+        custFormCreate[extTableColExt] = {};
+        custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
+        // Set Form Create
         extTable.setCustomFormCreateOptions(custFormCreate);
       }
       // Load Rows
       extTable.loadRows(function(){
         extTable.renderHTML(tmpGUID);
       });
-
-/*
-      const OriginRowID = this.oRowID;
-      const extTablename = el.revfk_tablename;
-      const extTableColSelf = el.revfk_colname; // build this itself only needs to know the last ID      
-      const tmpTable = new Table(extTablename, SelectType.NoSelect);
-      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
-
-      //--- TODO: Probably do this via configuration
-      let fkCols = [];
-      for (const colname of Object.keys(tmpTable.Columns)) {
-        if (tmpTable.Columns[colname].field_type == 'foreignkey') fkCols.push(colname);
-      }
-      const i = fkCols.indexOf(extTableColSelf);
-      if (i > -1) fkCols.splice(i, 1); // Remove the hidecolumn
-      const colnamex = fkCols[0];
-      //---/      
-      
-      // Special Settings
-      tmpTable.Columns[extTableColSelf].show_in_grid = false; // Hide the primary column
-      tmpTable.Columns[tmpTable.getPrimaryColname()].show_in_grid = false; // Hide the origin column
-      tmpTable.ReadOnly = (el.mode_form == 'ro');
-      tmpTable.GUIOptions.showControlColumn = !tmpTable.ReadOnly;
-
-      //--- Create Custom Diff Form
-      const refreshSel = function(){
-        let customFormCreate = {};
-        // Set Origin element Fixed
-        customFormCreate[extTableColSelf] = {};
-        customFormCreate[extTableColSelf]['value'] = OriginRowID;
-        customFormCreate[extTableColSelf]['mode_form'] = 'ro';
-        
-        if (tmpTable.isRelationTable()) {
-          // -------- Relation Table
-          // Filter all elements which are already connected
-          const Tbl2 = tmpTable.Columns[colnamex].foreignKey;
-          let ids = [];
-          
-          for (const Row of tmpTable.getRows()) {
-            ids.push(Row[colnamex][Tbl2.col_id]); // find all IDs from Table2
-          }
-          // In ids[] are now ALL IDs from Tbl2 which are already connected (state does not matter)
-          const tt = tmpTable.getTableType();
-
-          if (tt == TableType.tn_1 || tt == TableType.t1_1) {
-            ids = []; // Reset IDs
-          }
-          
-          if (ids.length > 0) {
-            customFormCreate[colnamex] = {};
-            customFormCreate[colnamex]['customfilter'] = '{\"nin\": [\"' + Tbl2.col_id + '\", \"' + ids.join(',') + '\"]}';
-          }
-
-          tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
-
-          // Why 2x ?
-          tmpTable.loadRows(function(){
-            tmpTable.renderHTML(tmpGUID);
-            tmpTable.resetFilter();
-            //tmpTable.loadRows(function(){});
-          });
-
-        }
-        else {
-          // -------- Object Table
-          tmpTable.setColumnFilter(hideCol, ''+OriginRowID); // Find OWN relations
-          tmpTable.loadRows(function(){
-            tmpTable.renderHTML(tmpGUID);
-          });
-        }
-        // Write Diffs
-        tmpTable.setCustomFormCreateOptions(customFormCreate);
-      };
-
-      // Refresh
-      tmpTable.resetLimit(); // unlimited Relations
-      tmpTable.EntriesHaveChanged.on(refreshSel);
-      // Load Rows
-      tmpTable.loadRows(function(){
-        refreshSel();
-      });
-*/
       // Container for Table
       result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
     }

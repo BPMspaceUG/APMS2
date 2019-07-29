@@ -260,7 +260,7 @@ class StateMachine {
         let M = new Modal('<i class="fa fa-random"></i> Workflow <span class="text-muted ml-3">of ' + me.myTable.getTableIcon() + ' ' + me.myTable.getTableAlias() + '</span>', '<div class="statediagram" style="width: 100%; height: 300px;"></div>', '<button class="btn btn-secondary fitsm"><i class="fa fa-expand"></i> Fit</button>', true);
         let container = document.getElementsByClassName('statediagram')[0];
         const idOffset = 100;
-        let nodes = this.myStates.map(state => {
+        let _nodes = this.myStates.map(state => {
             let node = {};
             node['id'] = (idOffset + state.id);
             node['label'] = state.name;
@@ -272,17 +272,17 @@ class StateMachine {
             node['color'] = css.background;
             return node;
         });
-        let edges = this.myLinks.map(link => {
+        let _edges = this.myLinks.map(link => {
             let edge = {};
             edge['from'] = (idOffset + link.from);
             edge['to'] = (idOffset + link.to);
             return edge;
         });
         let counter = 1;
-        nodes.forEach(node => {
+        _nodes.forEach(node => {
             if (node.isEntryPoint) {
-                nodes.push({ id: counter, color: 'LimeGreen', shape: 'dot', size: 10, title: 'Entrypoint' });
-                edges.push({ from: counter, to: node.id });
+                _nodes.push({ id: counter, color: 'LimeGreen', shape: 'dot', size: 10, title: 'Entrypoint' });
+                _edges.push({ from: counter, to: node.id });
                 counter++;
             }
             if (node.isExit) {
@@ -292,7 +292,6 @@ class StateMachine {
                 node.font = { multi: 'html', color: 'black' };
             }
         });
-        let data = { nodes: nodes, edges: edges };
         let options = {
             edges: { color: { color: '#888888' }, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {} },
             nodes: {
@@ -309,7 +308,7 @@ class StateMachine {
             physics: { enabled: false },
             interaction: {}
         };
-        let network = new vis.Network(container, data, options);
+        let network = new vis.Network(container, { nodes: _nodes, edges: _edges }, options);
         M.show();
         network.fit({ scale: 1, offset: { x: 0, y: 0 } });
         let btns = document.getElementsByClassName('fitsm');
@@ -468,10 +467,14 @@ class Table extends RawTable {
         this.diffFormCreateObject = {};
         this.TableType = TableType.obj;
         this.GUIOptions = {
-            maxCellLength: 30,
+            maxCellLength: 50,
             showControlColumn: true,
             showWorkflowButton: false,
             smallestTimeUnitMins: true,
+            Relation: {
+                createTitle: "New Relation",
+                createBtnRelate: "Add Relation"
+            },
             modalHeaderTextCreate: 'Create Entry',
             modalHeaderTextModify: 'Modify Entry',
             modalButtonTextCreate: 'Create',
@@ -633,7 +636,26 @@ class Table extends RawTable {
                 e.preventDefault();
                 const TargetStateID = parseInt(btn.getAttribute('data-targetstate'));
                 const closeModal = btn.classList.contains('btnSaveAndClose');
-                t.setState(newForm.getValues(), RowID, TargetStateID, M, closeModal);
+                t.setState(newForm.getValues(), RowID, TargetStateID, function () {
+                    t.loadRows(function () {
+                        t.renderContent();
+                        const diffObject = t.SM.getFormDiffByState(TargetStateID);
+                        let newRow = null;
+                        t.Rows.forEach(row => {
+                            if (row[pcname] == RowID)
+                                newRow = row;
+                        });
+                        if (newRow)
+                            t.renderEditForm(newRow, diffObject, M);
+                        else {
+                            t.loadRow(RowID, res => {
+                                t.renderEditForm(res, diffObject, M);
+                            });
+                        }
+                        if (closeModal)
+                            M.close();
+                    });
+                });
             });
         }
         if (M) {
@@ -662,61 +684,41 @@ class Table extends RawTable {
             }
         });
     }
-    setState(data, RowID, targetStateID, myModal, closeModal) {
+    setState(data, RowID, targetStateID, callback) {
         let t = this;
         let actStateID = undefined;
         const pcname = t.getPrimaryColname();
-        console.log("SETSTATE:", t.getTablename(), ':', RowID, '-->', targetStateID);
+        console.log("SETSTATE:", t.getTablename(), ':', RowID, '[', actStateID, '-->', targetStateID, ']');
         for (const row of t.Rows) {
             if (row[pcname] == RowID)
                 actStateID = row['state_id'];
         }
         t.transitRow(RowID, targetStateID, data, function (response) {
+            t.onEntriesModified.trigger();
             let counter = 0;
-            let messages = [];
+            const messages = [];
             response.forEach(msg => {
                 if (msg.show_message)
                     messages.push({ type: counter, text: msg.message });
                 counter++;
             });
             messages.reverse();
-            if (counter === 3) {
-                t.loadRows(function () {
-                    t.renderContent();
-                    t.onEntriesModified.trigger();
-                    if (myModal) {
-                        const diffObject = t.SM.getFormDiffByState(targetStateID);
-                        let newRow = null;
-                        t.Rows.forEach(row => {
-                            if (row[pcname] == RowID)
-                                newRow = row;
-                        });
-                        if (newRow)
-                            t.renderEditForm(newRow, diffObject, myModal);
-                        else {
-                            t.loadRow(RowID, res => {
-                                t.renderEditForm(res, diffObject, myModal);
-                            });
-                        }
-                    }
-                    if (myModal && closeModal)
-                        myModal.close();
-                });
-            }
-            let htmlStateFrom = t.renderStateButton(actStateID, false);
-            let htmlStateTo = t.renderStateButton(targetStateID, false);
+            const htmlStateFrom = t.renderStateButton(actStateID, false);
+            const htmlStateTo = t.renderStateButton(targetStateID, false);
             for (const msg of messages) {
-                let tmplTitle = '';
+                let title = '';
                 if (msg.type == 0)
-                    tmplTitle = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
+                    title = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
                 if (msg.type == 1)
-                    tmplTitle = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
+                    title = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
                 if (msg.type == 2)
-                    tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
-                let resM = new Modal(tmplTitle, msg.text);
+                    title = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
+                const resM = new Modal(title, msg.text);
                 resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
                 resM.show();
             }
+            if (counter === 3)
+                callback();
         });
     }
     getDefaultFormObject() {
@@ -732,11 +734,15 @@ class Table extends RawTable {
     }
     createEntry() {
         let me = this;
-        const ModalTitle = this.GUIOptions.modalHeaderTextCreate + '<span class="text-muted ml-3">in ' + this.getTableIcon() + ' ' + this.getTableAlias() + '</span>';
-        const CreateBtns = `<div class="ml-auto mr-0">
-  <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
-  <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
-</div>`;
+        let ModalTitle = this.GUIOptions.modalHeaderTextCreate + `<span class="text-muted ml-3">in ${this.getTableIcon() + ' ' + this.getTableAlias()}</span>`;
+        let CreateBtns = `<div class="ml-auto mr-0">
+    <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
+    <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
+  </div>`;
+        if (this.TableType !== TableType.obj) {
+            ModalTitle = this.GUIOptions.Relation.createTitle + `<span class="text-muted ml-3">in ${this.getTableAlias()}</span>`;
+            CreateBtns = `<div class="ml-auto mr-0"><button class="btn btn-success btnCreateEntry" type="button">${this.GUIOptions.Relation.createBtnRelate}</button></div>`;
+        }
         let defFormObj = me.getDefaultFormObject();
         const diffFormCreate = me.diffFormCreateObject;
         let newObj = mergeDeep({}, defFormObj, diffFormCreate);
@@ -1103,7 +1109,7 @@ class Table extends RawTable {
         if ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit) { }
         else
             html += searchBar;
-        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount > 0) { }
+        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) { }
         else if (!t.ReadOnly)
             html += btnCreate;
         if (t.SM && t.GUIOptions.showWorkflowButton)
@@ -1186,6 +1192,8 @@ class Table extends RawTable {
             });
         }
         if (t.selType == SelectType.Single && !t.isExpanded)
+            return `<div class="tbl_footer"></div>`;
+        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
             return `<div class="tbl_footer"></div>`;
         let statusText = '';
         if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
@@ -1292,17 +1300,14 @@ class Table extends RawTable {
                     el.addEventListener('click', function (e) {
                         e.preventDefault();
                         const DropDownMenu = el.parentNode.querySelectorAll('.dropdown-menu')[0];
+                        const StateID = el.getAttribute('data-stateid');
                         const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');
                         const Tablename = RowData[0];
                         const ID = RowData[1];
                         if (DropDownMenu.classList.contains("show"))
                             return;
-                        console.log("LOADSTATES: ", Tablename, ' -> ', ID);
-                        const tmpTable = new Table(Tablename);
-                        tmpTable.loadRow(ID, function (Row) {
-                            tmpTable.setRows([Row]);
-                            tmpTable.setGUID(t.GUID);
-                            const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
+                        if (Tablename === t.getTablename()) {
+                            const nextstates = t.SM.getNextStates(StateID);
                             if (nextstates.length > 0) {
                                 DropDownMenu.innerHTML = '';
                                 nextstates.map(state => {
@@ -1310,12 +1315,35 @@ class Table extends RawTable {
                                     btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state' + state.id);
                                     btn.text = state.name;
                                     btn.addEventListener("click", function () {
-                                        tmpTable.setState('', ID, state.id, undefined, false);
+                                        t.setState('', ID, state.id, function () {
+                                            t.loadRows(function () { t.renderContent(); });
+                                        });
                                     });
                                     DropDownMenu.appendChild(btn);
                                 });
                             }
-                        });
+                        }
+                        else {
+                            const tmpTable = new Table(Tablename);
+                            tmpTable.loadRow(ID, function (Row) {
+                                tmpTable.setRows([Row]);
+                                const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
+                                if (nextstates.length > 0) {
+                                    DropDownMenu.innerHTML = '';
+                                    nextstates.map(state => {
+                                        const btn = document.createElement('a');
+                                        btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state' + state.id);
+                                        btn.text = state.name;
+                                        btn.addEventListener("click", function () {
+                                            tmpTable.setState('', ID, state.id, function () {
+                                                t.loadRows(function () { t.renderContent(); });
+                                            });
+                                        });
+                                        DropDownMenu.appendChild(btn);
+                                    });
+                                }
+                            });
+                        }
                     });
                 }
             }
@@ -1418,7 +1446,7 @@ class FormGenerator {
             result += `
         <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
         <div class="external-table">
-          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table + '\', ' + ('' || el.customfilter) + ')"' : ''}>
+          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table + '\', \'' + ('' || escape(el.customfilter)) + '\')"' : ''}>
             <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
             ${el.mode_form == 'ro' ? '' :
                 `<div class="input-group-append">
@@ -1432,9 +1460,12 @@ class FormGenerator {
         else if (el.field_type == 'reversefk') {
             const tmpGUID = GUI.getID();
             const extTablename = el.revfk_tablename;
-            const extTableColSelf = el.revfk_colname;
+            const extTableColSelf = el.revfk_colname1;
+            const extTableColExt = el.revfk_colname2;
+            const extTableColExtFilter = el.revfk_col2filter;
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             const extTable = new Table(extTablename);
+            console.log(this.oTable.getTablename(), ' -> [', extTablename, ' : ' + extTable.getTableType() + '] -> ', el.revfk_colname2);
             extTable.setReadOnly(el.mode_form == 'ro');
             if (extTable.isRelationTable()) {
                 extTable.Columns[extTableColSelf].show_in_grid = false;
@@ -1443,6 +1474,8 @@ class FormGenerator {
                 custFormCreate[extTableColSelf] = {};
                 custFormCreate[extTableColSelf]['value'] = this.oRowID;
                 custFormCreate[extTableColSelf]['mode_form'] = 'ro';
+                custFormCreate[extTableColExt] = {};
+                custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
                 extTable.setCustomFormCreateOptions(custFormCreate);
             }
             extTable.loadRows(function () {
