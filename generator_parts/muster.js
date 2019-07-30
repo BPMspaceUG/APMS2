@@ -1106,7 +1106,7 @@ class Table extends RawTable {
       ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
     </button>`;
         let html = '<div class="tbl_header form-inline">';
-        if ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit) { }
+        if (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) { }
         else
             html += searchBar;
         if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) { }

@@ -816,7 +816,6 @@ class Table extends RawTable {
       ModalTitle = this.GUIOptions.Relation.createTitle + `<span class="text-muted ml-3">in ${ this.getTableAlias() }</span>`;
       CreateBtns = `<div class="ml-auto mr-0"><button class="btn btn-success btnCreateEntry" type="button">${this.GUIOptions.Relation.createBtnRelate}</button></div>`;
     }
-
     
     //--- Overwrite and merge the differences from diffObject
     let defFormObj = me.getDefaultFormObject();
@@ -1265,7 +1264,7 @@ class Table extends RawTable {
     // Concat HTML
     let html: string = '<div class="tbl_header form-inline">';
 
-    if ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit ) {}
+    if  (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) {}
     else html += searchBar;
 
     if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) {}
@@ -1397,6 +1396,7 @@ class Table extends RawTable {
       </div>
     </div>`;
   }
+  //---------------------------------------- Render (Events etc.)
   private renderHeader() {
     let t = this;
     const tableEl = document.getElementById(t.GUID).parentElement;

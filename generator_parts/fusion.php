@@ -180,7 +180,8 @@
         $rights_ro = [];
         // for all columns and virtual-columns
         foreach ($cols as $colname => $col) {
-          if (!($col['is_primary'] || $colname == 'state_id')) {
+          $confMode = $cols[$colname]["mode_form"];
+          if (!($col['is_primary'] || $colname == 'state_id' || $confMode == 'hi')) {
             // Set the form data
             $rights_ro[$colname] = ["mode_form" => "ro"];
           }
