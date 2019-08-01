@@ -8,29 +8,16 @@
 </nav>
 <!-- Content -->
 <main role="main">
-  <div class="container-fluid w-100 m-0 p-0">
+  <div class="container">    
+    <!-- Loadingtext -->
     <div class="text-center text-primary initloadingtext">
       <h1><i class="fa fa-spinner fa-pulse"></i> Loading...</h1>
     </div>
-    <div class="card mainapp collapse border-0">
-      <div class="card-header">
-        <ul class="nav nav-tabs card-header-tabs" id="tab-headers">
-          <!-- Dashboard -->
-          <li class="nav-item">
-            <a class="nav-link active" href="#dashboard" data-toggle="tab">
-              <i class="fas fa-tachometer-alt"></i><span class="table_alias ml-2">Dashboard</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-      <div class="card-body">
-        <div class="tab-content" id="tab-panels">
-          <!-- Dashboard -->
-          <div role="tabpanel" class="tab-pane show active" id="dashboard">
-            <div id="dashboardcontent"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Navigation -->
+    <nav class="nav" id="nav">
+      <a route="/" class="nav-link"><i class="fas fa-tachometer-alt"></i><span class="ml-2">Dashboard</span></a>
+    </nav>
+    <!-- App -->
+    <div id="app"></div>
   </div>
 </main>

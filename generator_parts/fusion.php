@@ -2,7 +2,7 @@
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
-  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlAPI, $urlLogin, $secretKey) {
+  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlLogin, $secretKey) {
     global $act_version_link;
     return  "<?php
     // APMS Generated Project (".date("Y-m-d H:i:s").")
@@ -16,7 +16,7 @@
     //-- Authentication + API
     define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns a JWT-Token
     define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
-    define('API_URL', '$urlAPI'); // URL from the API where all requests are sent";
+    ";
   }
   function loadFile($fname) {
     $fh = fopen($fname, "r");
@@ -78,6 +78,7 @@
   define('DB_NAME', $db_name);
   define('DB_USER', $db_user);
   define('DB_PASS', $db_pass);
+
   require_once("output_DatabaseHandler.php");
   require_once("output_StateEngine.php");
   require_once("output_RequestHandler.php");
@@ -311,8 +312,26 @@
     //---- Put Files
     // JavaScript
     createFile($project_dir."/js/main.js", $output_JS);
+    /*
     if (!file_exists($project_dir."/js/custom.js"))
       createFile($project_dir."/js/custom.js", "// Custom JS\ndocument.getElementById('dashboardcontent').innerHTML = '<h1>Dashboard</h1><p class=\"text-muted\">Change this in custom.js</p>';");
+    */
+    
+    createFile($project_dir."/js/app.js", loadFile("./app.js"));
+    createFile($project_dir."/js/index.js", loadFile("./index.js"));
+
+    createSubDirIfNotExists($project_dir."/js/router/");
+    createFile($project_dir."/js/router/Route.js", loadFile("./Route.js"));
+    createFile($project_dir."/js/router/Router.js", loadFile("./Router.js"));
+    createFile($project_dir."/js/router/index.js", loadFile("./index.js"));
+    
+    createSubDirIfNotExists($project_dir."/js/views/");
+    createFile($project_dir."/js/views/dashboard.js", loadFile("./viewDashboard.js"));
+    createFile($project_dir."/js/views/create.js", loadFile("./viewCreate.js"));
+    createFile($project_dir."/js/views/read.js", loadFile("./viewRead.js"));
+    createFile($project_dir."/js/views/modify.js", loadFile("./viewModify.js"));
+    createFile($project_dir."/js/views/workflow.js", loadFile("./viewWorkflow.js"));
+
     // Styles
     createFile($project_dir."/css/main.css", $output_css);
     if (!file_exists($project_dir."/css/custom.css"))
@@ -329,8 +348,8 @@
     // Index File
     createFile($project_dir."/index.php", $output_index);
     // Configuration
-    createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user,$db_pass,$db_server,$db_name,$API_url,$LOGIN_url,$secretKey));
-    createFile($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig('','','','','','','','')); // Example
+    createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
+    createFile($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig('','','','','','','')); // Example
     createFile($project_dir."/".$db_name."-config.inc.json", $json);
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))

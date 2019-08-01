@@ -99,6 +99,7 @@ class DB {
         });
     }
 }
+DB.API_URL = 'api.php';
 class Modal {
     constructor(heading, content, footer = '', isBig = false) {
         this.options = {
@@ -255,13 +256,11 @@ class StateMachine {
         tmp.remove();
         return { background: colBG, color: colFont };
     }
-    openSEPopup() {
-        let me = this;
-        let M = new Modal('<i class="fa fa-random"></i> Workflow <span class="text-muted ml-3">of ' + me.myTable.getTableIcon() + ' ' + me.myTable.getTableAlias() + '</span>', '<div class="statediagram" style="width: 100%; height: 300px;"></div>', '<button class="btn btn-secondary fitsm"><i class="fa fa-expand"></i> Fit</button>', true);
-        let container = document.getElementsByClassName('statediagram')[0];
+    renderHTML(querySelector) {
         const idOffset = 100;
-        let _nodes = this.myStates.map(state => {
-            let node = {};
+        let counter = 1;
+        const _nodes = this.myStates.map(state => {
+            const node = {};
             node['id'] = (idOffset + state.id);
             node['label'] = state.name;
             node['isEntryPoint'] = (state.entrypoint == 1);
@@ -272,13 +271,12 @@ class StateMachine {
             node['color'] = css.background;
             return node;
         });
-        let _edges = this.myLinks.map(link => {
-            let edge = {};
+        const _edges = this.myLinks.map(link => {
+            const edge = {};
             edge['from'] = (idOffset + link.from);
             edge['to'] = (idOffset + link.to);
             return edge;
         });
-        let counter = 1;
         _nodes.forEach(node => {
             if (node.isEntryPoint) {
                 _nodes.push({ id: counter, color: 'LimeGreen', shape: 'dot', size: 10, title: 'Entrypoint' });
@@ -292,7 +290,8 @@ class StateMachine {
                 node.font = { multi: 'html', color: 'black' };
             }
         });
-        let options = {
+        const options = {
+            height: '300px',
             edges: { color: { color: '#888888' }, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {} },
             nodes: {
                 shape: 'box', margin: 20, heightConstraint: { minimum: 40 }, widthConstraint: { minimum: 80, maximum: 200 },
@@ -308,16 +307,8 @@ class StateMachine {
             physics: { enabled: false },
             interaction: {}
         };
-        let network = new vis.Network(container, { nodes: _nodes, edges: _edges }, options);
-        M.show();
+        let network = new vis.Network(querySelector, { nodes: _nodes, edges: _edges }, options);
         network.fit({ scale: 1, offset: { x: 0, y: 0 } });
-        let btns = document.getElementsByClassName('fitsm');
-        for (let btn of btns) {
-            btn.addEventListener("click", function (e) {
-                e.preventDefault();
-                network.fit({ scale: 1, offset: { x: 0, y: 0 } });
-            });
-        }
     }
     getFormDiffByState(StateID) {
         let result = {};
@@ -1243,7 +1234,12 @@ class Table extends RawTable {
             });
         el = tableEl.getElementsByClassName('btnShowWorkflow')[0];
         if (el)
-            el.addEventListener('click', function (e) { e.preventDefault(); t.SM.openSEPopup(); });
+            el.addEventListener('click', function (e) {
+                const btn = event.target || event.srcElement;
+                e.preventDefault();
+                document.getElementById('router').innerHTML += '<li class="breadcrumb-item"><a href="#sqms2_topic">Workflow</a></li>';
+                t.SM.renderHTML(tableEl.querySelector('.tbl_content'));
+            });
         el = tableEl.getElementsByClassName('btnCreateEntry')[0];
         if (el)
             el.addEventListener('click', function (e) { e.preventDefault(); t.createEntry(); });
@@ -1630,7 +1626,7 @@ class FormGenerator {
         }
     }
 }
-$(function () {
+function initRouter() {
     let hash = window.location.hash;
     hash && $('ul.nav a[href="' + hash + '"]').tab('show');
     $('.nav-tabs a').click(function (e) {
@@ -1639,7 +1635,7 @@ $(function () {
         window.location.hash = this.hash;
         $('html,body').scrollTop(scrollmem);
     });
-});
+}
 function escapeHtml(string) {
     const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
     return String(string).replace(/[&<>"'`=\/]/g, function (s) {

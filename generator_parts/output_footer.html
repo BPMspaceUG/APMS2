@@ -12,40 +12,42 @@
     </div>
   </footer>
   <!-- JS -->
-  <script src="js/main.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      DB.API_URL = 'api.php'; // TODO: Use the API from Config-File
+  <script src="js/app.js" type="module"></script>
 
+  <script src="js/main.js"></script>
+  <script>    
+    document.addEventListener('DOMContentLoaded', function(){
       // Create objects
       DB.loadConfig(function(config){
         // User
         document.getElementById('username').innerText = config.user.firstname + ' ' + config.user.lastname + ' (' + config.user.uid +')'; 
         // Tables
-        Object.keys(config.tables).forEach(tablename => {
+        Object.keys(config.tables).forEach(tname => {
           // Render only if in Menu
-          if (config.tables[tablename].in_menu) {
-            const icon = config.tables[tablename].table_icon;
-            const alias = config.tables[tablename].table_alias;
-            const html_TabHead = `<li class="nav-item"><a class="nav-link" href="#${tablename}" data-toggle="tab">${icon}<span class="table_alias ml-2">${alias}</span></a></li>`;
-            const html_TabPane = `<div role="tabpanel" class="tab-pane" id="${tablename}"><div id="table_${tablename}"></div></div>`;
-            // Add GUI Elements
-            document.getElementById('tab-headers').innerHTML += html_TabHead;
-            document.getElementById('tab-panels').innerHTML += html_TabPane;
+          if (config.tables[tname].in_menu) {
+            const icon = config.tables[tname].table_icon;
+            const alias = config.tables[tname].table_alias;
+            // Create GUI Elements
+            const tmpBtn = document.createElement('a');
+            tmpBtn.setAttribute('href', '#/' + tname + '/read');
+            tmpBtn.setAttribute('class', 'nav-link');
+            tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
+            // and add them
+            document.getElementById('nav').appendChild(tmpBtn);
             // Create Table Objects and load Rows
-            const t = new Table(tablename);
+            /*
+            const t = new Table(tname);
             t.GUIOptions.showWorkflowButton = true;
             t.loadRows(function(){
-              t.renderHTML('table_'+tablename);
+              t.renderHTML('table_' + tname);
             });
+            */
           }
         });
         // Loading disable
         $('.initloadingtext').hide();
-        $('.mainapp').show();
       });
     });
   </script>
-  <script src="js/custom.js"></script>
 </body>
 </html>
