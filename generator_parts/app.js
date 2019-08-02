@@ -3,14 +3,14 @@ import Route from './router/Route.js';
 import Router from './router/Router.js';
 
 // Views
-import homeView from './views/dashboard.js';
+import dashboardView from './views/dashboard.js';
 import readView from './views/read.js';
 import createView from './views/create.js';
 import workflowView from './views/workflow.js';
 import modifyView from './views/modify.js';
 
 const routes = [
-  new Route('home', '/', homeView),
+  new Route('dashboard', '/', dashboardView),
   new Route('create', '/:table/create', createView),
   new Route('read', '/:table/read', readView),
   new Route('modify', '/:table/:id/modify', modifyView),
@@ -19,9 +19,9 @@ const routes = [
 
 document.addEventListener('DOMContentLoaded', function(){
     // Create objects
-    console.log("Loading Config...");
+    //console.log("Loading Config...");
     DB.loadConfig(function(config){
-      console.log("Config loaded!");
+      //console.log("Config loaded!");
       const router = new Router(routes, document.getElementById('app'));
       //==========================================================
       // User
@@ -35,14 +35,8 @@ document.addEventListener('DOMContentLoaded', function(){
           // Create GUI Elements
           const tmpBtn = document.createElement('a');
           tmpBtn.setAttribute('class', 'nav-link');
-          tmpBtn.setAttribute('href', '#'); // set Route seperately
+          tmpBtn.setAttribute('href', '#/' + tname + '/read');
           tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
-          // Set Route
-          tmpBtn.addEventListener('click', e => {
-            e.preventDefault();
-            const rt =  '/' + tname + '/read';
-            router.navigate(rt);
-          }, false);
           // and add them
           document.getElementById('nav').appendChild(tmpBtn);
         }

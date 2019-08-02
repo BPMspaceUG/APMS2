@@ -31,7 +31,7 @@ export default class Router {
         const route = this.routes.filter(route => this.match(route, path))[0];
         if(!route) this.renderNode.innerHTML = "404! Page not found";
         else {
-            console.log(path);
+            //console.log(path);
             window.location.href = path.search('/#') === -1 ? '#' + path : path;
             this.renderNode.innerHTML = route.renderView(); // innerHTML must be avoided
         }

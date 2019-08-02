@@ -9,7 +9,7 @@ export default props => {
     <div>
         <h2>${t.getTableAlias()}<span class="text-info ml-2">&rarr; Workflow</span></h2>
         <hr>
-        <a class="btn btn-default" href="#/${props.table}/read">&larr; Alle Einträge</a>
+        <a class="btn btn-secondary" href="#/${props.table}/read">&larr; Back</a>
         <div id="statemachine"></div>
         <br>
     </div>`

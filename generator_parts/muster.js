@@ -494,9 +494,6 @@ class Table extends RawTable {
         if (this.ReadOnly && this.selType == SelectType.NoSelect)
             this.GUIOptions.showControlColumn = false;
     }
-    setGUID(newGUID) {
-        this.GUID = newGUID;
-    }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
     }
