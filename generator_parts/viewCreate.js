@@ -1,7 +1,10 @@
-export default props => `
-    <div style="color: green;">
-        <h2>Create Entry</h2>
-        <p>in Table <b>${props.table}</b></p>
-        <a class="btn btn-default" href="#/${props.table}/read">&larr; Alle Einträge</a>
-    </div>
-`
+export default props => {
+
+    const t = new Table(props.table);
+
+    return `<div>
+            <h2>${t.getTableAlias()}<span class="text-success ml-2">&rarr; Create</span></h2>
+            <hr>
+            <a class="btn btn-default" href="#/${props.table}/read">&larr; Alle Einträge</a>
+        </div>`;
+}

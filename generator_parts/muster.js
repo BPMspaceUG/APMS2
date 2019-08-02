@@ -1626,16 +1626,6 @@ class FormGenerator {
         }
     }
 }
-function initRouter() {
-    let hash = window.location.hash;
-    hash && $('ul.nav a[href="' + hash + '"]').tab('show');
-    $('.nav-tabs a').click(function (e) {
-        $(this).tab('show');
-        const scrollmem = $('body').scrollTop() || $('html').scrollTop();
-        window.location.hash = this.hash;
-        $('html,body').scrollTop(scrollmem);
-    });
-}
 function escapeHtml(string) {
     const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
     return String(string).replace(/[&<>"'`=\/]/g, function (s) {

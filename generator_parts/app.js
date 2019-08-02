@@ -1,6 +1,8 @@
-import router from './router/index.js';
+//import router from './router/index.js';
 import Route from './router/Route.js';
+import Router from './router/Router.js';
 
+// Views
 import homeView from './views/dashboard.js';
 import readView from './views/read.js';
 import createView from './views/create.js';
@@ -8,12 +10,43 @@ import workflowView from './views/workflow.js';
 import modifyView from './views/modify.js';
 
 const routes = [
-    new Route('home', '/', homeView),
-
-    new Route('create', '/:table/create', createView),
-    new Route('read', '/:table/read', readView),
-    new Route('modify', '/:table/:id/modify', modifyView),
-    new Route('workflow', '/:table/workflow', workflowView),
+  new Route('home', '/', homeView),
+  new Route('create', '/:table/create', createView),
+  new Route('read', '/:table/read', readView),
+  new Route('modify', '/:table/:id/modify', modifyView),
+  new Route('workflow', '/:table/workflow', workflowView),
 ];
 
-router(routes);
+document.addEventListener('DOMContentLoaded', function(){
+    // Create objects
+    console.log("Loading Config...");
+    DB.loadConfig(function(config){
+      console.log("Config loaded!");
+      const router = new Router(routes, document.getElementById('app'));
+      //==========================================================
+      // User
+      document.getElementById('username').innerText = config.user.firstname + ' ' + config.user.lastname + ' (' + config.user.uid +')'; 
+      // Tables
+      Object.keys(config.tables).forEach(tname => {
+        // Render only if in Menu
+        if (config.tables[tname].in_menu) {
+          const icon = config.tables[tname].table_icon;
+          const alias = config.tables[tname].table_alias;
+          // Create GUI Elements
+          const tmpBtn = document.createElement('a');
+          tmpBtn.setAttribute('class', 'nav-link');
+          tmpBtn.setAttribute('href', '#'); // set Route seperately
+          tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
+          // Set Route
+          tmpBtn.addEventListener('click', e => {
+            e.preventDefault();
+            const rt =  '/' + tname + '/read';
+            router.navigate(rt);
+          }, false);
+          // and add them
+          document.getElementById('nav').appendChild(tmpBtn);
+        }
+      });
+      window.addEventListener('hashchange', e => router.navigate(e.target.location.hash.substr(1)));
+    });
+});

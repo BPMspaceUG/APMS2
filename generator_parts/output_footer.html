@@ -11,43 +11,8 @@
       </ul>
     </div>
   </footer>
-  <!-- JS -->
-  <script src="js/app.js" type="module"></script>
-
+  <!-- JS -->  
   <script src="js/main.js"></script>
-  <script>    
-    document.addEventListener('DOMContentLoaded', function(){
-      // Create objects
-      DB.loadConfig(function(config){
-        // User
-        document.getElementById('username').innerText = config.user.firstname + ' ' + config.user.lastname + ' (' + config.user.uid +')'; 
-        // Tables
-        Object.keys(config.tables).forEach(tname => {
-          // Render only if in Menu
-          if (config.tables[tname].in_menu) {
-            const icon = config.tables[tname].table_icon;
-            const alias = config.tables[tname].table_alias;
-            // Create GUI Elements
-            const tmpBtn = document.createElement('a');
-            tmpBtn.setAttribute('href', '#/' + tname + '/read');
-            tmpBtn.setAttribute('class', 'nav-link');
-            tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
-            // and add them
-            document.getElementById('nav').appendChild(tmpBtn);
-            // Create Table Objects and load Rows
-            /*
-            const t = new Table(tname);
-            t.GUIOptions.showWorkflowButton = true;
-            t.loadRows(function(){
-              t.renderHTML('table_' + tname);
-            });
-            */
-          }
-        });
-        // Loading disable
-        $('.initloadingtext').hide();
-      });
-    });
-  </script>
+  <script src="js/app.js" type="module"></script>  
 </body>
 </html>

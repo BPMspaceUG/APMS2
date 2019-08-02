@@ -29,6 +29,8 @@ class LiteEvent<T> implements ILiteEvent<T> {
     return this;
   }
 }
+
+
 //==============================================================
 // Class: GUI (Generates GUID for DOM Handling) !JQ
 //==============================================================
@@ -105,7 +107,7 @@ abstract class DB {
 }
 
 //==============================================================
-// Class: Modal (Dynamic Modal Generation and Handling) !JQ
+// TODO: REMOVE!!! Class: Modal (Dynamic Modal Generation and Handling) !JQ
 //==============================================================
 class Modal {
   private DOM_ID: string;
@@ -1874,28 +1876,7 @@ class FormGenerator {
 
 
 
-
 //==================================================================== Global Helper Methods
-// Show the actual Tab in the URL and also open Tab by URL
-
-function initRouter() {
-  let hash = window.location.hash;
-  hash && $('ul.nav a[href="' + hash + '"]').tab('show');
-  // Change Link if Tab is clicked
-  $('.nav-tabs a').click(function (e) {
-
-    // TODO: set Breadcrumb
-    ///const Router = document.getElementById('router');
-    //const tablename = this.hash.substr(1);
-    //const tmp = new Table(tablename);
-    //Router.innerHTML = '<li class="breadcrumb-item"><a href="#'+ tablename +'">'+ tmp.getTableAlias() +'</a></li>';
-
-    $(this).tab('show');
-    const scrollmem = $('body').scrollTop() || $('html').scrollTop();
-    window.location.hash = this.hash;
-    $('html,body').scrollTop(scrollmem);
-  });
-}
 
 //-------------------------------------------
 //--- Special global functions
