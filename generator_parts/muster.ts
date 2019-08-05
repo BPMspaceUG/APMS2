@@ -1,5 +1,4 @@
 // Plugins (only declared to remove TS Errors)
-declare var $: any; // TODO: Remove
 declare var vis: any, Quill: any, CodeMirror: any; // Plugins
 
 // Enums
@@ -29,7 +28,6 @@ class LiteEvent<T> implements ILiteEvent<T> {
     return this;
   }
 }
-
 
 //==============================================================
 // Class: GUI (Generates GUID for DOM Handling) !JQ
@@ -105,7 +103,6 @@ abstract class DB {
     });
   }
 }
-
 //==============================================================
 // TODO: REMOVE!!! Class: Modal (Dynamic Modal Generation and Handling) !JQ
 //==============================================================
@@ -384,13 +381,10 @@ class RawTable {
       callback(response);
     })
   }
-  public transitRow(RowID: number, TargetStateID: number, trans_data: any = null, callback) {
-    let data = {state_id: 0}
-    if (trans_data) data = trans_data
-    // PrimaryColID and TargetStateID are the minimum Parameters which have to be set
-    // also RowData can be updated in the client -> has also be transfered to server
-    data[this.PriColname] = RowID
-    data.state_id = TargetStateID
+  public transitRow(RowID: number, TargetStateID: number = null, trans_data: any = {}, callback) {
+    let data = trans_data;
+    data[this.PriColname] = RowID; // PrimaryColID is the minimum Parameters which have to be set
+    if (TargetStateID) data['state_id'] = TargetStateID;
     DB.request('makeTransition', {table: this.tablename, row: data}, function(response) {
       callback(response);
     })
@@ -470,6 +464,8 @@ class RawTable {
   public setRows(ArrOfRows: any) {
     this.Rows = ArrOfRows;
   }
+  public getTableIcon(): string { return this.getConfig().table_icon; }
+  public getTableAlias(): string { return this.getConfig().table_alias; }
 }
 //==============================================================
 // Class: Table
@@ -537,12 +533,6 @@ class Table extends RawTable {
   public setCustomFormCreateOptions(customData: any) {
     this.customFormCreateOptions = customData;
   }
-  public getTableIcon(): string {
-    return this.getConfig().table_icon;
-  }
-  public getTableAlias(): string {
-    return this.getConfig().table_alias;
-  }
   private toggleSort(ColumnName: string): void {
     let t = this;
     const SortDir = (t.getSortDir() == SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC
@@ -607,16 +597,19 @@ class Table extends RawTable {
     }
 
     // create Modal if not exists
+    /*
     const TableAlias = 'in '+this.getTableIcon()+' ' + this.getTableAlias();
     const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+RowID+')</span><span class="text-muted ml-3">'+ TableAlias +'</span>';
     let M: Modal = ExistingModal || new Modal(ModalTitle, '', '', true);
     M.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
+    */
+
     // Generate a Modify-Form
     const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
     const htmlForm = newForm.getHTML();
     // Set Modal Header
-    M.setHeader(ModalTitle);
-    M.setContent(htmlForm);
+    //M.setHeader(ModalTitle);
+    //M.setContent(htmlForm);
     newForm.initEditors();
 
     let btns = '';
@@ -663,6 +656,8 @@ class Table extends RawTable {
     }
     btns += saveBtn;
     M.setFooter(btns);
+
+
     //--------------------- Bind function to StateButtons
     let modal = document.getElementById(M.getDOMID());
     let btnsState = modal.getElementsByClassName('btnState');
@@ -707,6 +702,9 @@ class Table extends RawTable {
       newForm.refreshEditors();
     }
   }
+
+
+  /*
   private saveEntry(SaveModal: Modal, data: any, closeModal: boolean = true){
     const t = this
     const pcname = t.getPrimaryColname();
@@ -729,6 +727,9 @@ class Table extends RawTable {
       }
     })
   }
+  */
+
+
   private setState(data: any, RowID: number, targetStateID: number, callback) {
     let t = this;
     let actStateID = undefined;
@@ -769,6 +770,8 @@ class Table extends RawTable {
         callback();
     })
   }
+
+
   private getDefaultFormObject(): any {
     const me = this
     let FormObj = {};
@@ -782,7 +785,10 @@ class Table extends RawTable {
     }
     return FormObj;
   }
+
   //--------------------------------------------------
+  
+  /*
   public createEntry(): void {
     let me = this
 
@@ -891,12 +897,14 @@ class Table extends RawTable {
 
         });
       })
-    }
-    
+    }    
     // Show Modal
     M.show();
     fCreate.refreshEditors();
   }
+  */
+  
+  
   public modifyRow(id: number, ExistingModal: Modal = null) {
     let t = this
     const pcname = t.getPrimaryColname();
@@ -998,10 +1006,7 @@ class Table extends RawTable {
       }
     }
   }
-  public getSelectedRowID(): number {
-    const pcname = this.getPrimaryColname();
-    return this.selectedRow[pcname];
-  }
+
   //---------------------------------------------------- Pure HTML building Functions
   private renderStateButton(StateID: any, withDropdown: boolean, altName: string = undefined): string {
     const name = altName || this.SM.getStateNameById(StateID);
@@ -1071,7 +1076,8 @@ class Table extends RawTable {
       // Add Edit Button Prefix -> Only if is not ReadOnly
       if (fTbl && !fTbl.ReadOnly) {
         rowID = firstEl[Object.keys(firstEl)[0]];
-        content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle modRow"><i class="far fa-edit"></i></td>` + content;
+        content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
+        <a href="#/${fTablename}/${rowID}/modify"><i class="far fa-edit"></i></a></td>` + content;
       }
       return `<table class="w-100 p-0 border-0"><tr data-rowid="${fTablename}:${rowID}" class="border">${content}</tr></table>`;
     }
@@ -1226,35 +1232,30 @@ class Table extends RawTable {
       Text = t.getSearch(); // Filter was set
     }
 
+    /*
     const searchBar = `<div class="form-group m-0 p-0 mr-1 float-left">
       <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } w-100 filterText"
         ${ (Text != '' ? ' value="' + Text + '"' : '') }
         placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
-    </div>`;    
-    const btnCreate = `<button class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'light text-success' : 'success'} btnCreateEntry mr-1">
-      ${ t.TableType != TableType.obj ?
-        '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : 
-        `<i class="fa fa-plus"></i><span class="d-none d-md-inline pl-2">${t.GUIOptions.modalButtonTextCreate} ${t.getTableAlias()}</span>`}
-    </button>`;
-    const btnWorkflow = `<button class="btn btn-info btnShowWorkflow mr-1">
-      <i class="fa fa-random"></i><span class="d-none d-md-inline pl-2">Workflow</span>
-    </button>`;
+    </div>`;
+    */
     const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
       ${ t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>' }
     </button>`;
 
+    const btnCreate = `<a href="#/${t.getTablename()}/create" class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'outline-success' : 'success'} btnCreateEntry mr-1">
+    ${ t.TableType != TableType.obj ? '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
+
     // Concat HTML
     let html: string = '<div class="tbl_header form-inline">';
-
+    /*
     if  (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) {}
     else html += searchBar;
+    */
 
-    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) {}
-    else if (!t.ReadOnly)
-      html += btnCreate;
-
-    if (t.SM && t.GUIOptions.showWorkflowButton)
-      html += btnWorkflow;
+   if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) {}
+   else if (!t.ReadOnly)
+     html += btnCreate;
 
     if (t.selType === SelectType.Single && hasEntries)
       html += btnExpand;
@@ -1287,11 +1288,11 @@ class Table extends RawTable {
       }
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn) {
-        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0">
+        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0"><a href="#/${t.getTablename()}/${RowID}/modify">
           ${ (t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>') 
             : ( t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>') )
           }
-        </td>`;
+        </a></td>`;
       }
       // Generate HTML for Table-Data Cells sorted
       sortedColumnNames.forEach(function(col) {
@@ -1386,6 +1387,7 @@ class Table extends RawTable {
     tableEl.getElementsByClassName('tbl_header')[0].innerHTML = t.getHeader();
     //------------------------------------------ Events
     // Edit Row    
+    /*
     async function filterEvent(t: Table) {
       t.PageIndex = 0; // jump to first page
       const element = <HTMLInputElement>tableEl.getElementsByClassName('filterText')[0];
@@ -1411,11 +1413,14 @@ class Table extends RawTable {
       //console.log("Workflow Button has been clicked");
       t.SM.renderHTML(tableEl.querySelector('.tbl_content'));
     });
+    */
     // Create Button clicked
+    /*
     el = tableEl.getElementsByClassName('btnCreateEntry')[0];
     if (el) el.addEventListener('click', function(e){ e.preventDefault(); t.createEntry(); });
+    */
     // Expand Table
-    el = tableEl.getElementsByClassName('btnExpandTable')[0];
+    const el = tableEl.getElementsByClassName('btnExpandTable')[0];
     if (el) el.addEventListener('click', function(e){ e.preventDefault();
       t.isExpanded = !t.isExpanded;
       t.renderContent();
@@ -1444,6 +1449,7 @@ class Table extends RawTable {
       }
     }
     // Edit Row
+    /*
     els = tableEl.getElementsByClassName('modRow');
     if (els) {
       for (const el of els) {
@@ -1465,6 +1471,7 @@ class Table extends RawTable {
         });
       }
     }
+    */
     // Set State
     els = tableEl.getElementsByClassName('loadStates');
     if (els) {

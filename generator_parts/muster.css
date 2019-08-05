@@ -2,6 +2,8 @@ html {position: relative; min-height: 100%;}
 body {margin-bottom: 60px;}
 .footer {position: absolute; bottom: 0; width: 100%; height: 60px; line-height: 60px; background-color: #f5f5f5; font-size: 12px;}
 
+#app h2 {font-size: 1.25em;}
+
 /* Table */
 /*.tablewrapper {overflow-x: auto;}*/
 .datatbl {font-size: 1em; }
@@ -9,8 +11,10 @@ body {margin-bottom: 60px;}
 .datatbl thead th {cursor: pointer; height: 30px;}
 .datatbl thead th:first-of-type {cursor: auto;}
 .datatbl .controllcoulm {text-align: center; min-width: 50px; width: 50px;}
+/*
 .datatbl .controllcoulm:hover {color: steelblue; cursor: pointer;}
 .datatbl .controllcoulm i {margin-top: 3px;}
+*/
 .datatbl td {color: #333; height: 34px;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
 .datatbl .sorted {color: steelblue; min-width: 100px; white-space: nowrap;}
@@ -22,7 +26,9 @@ body {margin-bottom: 60px;}
 .datatbl .datarow td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
 
 /* Modal */
-.modal-content .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
+#formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
+#formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
+
 .customfooter {width: 100%;}
 .CodeMirror {
     border: 1px solid #ced4da;

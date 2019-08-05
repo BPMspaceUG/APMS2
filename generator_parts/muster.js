@@ -361,12 +361,11 @@ class RawTable {
             callback(response);
         });
     }
-    transitRow(RowID, TargetStateID, trans_data = null, callback) {
-        let data = { state_id: 0 };
-        if (trans_data)
-            data = trans_data;
+    transitRow(RowID, TargetStateID = null, trans_data = {}, callback) {
+        let data = trans_data;
         data[this.PriColname] = RowID;
-        data.state_id = TargetStateID;
+        if (TargetStateID)
+            data['state_id'] = TargetStateID;
         DB.request('makeTransition', { table: this.tablename, row: data }, function (response) {
             callback(response);
         });
@@ -447,6 +446,8 @@ class RawTable {
     setRows(ArrOfRows) {
         this.Rows = ArrOfRows;
     }
+    getTableIcon() { return this.getConfig().table_icon; }
+    getTableAlias() { return this.getConfig().table_alias; }
 }
 class Table extends RawTable {
     constructor(tablename, SelType = SelectType.NoSelect) {
@@ -502,12 +503,6 @@ class Table extends RawTable {
     }
     setCustomFormCreateOptions(customData) {
         this.customFormCreateOptions = customData;
-    }
-    getTableIcon() {
-        return this.getConfig().table_icon;
-    }
-    getTableAlias() {
-        return this.getConfig().table_alias;
     }
     toggleSort(ColumnName) {
         let t = this;
@@ -570,14 +565,8 @@ class Table extends RawTable {
         for (const key of Object.keys(Row)) {
             newObj[key].value = Row[key];
         }
-        const TableAlias = 'in ' + this.getTableIcon() + ' ' + this.getTableAlias();
-        const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">(' + RowID + ')</span><span class="text-muted ml-3">' + TableAlias + '</span>';
-        let M = ExistingModal || new Modal(ModalTitle, '', '', true);
-        M.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
         const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
         const htmlForm = newForm.getHTML();
-        M.setHeader(ModalTitle);
-        M.setContent(htmlForm);
         newForm.initEditors();
         let btns = '';
         let saveBtn = '';
@@ -651,27 +640,6 @@ class Table extends RawTable {
             newForm.refreshEditors();
         }
     }
-    saveEntry(SaveModal, data, closeModal = true) {
-        const t = this;
-        const pcname = t.getPrimaryColname();
-        SaveModal.setLoadingState(true);
-        t.updateRow(data[pcname], data, function (r) {
-            if (r == "1") {
-                t.loadRows(function () {
-                    SaveModal.setLoadingState(false);
-                    if (closeModal)
-                        SaveModal.close();
-                    t.renderContent();
-                    t.onEntriesModified.trigger();
-                });
-            }
-            else {
-                SaveModal.setLoadingState(false);
-                const ErrorModal = new Modal('Error', '<b class="text-danger">Element could not be updated!</b><br><pre>' + r + '</pre>');
-                ErrorModal.show();
-            }
-        });
-    }
     setState(data, RowID, targetStateID, callback) {
         let t = this;
         let actStateID = undefined;
@@ -719,92 +687,6 @@ class Table extends RawTable {
                 FormObj[colname]['fk_table'] = ColObj.foreignKey.table;
         }
         return FormObj;
-    }
-    createEntry() {
-        let me = this;
-        let ModalTitle = this.GUIOptions.modalHeaderTextCreate + `<span class="text-muted ml-3">in ${this.getTableIcon() + ' ' + this.getTableAlias()}</span>`;
-        let CreateBtns = `<div class="ml-auto mr-0">
-    <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
-    <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
-  </div>`;
-        if (this.TableType !== TableType.obj) {
-            ModalTitle = this.GUIOptions.Relation.createTitle + `<span class="text-muted ml-3">in ${this.getTableAlias()}</span>`;
-            CreateBtns = `<div class="ml-auto mr-0"><button class="btn btn-success btnCreateEntry" type="button">${this.GUIOptions.Relation.createBtnRelate}</button></div>`;
-        }
-        let defFormObj = me.getDefaultFormObject();
-        const diffFormCreate = me.diffFormCreateObject;
-        let newObj = mergeDeep({}, defFormObj, diffFormCreate);
-        newObj = mergeDeep({}, newObj, this.customFormCreateOptions);
-        for (const key of Object.keys(newObj)) {
-            if (newObj[key].field_type == 'reversefk')
-                newObj[key].mode_form = 'hi';
-        }
-        const fCreate = new FormGenerator(me, undefined, newObj, null);
-        const M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
-        M.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
-        const ModalID = M.getDOMID();
-        fCreate.initEditors();
-        const btns = document.getElementById(ModalID).getElementsByClassName('btnCreateEntry');
-        for (const btn of btns) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                M.setLoadingState(true);
-                let data = fCreate.getValues();
-                const reOpenModal = btn.classList.contains('andReopen');
-                me.createRow(data, function (r) {
-                    M.setLoadingState(false);
-                    let msgs = r;
-                    let counter = 0;
-                    msgs.forEach(msg => {
-                        if (msg.show_message) {
-                            const stateEntry = msg['_entry-point-state'];
-                            const stateTo = me.renderStateButton(stateEntry['id'], false);
-                            let tmplTitle = '';
-                            if (counter == 0)
-                                tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
-                            if (counter == 1)
-                                tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>`;
-                            let resM = new Modal(tmplTitle, msg.message);
-                            resM.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
-                            resM.show();
-                        }
-                        if (msg.element_id) {
-                            if (msg.element_id > 0) {
-                                console.info('Element created! ID:', msg.element_id);
-                                me.loadRows(function () {
-                                    me.renderContent();
-                                    me.renderFooter();
-                                    me.renderHeader();
-                                    me.onEntriesModified.trigger();
-                                    if (reOpenModal) {
-                                        me.modifyRow(msg.element_id, M);
-                                    }
-                                    else
-                                        M.close();
-                                });
-                            }
-                        }
-                        else {
-                            if (msg.element_id == 0) {
-                                alert(msg.errormsg);
-                            }
-                        }
-                        if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
-                            me.loadRows(function () {
-                                me.renderContent();
-                                me.renderFooter();
-                                me.renderHeader();
-                                me.onEntriesModified.trigger();
-                                M.close();
-                            });
-                        }
-                        counter++;
-                    });
-                });
-            });
-        }
-        M.show();
-        fCreate.refreshEditors();
     }
     modifyRow(id, ExistingModal = null) {
         let t = this;
@@ -888,10 +770,6 @@ class Table extends RawTable {
             }
         }
     }
-    getSelectedRowID() {
-        const pcname = this.getPrimaryColname();
-        return this.selectedRow[pcname];
-    }
     renderStateButton(StateID, withDropdown, altName = undefined) {
         const name = altName || this.SM.getStateNameById(StateID);
         const cssClass = 'state' + StateID;
@@ -949,7 +827,8 @@ class Table extends RawTable {
             });
             if (fTbl && !fTbl.ReadOnly) {
                 rowID = firstEl[Object.keys(firstEl)[0]];
-                content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle modRow"><i class="far fa-edit"></i></td>` + content;
+                content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
+        <a href="#/${fTablename}/${rowID}/modify"><i class="far fa-edit"></i></a></td>` + content;
             }
             return `<table class="w-100 p-0 border-0"><tr data-rowid="${fTablename}:${rowID}" class="border">${content}</tr></table>`;
         }
@@ -1077,31 +956,15 @@ class Table extends RawTable {
         else {
             Text = t.getSearch();
         }
-        const searchBar = `<div class="form-group m-0 p-0 mr-1 float-left">
-      <input type="text" ${(!hasEntries ? 'readonly disabled ' : '')}class="form-control${(!hasEntries ? '-plaintext' : '')} w-100 filterText"
-        ${(Text != '' ? ' value="' + Text + '"' : '')}
-        placeholder="${(!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText)}">
-    </div>`;
-        const btnCreate = `<button class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'light text-success' : 'success'} btnCreateEntry mr-1">
-      ${t.TableType != TableType.obj ?
-            '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' :
-            `<i class="fa fa-plus"></i><span class="d-none d-md-inline pl-2">${t.GUIOptions.modalButtonTextCreate} ${t.getTableAlias()}</span>`}
-    </button>`;
-        const btnWorkflow = `<button class="btn btn-info btnShowWorkflow mr-1">
-      <i class="fa fa-random"></i><span class="d-none d-md-inline pl-2">Workflow</span>
-    </button>`;
         const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
       ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
     </button>`;
+        const btnCreate = `<a href="#/${t.getTablename()}/create" class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'outline-success' : 'success'} btnCreateEntry mr-1">
+    ${t.TableType != TableType.obj ? '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
         let html = '<div class="tbl_header form-inline">';
-        if (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) { }
-        else
-            html += searchBar;
         if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) { }
         else if (!t.ReadOnly)
             html += btnCreate;
-        if (t.SM && t.GUIOptions.showWorkflowButton)
-            html += btnWorkflow;
         if (t.selType === SelectType.Single && hasEntries)
             html += btnExpand;
         html += '</div>';
@@ -1128,10 +991,10 @@ class Table extends RawTable {
                 isSelected = (t.selectedRow[pcname] == RowID);
             }
             if (t.GUIOptions.showControlColumn) {
-                data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0">
+                data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0"><a href="#/${t.getTablename()}/${RowID}/modify">
           ${(t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>')
                     : (t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>'))}
-        </td>`;
+        </a></td>`;
             }
             sortedColumnNames.forEach(function (col) {
                 if (t.Columns[col].show_in_grid)
@@ -1206,41 +1069,7 @@ class Table extends RawTable {
         let t = this;
         const tableEl = document.getElementById(t.GUID).parentElement;
         tableEl.getElementsByClassName('tbl_header')[0].innerHTML = t.getHeader();
-        function filterEvent(t) {
-            return __awaiter(this, void 0, void 0, function* () {
-                t.PageIndex = 0;
-                const element = tableEl.getElementsByClassName('filterText')[0];
-                const filterText = element.value;
-                t.setSearch(filterText);
-                t.loadRows(function () {
-                    return __awaiter(this, void 0, void 0, function* () {
-                        yield t.renderFooter();
-                        yield t.renderContent();
-                    });
-                });
-            });
-        }
-        let el = null;
-        el = tableEl.getElementsByClassName('filterText')[0];
-        if (el)
-            el.addEventListener('keydown', function (e) {
-                if (e.keyCode == 13) {
-                    e.preventDefault();
-                    filterEvent(t);
-                }
-            });
-        el = tableEl.getElementsByClassName('btnShowWorkflow')[0];
-        if (el)
-            el.addEventListener('click', function (e) {
-                const btn = event.target || event.srcElement;
-                e.preventDefault();
-                document.getElementById('router').innerHTML += '<li class="breadcrumb-item"><a href="#sqms2_topic">Workflow</a></li>';
-                t.SM.renderHTML(tableEl.querySelector('.tbl_content'));
-            });
-        el = tableEl.getElementsByClassName('btnCreateEntry')[0];
-        if (el)
-            el.addEventListener('click', function (e) { e.preventDefault(); t.createEntry(); });
-        el = tableEl.getElementsByClassName('btnExpandTable')[0];
+        const el = tableEl.getElementsByClassName('btnExpandTable')[0];
         if (el)
             el.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -1264,26 +1093,6 @@ class Table extends RawTable {
                         e.preventDefault();
                         const colname = el.getAttribute('data-colname');
                         t.toggleSort(colname);
-                    });
-                }
-            }
-            els = tableEl.getElementsByClassName('modRow');
-            if (els) {
-                for (const el of els) {
-                    el.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        const RowData = el.parentNode.getAttribute('data-rowid').split(':');
-                        const Tablename = RowData[0];
-                        const ID = RowData[1];
-                        if (t.getTablename() !== Tablename) {
-                            const tmpTable = new Table(Tablename);
-                            tmpTable.loadRow(ID, function (Row) {
-                                tmpTable.setRows([Row]);
-                                tmpTable.modifyRow(ID);
-                            });
-                        }
-                        else
-                            t.modifyRow(ID);
                     });
                 }
             }
