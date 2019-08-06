@@ -565,80 +565,9 @@ class Table extends RawTable {
         for (const key of Object.keys(Row)) {
             newObj[key].value = Row[key];
         }
-        const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
-        const htmlForm = newForm.getHTML();
-        newForm.initEditors();
-        let btns = '';
-        let saveBtn = '';
-        const actStateID = Row.state_id;
-        const actStateName = t.SM.getStateNameById(actStateID);
-        const cssClass = ' state' + actStateID;
-        const nexstates = t.SM.getNextStates(actStateID);
-        if (nexstates.length > 0) {
-            let cnt_states = 0;
-            btns = `<div class="btn-group dropup ml-0 mr-auto">
-        <button type="button" class="btn ${cssClass} text-white dropdown-toggle" data-toggle="dropdown">${actStateName}</button>
-      <div class="dropdown-menu p-0">`;
-            nexstates.forEach(function (state) {
-                let btn_text = state.name;
-                let btnDropdown = '';
-                if (actStateID == state.id) {
-                    saveBtn = `<div class="ml-auto mr-0">
-<button class="btn btn-primary btnState btnStateSave mr-1" data-rowid="${RowID}" data-targetstate="${state.id}" type="button">
-  <i class="fa fa-floppy-o"></i>&nbsp;${t.GUIOptions.modalButtonTextModifySave}</button>
-<button class="btn btn-outline-primary btnState btnSaveAndClose" data-rowid="${RowID}" data-targetstate="${state.id}" type="button">
-  ${t.GUIOptions.modalButtonTextModifySaveAndClose}
-</button>
-</div>`;
-                }
-                else {
-                    cnt_states++;
-                    btnDropdown = '<a class="dropdown-item btnState btnStateChange state' + state.id + '" data-rowid="' + RowID + '" data-targetstate="' + state.id + '">' + btn_text + '</a>';
-                }
-                btns += btnDropdown;
-            });
-            btns += '</div></div>';
-            if (cnt_states == 0)
-                btns = '<button type="button" class="btn ' + cssClass + ' text-white" tabindex="-1" disabled>' + actStateName + '</button>';
-        }
-        else {
-            btns = '<button type="button" class="btn ' + cssClass + ' text-white" tabindex="-1" disabled>' + actStateName + '</button>';
-        }
-        btns += saveBtn;
-        M.setFooter(btns);
-        let modal = document.getElementById(M.getDOMID());
-        let btnsState = modal.getElementsByClassName('btnState');
-        for (let btn of btnsState) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                const TargetStateID = parseInt(btn.getAttribute('data-targetstate'));
-                const closeModal = btn.classList.contains('btnSaveAndClose');
-                t.setState(newForm.getValues(), RowID, TargetStateID, function () {
-                    t.loadRows(function () {
-                        t.renderContent();
-                        const diffObject = t.SM.getFormDiffByState(TargetStateID);
-                        let newRow = null;
-                        t.Rows.forEach(row => {
-                            if (row[pcname] == RowID)
-                                newRow = row;
-                        });
-                        if (newRow)
-                            t.renderEditForm(newRow, diffObject, M);
-                        else {
-                            t.loadRow(RowID, res => {
-                                t.renderEditForm(res, diffObject, M);
-                            });
-                        }
-                        if (closeModal)
-                            M.close();
-                    });
-                });
-            });
-        }
-        if (M) {
-            M.show();
-            newForm.refreshEditors();
-        }
+    }
+    getSelectedRowID() {
+        return this.selectedRow[this.getPrimaryColname()];
     }
     setState(data, RowID, targetStateID, callback) {
         let t = this;
@@ -752,7 +681,6 @@ class Table extends RawTable {
                     btn.addEventListener('click', function (e) {
                         e.preventDefault();
                         const closeModal = btn.classList.contains('andClose');
-                        t.saveEntry(M, fModify.getValues(), closeModal);
                     });
                 }
                 const form = document.getElementById(M.getDOMID()).getElementsByTagName('form')[0];
@@ -871,7 +799,7 @@ class Table extends RawTable {
         }
         else if (t.Columns[col].field_type == 'number') {
             const number = parseInt(value);
-            return number.toLocaleString('de-DE');
+            return number.toString();
         }
         else if (t.Columns[col].field_type == 'float') {
             const number = parseFloat(value);
@@ -959,8 +887,11 @@ class Table extends RawTable {
         const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
       ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
     </button>`;
-        const btnCreate = `<a href="#/${t.getTablename()}/create" class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'outline-success' : 'success'} btnCreateEntry mr-1">
-    ${t.TableType != TableType.obj ? '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
+        const formParams = encodeURI(JSON.stringify(t.customFormCreateOptions));
+        const btnCreate = `<a href="#/${t.getTablename()}/create/${formParams}" class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ?
+            'outline-success' : 'success'} btnCreateEntry mr-1">
+    ${t.TableType != TableType.obj ?
+            '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
         let html = '<div class="tbl_header form-inline">';
         if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) { }
         else if (!t.ReadOnly)
@@ -991,10 +922,13 @@ class Table extends RawTable {
                 isSelected = (t.selectedRow[pcname] == RowID);
             }
             if (t.GUIOptions.showControlColumn) {
-                data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0"><a href="#/${t.getTablename()}/${RowID}/modify">
-          ${(t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>')
-                    : (t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>'))}
-        </a></td>`;
+                data_string = `<td scope="row" class="controllcoulm align-middle border-0">
+          ${(t.selType == SelectType.Single ? (isSelected ?
+                    '<i class="far fa-check-circle"></i>' :
+                    '<span class="modRow"><i class="far fa-circle"></i></span>') : (t.TableType == TableType.obj ?
+                    `<a href="#/${t.getTablename()}/${RowID}/modify"><i class="far fa-edit"></i></a>` :
+                    `<a href="#/${t.getTablename()}/${RowID}/modify"><i class="fas fa-link"></i></a>`))}
+        </td>`;
             }
             sortedColumnNames.forEach(function (col) {
                 if (t.Columns[col].show_in_grid)
@@ -1093,6 +1027,27 @@ class Table extends RawTable {
                         e.preventDefault();
                         const colname = el.getAttribute('data-colname');
                         t.toggleSort(colname);
+                    });
+                }
+            }
+            els = tableEl.getElementsByClassName('modRow');
+            if (els) {
+                for (const el of els) {
+                    el.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
+                        const Tablename = RowData[0];
+                        const ID = RowData[1];
+                        console.log("modRow: ", Tablename, ' -> ', ID);
+                        if (t.getTablename() !== Tablename) {
+                            const tmpTable = new Table(Tablename);
+                            tmpTable.loadRow(ID, function (Row) {
+                                tmpTable.setRows([Row]);
+                                tmpTable.modifyRow(ID);
+                            });
+                        }
+                        else
+                            t.modifyRow(ID);
                     });
                 }
             }
@@ -1267,7 +1222,6 @@ class FormGenerator {
             const extTableColExtFilter = el.revfk_col2filter;
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             const extTable = new Table(extTablename);
-            console.log(this.oTable.getTablename(), ' -> [', extTablename, ' : ' + extTable.getTableType() + '] -> ', el.revfk_colname2);
             extTable.setReadOnly(el.mode_form == 'ro');
             if (extTable.isRelationTable()) {
                 extTable.Columns[extTableColSelf].show_in_grid = false;
@@ -1276,8 +1230,10 @@ class FormGenerator {
                 custFormCreate[extTableColSelf] = {};
                 custFormCreate[extTableColSelf]['value'] = this.oRowID;
                 custFormCreate[extTableColSelf]['mode_form'] = 'ro';
-                custFormCreate[extTableColExt] = {};
-                custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
+                if (extTableColExtFilter) {
+                    custFormCreate[extTableColExt] = {};
+                    custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
+                }
                 extTable.setCustomFormCreateOptions(custFormCreate);
             }
             extTable.loadRows(function () {
@@ -1488,11 +1444,10 @@ function loadFKTable(element, tablename, customfilter) {
     tmpTable.loadRows(function () {
         return __awaiter(this, void 0, void 0, function* () {
             yield tmpTable.renderHTML(randID);
-            const el = document.getElementById(randID).getElementsByClassName('filterText')[0];
-            el.focus();
         });
     });
     tmpTable.SelectionHasChanged.on(function () {
+        console.log(tmpTable);
         const selRowID = tmpTable.getSelectedRowID();
         hiddenInput.value = '' || selRowID;
     });

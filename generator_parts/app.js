@@ -9,19 +9,20 @@ import createView from './views/create.js';
 import workflowView from './views/workflow.js';
 import modifyView from './views/modify.js';
 
+// The Order is important!!
 const routes = [
-  new Route('dashboard', '/', dashboardView),
-  new Route('create', '/:table/create', createView),
-  new Route('read', '/:table/read', readView),
+  new Route('dashboard', '/', dashboardView),  
+  new Route('create', '/:table/create/:p', createView), // with Parameters
+  new Route('create', '/:table/create', createView),  
+  new Route('workflow', '/:table/workflow', workflowView),  
   new Route('modify', '/:table/:id/modify', modifyView),
-  new Route('workflow', '/:table/workflow', workflowView),
+  new Route('read', '/:table', readView),  
 ];
+
 
 document.addEventListener('DOMContentLoaded', function(){
     // Create objects
-    //console.log("Loading Config...");
     DB.loadConfig(function(config){
-      //console.log("Config loaded!");
       const router = new Router(routes, document.getElementById('app'));
       //==========================================================
       // User
@@ -35,12 +36,16 @@ document.addEventListener('DOMContentLoaded', function(){
           // Create GUI Elements
           const tmpBtn = document.createElement('a');
           tmpBtn.setAttribute('class', 'nav-link');
-          tmpBtn.setAttribute('href', '#/' + tname + '/read');
+          tmpBtn.setAttribute('href', '#/' + tname);
           tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
           // and add them
           document.getElementById('nav').appendChild(tmpBtn);
         }
       });
-      window.addEventListener('hashchange', e => router.navigate(e.target.location.hash.substr(1)));
-    });
+      //==========================================================
+      window.addEventListener('hashchange', e => {
+        const path = e.target.location.hash.substr(1);
+        router.navigate(path);
+      });
+    });    
 });

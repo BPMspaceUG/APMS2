@@ -605,13 +605,13 @@ class Table extends RawTable {
     */
 
     // Generate a Modify-Form
-    const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
-    const htmlForm = newForm.getHTML();
+    //const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
+    //const htmlForm = newForm.getHTML();
     // Set Modal Header
     //M.setHeader(ModalTitle);
     //M.setContent(htmlForm);
-    newForm.initEditors();
-
+    //newForm.initEditors();
+    /*
     let btns = '';
     let saveBtn = '';
     const actStateID = Row.state_id;
@@ -701,8 +701,11 @@ class Table extends RawTable {
       M.show();
       newForm.refreshEditors();
     }
+    */
   }
-
+  public getSelectedRowID() {
+    return this.selectedRow[this.getPrimaryColname()];
+  }
 
   /*
   private saveEntry(SaveModal: Modal, data: any, closeModal: boolean = true){
@@ -903,8 +906,7 @@ class Table extends RawTable {
     fCreate.refreshEditors();
   }
   */
-  
-  
+    
   public modifyRow(id: number, ExistingModal: Modal = null) {
     let t = this
     const pcname = t.getPrimaryColname();
@@ -986,7 +988,7 @@ class Table extends RawTable {
           btn.addEventListener('click', function(e){
             e.preventDefault();
             const closeModal = btn.classList.contains('andClose');
-            t.saveEntry(M, fModify.getValues(), closeModal);
+            //t.saveEntry(M, fModify.getValues(), closeModal);
           })
         }
        // Add the Primary RowID
@@ -1128,7 +1130,7 @@ class Table extends RawTable {
     else if (t.Columns[col].field_type == 'number') {
       //--- INTEGER / Number
       const number = parseInt(value);
-      return number.toLocaleString('de-DE');
+      return number.toString(); //number.toLocaleString('de-DE');
     }
     else if (t.Columns[col].field_type == 'float') {
       //--- FLOAT
@@ -1232,34 +1234,34 @@ class Table extends RawTable {
       Text = t.getSearch(); // Filter was set
     }
 
-    /*
-    const searchBar = `<div class="form-group m-0 p-0 mr-1 float-left">
+    /*const searchBar = `<div class="form-group m-0 p-0 mr-1">
       <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } w-100 filterText"
         ${ (Text != '' ? ' value="' + Text + '"' : '') }
         placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
-    </div>`;
-    */
+    </div>`;*/
     const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
       ${ t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>' }
     </button>`;
 
-    const btnCreate = `<a href="#/${t.getTablename()}/create" class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ? 'outline-success' : 'success'} btnCreateEntry mr-1">
-    ${ t.TableType != TableType.obj ? '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
+
+    const formParams = encodeURI(JSON.stringify(t.customFormCreateOptions));
+    const btnCreate = `<a href="#/${t.getTablename()}/create/${formParams}" class="btn btn-${
+      (t.selType === SelectType.Single || t.TableType != 'obj') ?
+      'outline-success' : 'success'} btnCreateEntry mr-1">
+    ${ t.TableType != TableType.obj ?
+      '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
 
     // Concat HTML
-    let html: string = '<div class="tbl_header form-inline">';
-    /*
+    let html: string = '<div class="tbl_header form-inline">';  
+    /*  
     if  (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) {}
     else html += searchBar;
     */
-
-   if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) {}
-   else if (!t.ReadOnly)
-     html += btnCreate;
-
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) {}
+    else if (!t.ReadOnly)
+      html += btnCreate;
     if (t.selType === SelectType.Single && hasEntries)
       html += btnExpand;
-
     html += '</div>';
 
     return html;
@@ -1288,11 +1290,17 @@ class Table extends RawTable {
       }
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn) {
-        data_string = `<td scope="row" class="controllcoulm modRow align-middle border-0"><a href="#/${t.getTablename()}/${RowID}/modify">
-          ${ (t.selType == SelectType.Single ? (isSelected ? '<i class="far fa-check-circle"></i>' : '<i class="far fa-circle"></i>') 
-            : ( t.TableType == TableType.obj ? '<i class="far fa-edit"></i>' : '<i class="fas fa-link"></i>') )
+        data_string = `<td scope="row" class="controllcoulm align-middle border-0">
+          ${ (t.selType == SelectType.Single ? (isSelected ? 
+              '<i class="far fa-check-circle"></i>' :
+              '<span class="modRow"><i class="far fa-circle"></i></span>'
+            
+            ) : ( t.TableType == TableType.obj ?
+              `<a href="#/${t.getTablename()}/${RowID}/modify"><i class="far fa-edit"></i></a>` :
+              `<a href="#/${t.getTablename()}/${RowID}/modify"><i class="fas fa-link"></i></a>`)
+            )
           }
-        </a></td>`;
+        </td>`;
       }
       // Generate HTML for Table-Data Cells sorted
       sortedColumnNames.forEach(function(col) {
@@ -1448,17 +1456,16 @@ class Table extends RawTable {
         });
       }
     }
-    // Edit Row
-    /*
+    // Edit Row    
     els = tableEl.getElementsByClassName('modRow');
     if (els) {
       for (const el of els) {
         el.addEventListener('click', function(e){
           e.preventDefault();
-          const RowData = el.parentNode.getAttribute('data-rowid').split(':');
+          const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
           const Tablename = RowData[0];
           const ID = RowData[1];
-          //console.log("EDIT: ", Tablename, ' -> ', ID);
+          console.log("modRow: ", Tablename, ' -> ', ID);
           if (t.getTablename() !== Tablename) {
             // External Table
             const tmpTable = new Table(Tablename);
@@ -1471,7 +1478,10 @@ class Table extends RawTable {
         });
       }
     }
-    */
+
+
+
+    
     // Set State
     els = tableEl.getElementsByClassName('loadStates');
     if (els) {
@@ -1674,11 +1684,10 @@ class FormGenerator {
       const extTableColSelf = el.revfk_colname1;
       const extTableColExt = el.revfk_colname2;
       const extTableColExtFilter = el.revfk_col2filter;
+      const hideCol = '`' + extTablename + '`.' + extTableColSelf;
+      const extTable = new Table(extTablename);
 
-      const hideCol = '`' + extTablename + '`.' + extTableColSelf;      
-      const extTable = new Table(extTablename); 
-
-      console.log(this.oTable.getTablename() ,' -> [', extTablename, ' : ' + extTable.getTableType() + '] -> ', el.revfk_colname2);
+      //console.log(this.oTable.getTablename() ,' -> [', extTablename, ' : ' + extTable.getTableType() + '] -> ', el.revfk_colname2);
 
       extTable.setReadOnly(el.mode_form == 'ro');
       if (extTable.isRelationTable()) {
@@ -1691,8 +1700,10 @@ class FormGenerator {
         custFormCreate[extTableColSelf]['value'] = this.oRowID;
         custFormCreate[extTableColSelf]['mode_form'] = 'ro';
         // [M] Set External Element
-        custFormCreate[extTableColExt] = {};
-        custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
+        if (extTableColExtFilter) {
+          custFormCreate[extTableColExt] = {};
+          custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
+        }
         // Set Form Create
         extTable.setCustomFormCreateOptions(custFormCreate);
       }
@@ -1702,7 +1713,7 @@ class FormGenerator {
       });
       // Container for Table
       result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
-    }
+    }    
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
       const newID = GUI.getID();
@@ -1940,10 +1951,11 @@ function loadFKTable(element, tablename, customfilter): void {
   // Load
   tmpTable.loadRows(async function(){
     await tmpTable.renderHTML(randID);
-    const el = <HTMLElement>document.getElementById(randID).getElementsByClassName('filterText')[0];
-    el.focus();
+    /*const el = <HTMLElement>document.getElementById(randID).getElementsByClassName('filterText')[0];
+    el.focus();*/
   });
   tmpTable.SelectionHasChanged.on(function(){
+    console.log(tmpTable);
     const selRowID = tmpTable.getSelectedRowID();
     hiddenInput.value = '' || selRowID;
   })

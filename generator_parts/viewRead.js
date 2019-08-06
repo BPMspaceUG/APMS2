@@ -45,11 +45,11 @@ export default props => {
 
   const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
 
+  // Set Title
+  window.document.title = t.getTableAlias();
 
   return `<div>
-    <h2>
-      ${t.getTableAlias()}
-    </h2>
+    <h2>${t.getTableAlias()}</h2>
     <hr>
     <form class="form-inline mb-1">
       <input type="text" id="searchBox" class="form-control d-inline-block w-25 mr-1" placeholder="Search..."/>

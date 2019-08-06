@@ -2,16 +2,23 @@ export default props => {
 
   const t = new Table(props.table);
 
+  let customCreateParams = {}; //{"sqms2_Topic_title": {"value": 12, "mode_form": "ro"}};
+  if (props.p) {
+    try {
+      customCreateParams = JSON.parse(decodeURI(props.p));
+    } catch (error) {
+      console.log("Error when parsing Form-Params!");
+    }
+  }
   //===================================================================
   // Generate HTML from Form
   //===================================================================
-
   //--- Overwrite and merge the differences from diffObject
   const defFormObj = t.getDefaultFormObject();
   const diffFormCreate = t.diffFormCreateObject;
   let newObj = mergeDeep({}, defFormObj, diffFormCreate);
   // Custom Form
-  newObj = mergeDeep({}, newObj, t.customFormCreateOptions);
+  newObj = mergeDeep({}, newObj, customCreateParams);
   //--------------------------------------------------------
   // In the create form do not show reverse foreign keys
   // => cannot be related because Element does not exist yet
@@ -21,14 +28,23 @@ export default props => {
   }
   const fCreate = new FormGenerator(t, undefined, newObj, null);
   const HTML = fCreate.getHTML();
-
   //---------------------------------------------------
   // After HTML is placed in DOM
   setTimeout(() => {
     fCreate.initEditors();
-    // Focus first Element, TODO: check if is foreignKey || HTMLEditor
-    document.getElementsByClassName('rwInput')[0].focus();
-    // Bind Buttonclick
+
+    //--- FOCUS First Element
+    // TODO: check if is foreignKey || HTMLEditor
+    const elem = document.getElementsByClassName('rwInput')[0];
+    if (elem) {
+      const elemLen = elem.value.length;
+      if (elem.selectionStart || elem.selectionStart == '0') {
+        elem.selectionStart = elemLen;
+        elem.selectionEnd = elemLen;
+        elem.focus();
+      }
+    }
+    //--- Bind Buttonclick
     const btns = document.getElementsByClassName('btnCreate');
     for (const btn of btns) {
       btn.addEventListener('click', function(e){
@@ -38,7 +54,7 @@ export default props => {
         //const reOpenModal = btn.classList.contains('andReopen');
         //---> CREATE
         t.createRow(data, function(r){
-          //---> created          
+          //---> created
           let msgs = r;
           // Handle Transition Feedback
           let counter = 0; // 0 = trans, 1 = in -- but only at Create!
@@ -59,8 +75,10 @@ export default props => {
               // Success?
               if (msg.element_id > 0) {
                 console.info('Element created! ID:', msg.element_id);
+                //-------------------------------------------------------->>>>
                 // Move back to List
-                document.location.assign('#/' + t.getTablename() + '/read');
+                //document.location.assign('#/' + t.getTablename());
+                window.history.back();
               }
             }
             else {
@@ -72,10 +90,10 @@ export default props => {
             if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
               // load rows and render Table
               t.loadRows(function(){
-                  t.renderContent();
-                  t.renderFooter();
-                  t.renderHeader();
-                  t.onEntriesModified.trigger();
+                t.renderContent();
+                t.renderFooter();
+                t.renderHeader();
+                t.onEntriesModified.trigger();
               })
             }
             counter++;
@@ -83,18 +101,25 @@ export default props => {
         });
       });
     }
+
   }, 10);
+
+  // Set Title
+  const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
+  window.document.title = textCommand + ' ' + t.getTableAlias();
 
   //--------------
   return `<div>
-          <h2>
-            <a class="text-decoration-none" href="#/${props.table}/read">${t.getTableAlias()}</a>
-            <span class="text-success ml-2">&rarr; Create</span></h2>
-          <hr>
-          <div class="my-3" id="formcreate">${HTML}</div>
-          <hr>
-          <div class="text-center">
-            <a class="btn btn-success btnCreate" href="#/${props.table}/read">Create</a>
-          </div>
-      </div>`;
+    <h2>
+      <a class="text-decoration-none" href="#/${props.table}">${t.getTableAlias()}</a>
+      <span class="text-success ml-2">&rarr; ${textCommand}</span></h2>
+    <hr>
+    <div class="my-3" id="formcreate">${HTML}</div>
+    <hr>
+    <div class="text-center">
+      <a class="btn btn-success btnCreate" href="#/${props.table}">${textCommand}</a>
+      <span class="mx-3 text-muted">or</span>
+      <span><a class="btn btn-light" href="#" onclick="window.history.back(); return false;">Cancel</a></span>
+    </div>
+  </div>`;
 }
