@@ -7,7 +7,6 @@
     private $table = "";
     private $query_log = "";
 
-
     public function __construct($PDO_Connection, $tablename = "") {
       $this->db = $PDO_Connection;
       $this->table = $tablename;
@@ -405,4 +404,3 @@
       return $standardResult;
     }
   }
-?>

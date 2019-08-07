@@ -4,7 +4,22 @@ export default props => {
   if (isNaN(props.id)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
 
   let newForm = null;
-  const t = new Table(props.table);
+
+  const path = [];
+
+  if (props.table && props.id) path.push([props.table, props.id]);
+  if (props.table2 && props.id2) path.push([props.table2, props.id2]);
+  if (props.table3 && props.id3) path.push([props.table3, props.id3]);
+  if (props.table4 && props.id4) path.push([props.table4, props.id4]);
+  if (props.table5 && props.id5) path.push([props.table5, props.id5]);
+  if (props.table6 && props.id6) path.push([props.table6, props.id6]);
+
+  console.log(path);
+  
+  const actTable = path[path.length - 1][0];
+  const id = path[path.length - 1][1];
+
+  const t = new Table(actTable);
 
   //===================================================================
   // Generate HTML from Form
@@ -17,7 +32,7 @@ export default props => {
     el = document.getElementById('saveBtns'); if (el) el.innerHTML = "";
     el = document.getElementById('nextstates'); if (el) el.innerHTML = "";
 
-    t.loadRow(props.id, row => {
+    t.loadRow(id, row => {
       let actStateID = null;
       let diffObject = {};
       let newObj = {};
@@ -34,7 +49,7 @@ export default props => {
         newObj[key].value = row[key];
 
       // Generate a Modify-Form
-      newForm = new FormGenerator(t, props.id, newObj, null);
+      newForm = new FormGenerator(t, id, newObj, null);
       document.getElementById('formedit').innerHTML = newForm.getHTML();
 
       // --- GUI
@@ -57,7 +72,7 @@ export default props => {
               //------------------------------------
               // => TRANSITION (with Statemachine)
               //------------------------------------
-              t.transitRow(props.id, state.id, newRowData, function(response) {
+              t.transitRow(id, state.id, newRowData, function(response) {
                 if (response.error) {
                   console.log('ERROR', response.error.msg);
                   return;
@@ -155,13 +170,31 @@ export default props => {
 
   // Set Title
   window.document.title = "Modify Entry in " + t.getTableAlias();
+  const sep = '<span class="mx-1">&rarr;</span>';
+
+  const guiPath = [];
+  function getPart(table, id) {
+    const _t = new Table(table);
+    return `<a class="text-decoration-none" href="#/${table}">${_t.getTableAlias()}</a>${sep}<span>${id}</span>`;
+  }
+  path.forEach(elem => {
+    guiPath.push(getPart(elem[0], elem[1]));
+  });
+
+  //const pathBack = path.pop(); // Remove last Element
+  //console.log(path.length);
+  //console.log('x', pathBack);
+  let backPath = '#/'; // root
+  /*
+  if (pathBack.length > 0)
+    pathBack.forEach(el => {
+      backPath += el.join('/');
+    });
+  console.log(backPath);  
+  */
 
   return `<div>
-    <h2>
-      <a class="text-decoration-none" href="#/${props.table}">${t.getTableAlias()}</a>
-      <span class="text-primary ml-2">&rarr; Modify</span>
-      <span class="text-muted font-weight-light ml-2">#${props.id}</span>
-    </h2>
+    <h2>${guiPath.join(sep)}</h2>
     <hr>
     <p id="errorText" class="text-danger"></p>
     <div class="my-3" id="formedit">
@@ -176,7 +209,7 @@ export default props => {
         `<a class="btn btn-primary btnSave" href="#/${props.table}">Save</a>`
       }
       <span class="mx-3 text-muted">or</span>
-      <span><a class="btn btn-light" href="#" onclick="window.history.back(); return false;">Cancel</a></span>
+      <span><a class="btn btn-light" href="${backPath}">&larr; Back</a></span>
   </div>
 </div>`;
 }

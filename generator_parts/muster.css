@@ -10,7 +10,7 @@ body {margin-bottom: 60px;}
 .datatbl thead tr {/*background-color: #eee;*/ font-size: .8em;}
 .datatbl thead th {cursor: pointer; height: 30px;}
 .datatbl thead th:first-of-type {cursor: auto;}
-.datatbl .controllcoulm {text-align: center; min-width: 50px; width: 50px;}
+.controllcoulm {text-align: center; min-width: 50px; width: 50px;}
 .datatbl td {color: #333; height: 34px;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
 .datatbl .sorted {color: steelblue; min-width: 100px; white-space: nowrap;}

@@ -2,7 +2,7 @@ export default props => {
 
   const t = new Table(props.table);
 
-  let customCreateParams = {}; //{"sqms2_Topic_title": {"value": 12, "mode_form": "ro"}};
+  let customCreateParams = {};
   if (props.p) {
     try {
       customCreateParams = JSON.parse(decodeURI(props.p));
@@ -76,9 +76,19 @@ export default props => {
               if (msg.element_id > 0) {
                 console.info('Element created! ID:', msg.element_id);
                 //-------------------------------------------------------->>>>
-                // Move back to List
-                //document.location.assign('#/' + t.getTablename());
-                window.history.back();
+								// Move back to List only if Relation
+								//console.log('p ->', props.p, t);
+								/*
+								if (customCreateParams["____origin"]) {
+									origin = customCreateParams["____origin"];
+									document.location.assign(origin);
+									return;
+								}
+								*/
+								if (t.TableType === 'obj') {
+									document.location.assign('#/' + t.getTablename() + '/' + msg.element_id + '/modify');
+								} else
+                	window.history.back(); // Back
               }
             }
             else {
@@ -112,7 +122,9 @@ export default props => {
   return `<div>
     <h2>
       <a class="text-decoration-none" href="#/${props.table}">${t.getTableAlias()}</a>
-      <span class="text-success ml-2">&rarr; ${textCommand}</span></h2>
+      <span>&rarr;</span>
+      <span class="text-success"> ${textCommand}</span>
+    </h2>
     <hr>
     <div class="my-3" id="formcreate">${HTML}</div>
     <hr>

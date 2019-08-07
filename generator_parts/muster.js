@@ -755,8 +755,9 @@ class Table extends RawTable {
             });
             if (fTbl && !fTbl.ReadOnly) {
                 rowID = firstEl[Object.keys(firstEl)[0]];
+                const path = location.hash;
                 content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-        <a href="#/${fTablename}/${rowID}/modify"><i class="far fa-edit"></i></a></td>` + content;
+        <a href="${path}/${fTablename}/${rowID}"><i class="far fa-edit"></i></a></td>` + content;
             }
             return `<table class="w-100 p-0 border-0"><tr data-rowid="${fTablename}:${rowID}" class="border">${content}</tr></table>`;
         }
@@ -829,11 +830,17 @@ class Table extends RawTable {
     htmlHeaders(colnames) {
         let t = this;
         let th = '';
-        if (t.GUIOptions.showControlColumn)
-            th = `<th class="border-0 align-middle text-center text-muted" scope="col">
-        ${t.selType == SelectType.Single ? '<i class="fa fa-link"></i>' :
-                (t.TableType == TableType.obj ? '<i class="fa fa-cog"></i>' : '<i class="fa fa-link"></i>')}
-      </th>`;
+        if (t.GUIOptions.showControlColumn) {
+            th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
+            if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
+                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="#/' + t.getTablename() +
+                    '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-link text-success"></i></a></th>';
+            }
+            else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
+                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="#/' + t.getTablename() +
+                    '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-plus text-success"></i></a></th>';
+            }
+        }
         for (const colname of colnames) {
             if (t.Columns[colname].show_in_grid) {
                 const ordercol = t.getSortColname();
@@ -887,19 +894,7 @@ class Table extends RawTable {
         const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
       ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
     </button>`;
-        const formParams = encodeURI(JSON.stringify(t.customFormCreateOptions));
-        const btnCreate = `<a href="#/${t.getTablename()}/create/${formParams}" class="btn btn-${(t.selType === SelectType.Single || t.TableType != 'obj') ?
-            'outline-success' : 'success'} btnCreateEntry mr-1">
-    ${t.TableType != TableType.obj ?
-            '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
-        let html = '<div class="tbl_header form-inline">';
-        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1) { }
-        else if (!t.ReadOnly)
-            html += btnCreate;
-        if (t.selType === SelectType.Single && hasEntries)
-            html += btnExpand;
-        html += '</div>';
-        return html;
+        return '';
     }
     getContent() {
         let t = this;
@@ -926,8 +921,8 @@ class Table extends RawTable {
           ${(t.selType == SelectType.Single ? (isSelected ?
                     '<i class="far fa-check-circle"></i>' :
                     '<span class="modRow"><i class="far fa-circle"></i></span>') : (t.TableType == TableType.obj ?
-                    `<a href="#/${t.getTablename()}/${RowID}/modify"><i class="far fa-edit"></i></a>` :
-                    `<a href="#/${t.getTablename()}/${RowID}/modify"><i class="fas fa-link"></i></a>`))}
+                    `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
+                    `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
             sortedColumnNames.forEach(function (col) {
@@ -948,7 +943,7 @@ class Table extends RawTable {
         });
         return `<div class="tbl_content ${((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
       ${(t.Rows && t.Rows.length > 0) ?
-            `<div class="tablewrapper border table-responsive-md mt-1">
+            `<div class="tablewrapper border table-responsive-md">
         <table class="table table-striped table-hover m-0 table-sm datatbl">
           <thead>
             <tr>${ths}</tr>
@@ -1000,18 +995,6 @@ class Table extends RawTable {
     </div>`;
     }
     renderHeader() {
-        let t = this;
-        const tableEl = document.getElementById(t.GUID).parentElement;
-        tableEl.getElementsByClassName('tbl_header')[0].innerHTML = t.getHeader();
-        const el = tableEl.getElementsByClassName('btnExpandTable')[0];
-        if (el)
-            el.addEventListener('click', function (e) {
-                e.preventDefault();
-                t.isExpanded = !t.isExpanded;
-                t.renderContent();
-                t.renderHeader();
-                t.renderFooter();
-            });
     }
     renderContent() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1222,11 +1205,11 @@ class FormGenerator {
             const extTableColExtFilter = el.revfk_col2filter;
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             const extTable = new Table(extTablename);
+            let custFormCreate = {};
             extTable.setReadOnly(el.mode_form == 'ro');
             if (extTable.isRelationTable()) {
                 extTable.Columns[extTableColSelf].show_in_grid = false;
                 extTable.setColumnFilter(hideCol, this.oRowID.toString());
-                let custFormCreate = {};
                 custFormCreate[extTableColSelf] = {};
                 custFormCreate[extTableColSelf]['value'] = this.oRowID;
                 custFormCreate[extTableColSelf]['mode_form'] = 'ro';
@@ -1236,8 +1219,15 @@ class FormGenerator {
                 }
                 extTable.setCustomFormCreateOptions(custFormCreate);
             }
-            extTable.loadRows(function () {
-                extTable.renderHTML(tmpGUID);
+            extTable.loadRows(rows => {
+                if (rows['count'] == 0) {
+                    document.getElementById(tmpGUID).innerHTML =
+                        `<a class="btn btn-default text-success" href="#/${extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-plus"></i> Create</a>` +
+                            `<span class="mx-3">or</span>` +
+                            `<a class="btn btn-default text-success" href="#/${extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-link"></i> Relate</a>`;
+                }
+                else
+                    extTable.renderHTML(tmpGUID);
             });
             result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
         }
@@ -1441,13 +1431,15 @@ function loadFKTable(element, tablename, customfilter) {
     }
     if (customfilter)
         tmpTable.setFilter(customfilter);
-    tmpTable.loadRows(function () {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield tmpTable.renderHTML(randID);
-        });
+    tmpTable.loadRows(rows => {
+        if (rows["count"] == 0) {
+            document.getElementById(randID).innerHTML =
+                '<p class="text-muted mt-2"><span class="mr-3">No Entries found</span><a class="btn btn-success" href="#/' + tmpTable.getTablename() + '/create">Create</a></p>';
+        }
+        else
+            tmpTable.renderHTML(randID);
     });
     tmpTable.SelectionHasChanged.on(function () {
-        console.log(tmpTable);
         const selRowID = tmpTable.getSelectedRowID();
         hiddenInput.value = '' || selRowID;
     });
