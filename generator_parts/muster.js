@@ -833,11 +833,12 @@ class Table extends RawTable {
         if (t.GUIOptions.showControlColumn) {
             th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
             if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
-                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="#/' + t.getTablename() +
+                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">' +
+                    '<a href="' + location.hash + '/' + t.getTablename() +
                     '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-link text-success"></i></a></th>';
             }
             else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
-                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="#/' + t.getTablename() +
+                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="' + location.hash + '/' + t.getTablename() +
                     '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-plus text-success"></i></a></th>';
             }
         }
@@ -845,7 +846,7 @@ class Table extends RawTable {
             if (t.Columns[colname].show_in_grid) {
                 const ordercol = t.getSortColname();
                 const orderdir = t.getSortDir();
-                th += `<th scope="col" data-colname="${colname}" ${(t.Columns[colname].is_primary || ['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''}class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">` +
+                th += `<th scope="col" data-colname="${colname}" ${(['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''}class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">` +
                     '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
                     '<div class="float-right pr-3">' + (colname == ordercol ?
                     '&nbsp;' + (orderdir == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (orderdir == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')) + '' : '') +
@@ -1206,6 +1207,7 @@ class FormGenerator {
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             const extTable = new Table(extTablename);
             let custFormCreate = {};
+            const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table;
             extTable.setReadOnly(el.mode_form == 'ro');
             if (extTable.isRelationTable()) {
                 extTable.Columns[extTableColSelf].show_in_grid = false;
@@ -1222,9 +1224,9 @@ class FormGenerator {
             extTable.loadRows(rows => {
                 if (rows['count'] == 0) {
                     document.getElementById(tmpGUID).innerHTML =
-                        `<a class="btn btn-default text-success" href="#/${extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-plus"></i> Create</a>` +
+                        `<a class="btn btn-default text-success" href="${location.hash + '/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>` +
                             `<span class="mx-3">or</span>` +
-                            `<a class="btn btn-default text-success" href="#/${extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-link"></i> Relate</a>`;
+                            `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-link"></i> Relate</a>`;
                 }
                 else
                     extTable.renderHTML(tmpGUID);
@@ -1434,7 +1436,8 @@ function loadFKTable(element, tablename, customfilter) {
     tmpTable.loadRows(rows => {
         if (rows["count"] == 0) {
             document.getElementById(randID).innerHTML =
-                '<p class="text-muted mt-2"><span class="mr-3">No Entries found</span><a class="btn btn-success" href="#/' + tmpTable.getTablename() + '/create">Create</a></p>';
+                '<p class="text-muted mt-2"><span class="mr-3">No Entries found</span><a class="btn btn-success" href="' +
+                    location.hash + '/' + tmpTable.getTablename() + '/create">Create</a></p>';
         }
         else
             tmpTable.renderHTML(randID);

@@ -9,23 +9,21 @@ import createView from './views/create.js';
 import workflowView from './views/workflow.js';
 import modifyView from './views/modify.js';
 
+
 // The Order is important!!
 const routes = [
-  new Route('dashboard', '/', dashboardView),  
 
+  new Route('dashboard', '/', dashboardView),
+  //-- CREATE
   new Route('create', '/:table/create/:p', createView), // with Parameters
-  new Route('create', '/:table/create', createView),  
-
+  new Route('create', '/:table/create', createView),
+  //-- WORKFLOW
   new Route('workflow', '/:table/workflow', workflowView),
-
-  new Route('modify', '/:table/:id/:table2/:id2/:table3/:id3/:table4/:id4/:table5/:id5/:table6/:id6', modifyView),
-  new Route('modify', '/:table/:id/:table2/:id2/:table3/:id3/:table4/:id4/:table5/:id5', modifyView),
-  new Route('modify', '/:table/:id/:table2/:id2/:table3/:id3/:table4/:id4', modifyView),
-  new Route('modify', '/:table/:id/:table2/:id2/:table3/:id3', modifyView),
-  new Route('modify', '/:table/:id/:table2/:id2', modifyView),
+  //-- MODIFY
   new Route('modify', '/:table/:id', modifyView),
-
-  new Route('read', '/:table', readView),  
+  //-- READ
+  new Route('read', '/:table', readView),
+  
 ];
 
 

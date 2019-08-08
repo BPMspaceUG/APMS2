@@ -5,20 +5,15 @@ export default props => {
 
   let newForm = null;
 
-  const path = [];
-
-  if (props.table && props.id) path.push([props.table, props.id]);
-  if (props.table2 && props.id2) path.push([props.table2, props.id2]);
-  if (props.table3 && props.id3) path.push([props.table3, props.id3]);
-  if (props.table4 && props.id4) path.push([props.table4, props.id4]);
-  if (props.table5 && props.id5) path.push([props.table5, props.id5]);
-  if (props.table6 && props.id6) path.push([props.table6, props.id6]);
-
-  console.log(path);
+  const strPath = location.hash;
+  const path = strPath.split('/');
+  path.shift(); // Remove first element (#)
   
-  const actTable = path[path.length - 1][0];
-  const id = path[path.length - 1][1];
+  // Get actual Table & ID
+  const actTable = path[path.length - 2];
+  const id = path[path.length - 1];
 
+  // Create Table Object
   const t = new Table(actTable);
 
   //===================================================================
@@ -27,11 +22,6 @@ export default props => {
 
   // Get Row by ID
   function initForm() {
-    // Clear GUI
-    let el = null;
-    el = document.getElementById('saveBtns'); if (el) el.innerHTML = "";
-    el = document.getElementById('nextstates'); if (el) el.innerHTML = "";
-
     t.loadRow(id, row => {
       let actStateID = null;
       let diffObject = {};
@@ -53,6 +43,10 @@ export default props => {
       document.getElementById('formedit').innerHTML = newForm.getHTML();
 
       // --- GUI
+      let el = null;
+      // Clear GUI
+      el = document.getElementById('saveBtns'); if (el) el.innerHTML = "";
+      el = document.getElementById('nextstates'); if (el) el.innerHTML = "";
       newForm.initEditors();
 
       // MAKE Transition
@@ -170,31 +164,27 @@ export default props => {
 
   // Set Title
   window.document.title = "Modify Entry in " + t.getTableAlias();
+  
+  // Path
   const sep = '<span class="mx-1">&rarr;</span>';
-
   const guiPath = [];
+  const count = path.length / 2;
   function getPart(table, id) {
     const _t = new Table(table);
     return `<a class="text-decoration-none" href="#/${table}">${_t.getTableAlias()}</a>${sep}<span>${id}</span>`;
   }
-  path.forEach(elem => {
-    guiPath.push(getPart(elem[0], elem[1]));
-  });
-
-  //const pathBack = path.pop(); // Remove last Element
-  //console.log(path.length);
-  //console.log('x', pathBack);
-  let backPath = '#/'; // root
-  /*
-  if (pathBack.length > 0)
-    pathBack.forEach(el => {
-      backPath += el.join('/');
-    });
-  console.log(backPath);  
-  */
+  for (let i = 0; i < count; i++)
+    guiPath.push(getPart(path[2*i], path[2*i+1]));
+  const guiFullPath = guiPath.join(sep);
+  let backPath = '#/' + t.getTablename(); // root Table
+  if (path.length > 2) {
+    path.pop();
+    path.pop();
+    backPath = '#/' + path.join('/');
+  }
 
   return `<div>
-    <h2>${guiPath.join(sep)}</h2>
+    <h2>${guiFullPath}</h2>
     <hr>
     <p id="errorText" class="text-danger"></p>
     <div class="my-3" id="formedit">
