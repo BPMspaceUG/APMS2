@@ -834,12 +834,13 @@ class Table extends RawTable {
             th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
             if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
                 th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">' +
-                    '<a href="' + location.hash + '/' + t.getTablename() +
-                    '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-link text-success"></i></a></th>';
+                    '<a href="' + location.hash + '/' + t.getTablename() + '/create"><i class="fa fa-link text-success"></i></a>';
+                const demoTable = 'sqms2_syllabuselement';
+                th += '<a class="ml-2" href="' + location.hash + '/' + t.getTablename() + '/create/' + demoTable + '/create"><i class="fa fa-plus text-success"></i></a></th>';
             }
             else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
                 th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="' + location.hash + '/' + t.getTablename() +
-                    '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-plus text-success"></i></a></th>';
+                    '/create"><i class="fa fa-plus text-success"></i></a></th>';
             }
         }
         for (const colname of colnames) {
@@ -1222,16 +1223,20 @@ class FormGenerator {
                 extTable.setCustomFormCreateOptions(custFormCreate);
             }
             extTable.loadRows(rows => {
-                if (rows['count'] == 0) {
+                if (!extTable.ReadOnly && rows['count'] == 0) {
                     document.getElementById(tmpGUID).innerHTML =
-                        `<a class="btn btn-default text-success" href="${location.hash + '/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>` +
-                            `<span class="mx-3">or</span>` +
-                            `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-link"></i> Relate</a>`;
+                        `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename() + '/create/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>`
+                            +
+                                `<span class="mx-3">or</span>` +
+                            `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename()}/create"><i class="fa fa-link"></i> Relate</a>`;
+                }
+                else if (extTable.ReadOnly && rows['count'] == 0) {
+                    document.getElementById(tmpGUID).innerHTML = '<p class="text-muted mt-2">No Entries</p>';
                 }
                 else
                     extTable.renderHTML(tmpGUID);
             });
-            result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
+            result += `<div id="${tmpGUID}"><p class="text-muted mt-2"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
         }
         else if (el.field_type == 'htmleditor') {
             const newID = GUI.getID();

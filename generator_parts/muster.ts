@@ -1175,12 +1175,15 @@ class Table extends RawTable {
 
       if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
         th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">'+
-        '<a href="'+ location.hash + '/' + t.getTablename() + 
-          '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-link text-success"></i></a></th>';
+        '<a href="'+ location.hash + '/' + t.getTablename() + '/create"><i class="fa fa-link text-success"></i></a>';
+
+        const demoTable = 'sqms2_syllabuselement';
+        th += '<a class="ml-2" href="'+ location.hash + '/' + t.getTablename() + '/create/'+demoTable+'/create"><i class="fa fa-plus text-success"></i></a></th>';
+
       }
       else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
         th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="'+ location.hash + '/' + t.getTablename() + 
-        '/create/' + encodeURI(JSON.stringify(t.customFormCreateOptions)) + '"><i class="fa fa-plus text-success"></i></a></th>';
+        '/create"><i class="fa fa-plus text-success"></i></a></th>';
       }
   }
 
@@ -1715,6 +1718,7 @@ class FormGenerator {
       //console.log(this.oTable.getTablename() ,' -> [' + extTablename + ':' + extTable.getTableType() + '] -> ', tablenameM);
 
       extTable.setReadOnly(el.mode_form == 'ro');
+
       if (extTable.isRelationTable()) {
         // Relation:
         extTable.Columns[extTableColSelf].show_in_grid = false; // Hide self column
@@ -1734,18 +1738,22 @@ class FormGenerator {
       // Load Rows
       extTable.loadRows(rows => {
         // Count
-        if (rows['count'] == 0) {
+        if (!extTable.ReadOnly && rows['count'] == 0) {
           // Display Buttons for add Relation
           document.getElementById(tmpGUID).innerHTML = 
-            `<a class="btn btn-default text-success" href="${location.hash + '/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>`+
+            `<a class="btn btn-default text-success" href="${location.hash+'/'+extTable.getTablename()+'/create/'+tablenameM}/create"><i class="fa fa-plus"></i> Create</a>`
+            +
             `<span class="mx-3">or</span>` + 
-            `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename()}/create/${encodeURI(JSON.stringify(custFormCreate))}"><i class="fa fa-link"></i> Relate</a>`;
-
-        } else
+            `<a class="btn btn-default text-success" href="${location.hash+'/'+extTable.getTablename()}/create"><i class="fa fa-link"></i> Relate</a>`;
+        }
+        else if (extTable.ReadOnly && rows['count'] == 0) {
+          document.getElementById(tmpGUID).innerHTML = '<p class="text-muted mt-2">No Entries</p>';
+        }
+        else
           extTable.renderHTML(tmpGUID);
       });
       // Container for Table
-      result += `<div id="${tmpGUID}"><p class="text-muted mt-1"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
+      result += `<div id="${tmpGUID}"><p class="text-muted mt-2"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
     }    
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {

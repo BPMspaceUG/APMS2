@@ -12,18 +12,13 @@ import modifyView from './views/modify.js';
 
 // The Order is important!!
 const routes = [
-
   new Route('dashboard', '/', dashboardView),
   //-- CREATE
-  new Route('create', '/:table/create/:p', createView), // with Parameters
+  //new Route('create', '/:table/create/:p', createView), // with Parameters
   new Route('create', '/:table/create', createView),
-  //-- WORKFLOW
   new Route('workflow', '/:table/workflow', workflowView),
-  //-- MODIFY
   new Route('modify', '/:table/:id', modifyView),
-  //-- READ
   new Route('read', '/:table', readView),
-  
 ];
 
 

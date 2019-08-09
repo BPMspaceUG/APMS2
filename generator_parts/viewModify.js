@@ -1,10 +1,6 @@
 export default props => {
 
-  // Check URL
-  if (isNaN(props.id)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
-
   let newForm = null;
-
   const strPath = location.hash;
   const path = strPath.split('/');
   path.shift(); // Remove first element (#)
@@ -12,6 +8,11 @@ export default props => {
   // Get actual Table & ID
   const actTable = path[path.length - 2];
   const id = path[path.length - 1];
+
+  // Checks
+  if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
+  if (isNaN(id)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
+
 
   // Create Table Object
   const t = new Table(actTable);
@@ -176,6 +177,7 @@ export default props => {
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));
   const guiFullPath = guiPath.join(sep);
+  
   let backPath = '#/' + t.getTablename(); // root Table
   if (path.length > 2) {
     path.pop();

@@ -1,35 +1,28 @@
 export default props => {
-
-  let customCreateParams = {};
+  
   const strPath = location.hash;
   const path = strPath.split('/');
   path.shift(); // Remove first element (#)
-
-  const lastElement = path[path.length-1];
-  if (lastElement == 'create') {
-    // If last Element is create, then remove => no Params
-    // NO Parameters
-    path.pop();
-  }
-  else {
-    // If last Element is NOT create, then remove 2 last Elements => with Params!!
-    // WITH Parameters
-    path.pop();
-    path.pop();
-    if (props.p) {
-      try {
-        customCreateParams = JSON.parse(decodeURI(props.p));
-      } catch (error) {
-        console.log("Error when parsing Form-Params!");
-      }
-    }
-  }
-  // Create Table
-  const t = new Table(props.table);
   
+  // Get actual Table & ID
+  const actTable = path[path.length - 2];
+
+  // Checks
+  if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
+
+  const t = new Table(actTable);  
+  const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
+  //console.log("-> [" + textCommand + "] in Table", actTable);
+
+  //--- Set Title  
+  window.document.title = textCommand + ' ' + t.getTableAlias();
+
   //===================================================================
   // Generate HTML from Form
   //===================================================================
+
+  const customCreateParams = {}; // Not needed!
+
   //--- Overwrite and merge the differences from diffObject
   const defFormObj = t.getDefaultFormObject();
   const diffFormCreate = t.diffFormCreateObject;
@@ -91,35 +84,44 @@ export default props => {
             if (msg.element_id) {
               // Success?
               if (msg.element_id > 0) {
-                console.info('Element created! ID:', msg.element_id);
                 //-------------------------------------------------------->>>>
-								// Move back to List only if Relation
-								//console.log('p ->', props.p, t);
-								/*
-								if (customCreateParams["____origin"]) {
-									origin = customCreateParams["____origin"];
-									document.location.assign(origin);
-									return;
-								}
-                */                
-                const newPath = strPath.split('/');
-                newPath.shift(); // Remove first element (#)
-                newPath.pop(); // Remove last element (create)
-                newPath.push(msg.element_id); // Append element (ID)
+                console.info('Element created! ID:', msg.element_id);
 
-                const modifyPathOfNewElement = '#/' + newPath.join('/');
-                //console.log('=========>', modifyPathOfNewElement);
+                // Wenn die Tabelle vor mir eine Relationstabelle ist,
+                // dann erzeuge instant eine neue Relation und springe ins erste Obj.
+
+                // tbl / 1234 / tbl(rel) / create / tbl / [create]
+                if (path.length > 2) {
+                  const cmd = path[path.length-3];
+                  const tbl = path[path.length-4];
+                  const objID = path[path.length-5];
+                  const xTbl = new Table(tbl);
+                  if (cmd === 'create' && xTbl.TableType !== 'obj') {
+                    // Create Relation here
+                    const arrColnames = Object.keys(xTbl.Columns);
+                    let newRow = {};
+                    newRow[arrColnames[1]] = objID;
+                    newRow[arrColnames[2]] = msg.element_id;
+                    DB.request('create', {table: tbl, row: newRow}, function(){
+                      // <-- Go Back
+                      path.pop(); path.pop(); path.pop(); path.pop();
+                      const modifyPathOfNewElement = '#/' + path.join('/'); // Go back to first Object
+                      document.location.assign(modifyPathOfNewElement);
+                      return;
+                    });
+                    return;
+                  }
+                }
+
+
+                // Redirect.
+                path[path.length-1] = msg.element_id; // replace last element
+                const modifyPathOfNewElement = '#/' + path.join('/'); // Go back at a Relation
+                // Redirect
                 document.location.assign(modifyPathOfNewElement);
-								/*if (t.TableType === 'obj') {
-                  // And Relate? ---> Is object from 1 path before
-                  DB.request('create', {table: 'relationtable', row: {
-                    col1: msg.element_id, // My Own ID
-                    col2: 123423, // ID from origin
-                  }});
-                 //document.location.assign('#/' + t.getTablename() + '/' + msg.element_id);                  
-								} else
-                  window.history.back(); // Back
-                */
+                return;
+
+
               }
             }
             else {
@@ -146,12 +148,6 @@ export default props => {
   }, 10);
 
 
-
-
-  // Set Title
-  const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
-  window.document.title = textCommand + ' ' + t.getTableAlias();
-
   // Path
   const sep = '<span class="mx-1">&rarr;</span>';
   const guiPath = [];
@@ -160,20 +156,17 @@ export default props => {
     const _t = new Table(table);
     return `<a class="text-decoration-none" href="#/${table}">${_t.getTableAlias()}</a>${sep}<span>${id}</span>`;
   }
-  // Replace the create with beautiful HTML
-  path.push(`<span class="text-success">${textCommand}</span>`);
-
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));
   const guiFullPath = guiPath.join(sep);
 
+
   let backPath = '#/' + t.getTablename(); // root Table
-  if (path.length > 2) {
+  /*if (path.length > 2) {
     path.pop();
     path.pop();
     backPath = '#/' + path.join('/');
-  }
-
+  }*/
 
   //--------------
   return `<div>
@@ -182,7 +175,7 @@ export default props => {
     <div class="my-3" id="formcreate">${HTML}</div>
     <hr>
     <div class="text-center">
-      <a class="btn btn-success btnCreate" href="#/${props.table}">${textCommand}</a>
+      <a class="btn btn-success btnCreate" href="#/">${textCommand}</a>
       <span class="mx-3 text-muted">or</span>
       <span><a class="btn btn-light" href="${backPath}">&larr; Back</a></span>
     </div>
