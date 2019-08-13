@@ -190,28 +190,7 @@ class Modal {
   public getDOMID(): string {
     return this.DOM_ID;
   }
-  public setLoadingState(isLoading: boolean) {
-    const inputs = document.getElementById(this.DOM_ID).getElementsByTagName('input');
-    const textareas = document.getElementById(this.DOM_ID).getElementsByTagName('texarea');
-    const btns = document.getElementById(this.DOM_ID).getElementsByTagName('button');
-    const selects = document.getElementById(this.DOM_ID).getElementsByTagName('select');
-
-    if (isLoading) {
-      // Loading => Disabled
-      for (const el of inputs) { el.setAttribute('disabled', 'disabled'); };
-      for (const el of textareas) { el.setAttribute('disabled', 'disabled'); };
-      for (const el of btns) { el.setAttribute('disabled', 'disabled'); };
-      for (const el of selects) { el.setAttribute('disabled', 'disabled'); };
-    } else {
-      // Not Loading => Enabled
-      for (const el of inputs) { el.removeAttribute('disabled'); };
-      for (const el of textareas) { el.removeAttribute('disabled'); };
-      for (const el of btns) { el.removeAttribute('disabled'); };
-      for (const el of selects) { el.removeAttribute('disabled'); };
-    }
-  }  
 }
-
 //==============================================================
 // Class: StateMachine !JQ
 //==============================================================
@@ -505,15 +484,12 @@ class Table extends RawTable {
 
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
     super(tablename); // Call parent constructor
-
     this.GUID = GUI.getID();
     this.selType = SelType;
     this.selectedRow = undefined;
     this.TableType = this.getConfig().table_type;
     this.setSort(this.getConfig().stdsorting);
-
     this.ReadOnly = (this.getConfig().mode == 'ro');
-
     if (this.getConfig().se_active)
       this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
     if (!this.ReadOnly)
@@ -581,8 +557,6 @@ class Table extends RawTable {
   }
   private renderEditForm(Row: any, diffObject: any, ExistingModal: Modal = undefined) {
     const t = this;
-    const pcname = t.getPrimaryColname();
-    const RowID = Row[pcname];
     //--- Overwrite and merge the differences from diffObject
     let defaultFormObj = t.getDefaultFormObject();
     let newObj = mergeDeep({}, defaultFormObj, diffObject);
@@ -590,144 +564,10 @@ class Table extends RawTable {
     for (const key of Object.keys(Row)) {
       newObj[key].value = Row[key];
     }
-
-    // create Modal if not exists
-    /*
-    const TableAlias = 'in '+this.getTableIcon()+' ' + this.getTableAlias();
-    const ModalTitle = this.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+RowID+')</span><span class="text-muted ml-3">'+ TableAlias +'</span>';
-    let M: Modal = ExistingModal || new Modal(ModalTitle, '', '', true);
-    M.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
-    */
-
-    // Generate a Modify-Form
-    //const newForm = new FormGenerator(t, RowID, newObj, M.getDOMID());
-    //const htmlForm = newForm.getHTML();
-    // Set Modal Header
-    //M.setHeader(ModalTitle);
-    //M.setContent(htmlForm);
-    //newForm.initEditors();
-    /*
-    let btns = '';
-    let saveBtn = '';
-    const actStateID = Row.state_id;
-    const actStateName = t.SM.getStateNameById(actStateID);
-    const cssClass = ' state' + actStateID;
-    const nexstates = t.SM.getNextStates(actStateID);
-
-    // Check States -> generate Footer HTML
-    if (nexstates.length > 0) {
-      let cnt_states = 0;
-      // Init DropdownButton
-      btns = `<div class="btn-group dropup ml-0 mr-auto">
-        <button type="button" class="btn ${cssClass} text-white dropdown-toggle" data-toggle="dropdown">${actStateName}</button>
-      <div class="dropdown-menu p-0">`;      
-      // Loop States
-      nexstates.forEach(function(state){
-        let btn_text = state.name
-        let btnDropdown = '';
-        // Override the state-name if it is a Loop (Save)
-        if (actStateID == state.id) {
-          saveBtn = `<div class="ml-auto mr-0">
-<button class="btn btn-primary btnState btnStateSave mr-1" data-rowid="${RowID}" data-targetstate="${state.id}" type="button">
-  <i class="fa fa-floppy-o"></i>&nbsp;${t.GUIOptions.modalButtonTextModifySave}</button>
-<button class="btn btn-outline-primary btnState btnSaveAndClose" data-rowid="${RowID}" data-targetstate="${state.id}" type="button">
-  ${t.GUIOptions.modalButtonTextModifySaveAndClose}
-</button>
-</div>`;
-        } else {
-          cnt_states++;
-          btnDropdown = '<a class="dropdown-item btnState btnStateChange state' + state.id + '" data-rowid="'+RowID+'" data-targetstate="'+state.id+'">' + btn_text + '</a>';
-        }
-        btns += btnDropdown;
-      })
-      btns += '</div></div>';
-      // Save buttons (Reset html if only Save button exists)
-      if (cnt_states == 0)
-        btns = '<button type="button" class="btn '+cssClass+' text-white" tabindex="-1" disabled>' + actStateName + '</button>'; 
-    }
-    else {
-      // No Next States
-      btns = '<button type="button" class="btn '+cssClass+' text-white" tabindex="-1" disabled>' + actStateName + '</button>';
-    }
-    btns += saveBtn;
-    M.setFooter(btns);
-
-
-    //--------------------- Bind function to StateButtons
-    let modal = document.getElementById(M.getDOMID());
-    let btnsState = modal.getElementsByClassName('btnState');
-    for (let btn of btnsState) {
-      btn.addEventListener('click', function(e: Event) {
-        e.preventDefault();
-        //const RowID: number = parseInt(btn.getAttribute('data-rowid'));
-        const TargetStateID: number = parseInt(btn.getAttribute('data-targetstate'));
-        const closeModal: boolean = btn.classList.contains('btnSaveAndClose');
-
-        t.setState(newForm.getValues(), RowID, TargetStateID, function(){
-          // changed state via modal-button (=> refresh the modal)
-          // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
-          t.loadRows(function(){
-            t.renderContent();
-            // Refresh Form-Data if Modal exists
-              const diffObject = t.SM.getFormDiffByState(TargetStateID); // Refresh Form-Content
-              // Refresh Row
-              let newRow = null;
-              t.Rows.forEach(row => {
-                if (row[pcname] == RowID) newRow = row;
-              });
-              // check if the row is already loaded in the grid
-              if (newRow)
-                t.renderEditForm(newRow, diffObject, M); // The circle begins again
-              else {
-                // Reload specific Row
-                t.loadRow(RowID, res => {
-                  t.renderEditForm(res, diffObject, M); // The circle begins again
-                })
-              }
-            // close Modal if it was save and close
-            if (closeModal)
-              M.close();
-          });
-        });
-      });
-    }
-    //--- finally show Modal if it is a new one
-    if (M) {
-      M.show();
-      newForm.refreshEditors();
-    }
-    */
   }
   public getSelectedRowID() {
     return this.selectedRow[this.getPrimaryColname()];
   }
-
-  /*
-  private saveEntry(SaveModal: Modal, data: any, closeModal: boolean = true){
-    const t = this
-    const pcname = t.getPrimaryColname();
-    SaveModal.setLoadingState(true);
-    // REQUEST
-    t.updateRow(data[pcname], data, function(r){
-      if (r == "1") {
-        // Success
-        t.loadRows(function(){
-          SaveModal.setLoadingState(false);
-          if (closeModal) SaveModal.close();
-          t.renderContent();
-          t.onEntriesModified.trigger();
-        })
-      } else {
-        SaveModal.setLoadingState(false);
-        // Fail
-        const ErrorModal = new Modal('Error', '<b class="text-danger">Element could not be updated!</b><br><pre>' + r + '</pre>');
-        ErrorModal.show();
-      }
-    })
-  }
-  */
-
-
   private setState(data: any, RowID: number, targetStateID: number, callback) {
     let t = this;
     let actStateID = undefined;
@@ -866,7 +706,6 @@ class Table extends RawTable {
         form.appendChild(newEl);
         // Finally show Modal if none existed
         if (M) {
-          M.setLoadingState(false);
           M.show();
           fModify.refreshEditors();
         }
@@ -1097,56 +936,7 @@ class Table extends RawTable {
       }
     }
     return th;
-  }
-  /*
-  private getHeader(): string {
-    let t = this
-    const hasEntries = t.Rows && (t.Rows.length > 0);
-    let NoText: string = 'No Objects';
-    if (t.TableType != TableType.obj) NoText = 'No Relations';
-    let Text: string = '';
-    // TODO: 
-    // Pre-Selected Row
-    if (t.selectedRow) {
-      // Set the selected text -> concat foreign keys
-      const vals = recflattenObj(t.selectedRow);
-      Text = '' + vals.join(' | ');
-    } else {
-      Text = t.getSearch(); // Filter was set
-    }
-    const searchBar = `<div class="form-group m-0 p-0 mr-1">
-      <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } w-100 filterText"
-        ${ (Text != '' ? ' value="' + Text + '"' : '') }
-        placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
-    </div>`;
-    const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
-      ${ t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>' }
-    </button>`;
-    /*
-    const formParams = encodeURI(JSON.stringify(t.customFormCreateOptions));
-    const btnCreate = `<a href="#/${t.getTablename()}/create/${formParams}" class="btn btn-${
-      (t.selType === SelectType.Single || t.TableType != 'obj') ?
-      'outline-success' : 'success'} btnCreateEntry mr-1">
-    ${ t.TableType != TableType.obj ?
-      '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
-    let html: string = '<div class="tbl_header form-inline">';  
-    /*  
-    if  (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) {}
-    else html += searchBar;
-    if (
-      ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
-    || (true)
-    )
-    {}
-    else if (!t.ReadOnly)
-      html += btnCreate;
-    if (t.selType === SelectType.Single && hasEntries)
-      html += btnExpand;
-    html += '</div>';
-    return '';
-  }
-  */
-  
+  } 
   private getContent(): string {
     let t = this
     let tds: string = '';
@@ -1315,9 +1105,7 @@ class Table extends RawTable {
       }
     }
 
-
-
-    
+   
     // Set State
     els = tableEl.getElementsByClassName('loadStates');
     if (els) {
@@ -1412,7 +1200,6 @@ class Table extends RawTable {
     return this.onEntriesModified.expose();
   }
 }
-
 
 //==============================================================
 // Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON) !JQ

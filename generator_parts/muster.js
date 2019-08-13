@@ -171,48 +171,6 @@ class Modal {
     getDOMID() {
         return this.DOM_ID;
     }
-    setLoadingState(isLoading) {
-        const inputs = document.getElementById(this.DOM_ID).getElementsByTagName('input');
-        const textareas = document.getElementById(this.DOM_ID).getElementsByTagName('texarea');
-        const btns = document.getElementById(this.DOM_ID).getElementsByTagName('button');
-        const selects = document.getElementById(this.DOM_ID).getElementsByTagName('select');
-        if (isLoading) {
-            for (const el of inputs) {
-                el.setAttribute('disabled', 'disabled');
-            }
-            ;
-            for (const el of textareas) {
-                el.setAttribute('disabled', 'disabled');
-            }
-            ;
-            for (const el of btns) {
-                el.setAttribute('disabled', 'disabled');
-            }
-            ;
-            for (const el of selects) {
-                el.setAttribute('disabled', 'disabled');
-            }
-            ;
-        }
-        else {
-            for (const el of inputs) {
-                el.removeAttribute('disabled');
-            }
-            ;
-            for (const el of textareas) {
-                el.removeAttribute('disabled');
-            }
-            ;
-            for (const el of btns) {
-                el.removeAttribute('disabled');
-            }
-            ;
-            for (const el of selects) {
-                el.removeAttribute('disabled');
-            }
-            ;
-        }
-    }
 }
 class StateMachine {
     constructor(table, states, links) {
@@ -553,8 +511,6 @@ class Table extends RawTable {
     }
     renderEditForm(Row, diffObject, ExistingModal = undefined) {
         const t = this;
-        const pcname = t.getPrimaryColname();
-        const RowID = Row[pcname];
         let defaultFormObj = t.getDefaultFormObject();
         let newObj = mergeDeep({}, defaultFormObj, diffObject);
         for (const key of Object.keys(Row)) {
@@ -679,7 +635,6 @@ class Table extends RawTable {
                 newEl.classList.add('rwInput');
                 form.appendChild(newEl);
                 if (M) {
-                    M.setLoadingState(false);
                     M.show();
                     fModify.refreshEditors();
                 }
