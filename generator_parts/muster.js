@@ -484,16 +484,11 @@ class Table extends RawTable {
         this.selectedRow = undefined;
         this.TableType = this.getConfig().table_type;
         this.setSort(this.getConfig().stdsorting);
-        this.setReadOnly(this.getConfig().mode == 'ro');
+        this.ReadOnly = (this.getConfig().mode == 'ro');
         if (this.getConfig().se_active)
             this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
         if (!this.ReadOnly)
             this.diffFormCreateObject = JSON.parse(this.getConfig().formcreate);
-    }
-    setReadOnly(isRO) {
-        this.ReadOnly = isRO;
-        if (this.ReadOnly && this.selType == SelectType.NoSelect)
-            this.GUIOptions.showControlColumn = false;
     }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
@@ -617,7 +612,7 @@ class Table extends RawTable {
         }
         return FormObj;
     }
-    modifyRow(id, ExistingModal = null) {
+    modifyRow(id) {
         let t = this;
         const pcname = t.getPrimaryColname();
         if (t.selType == SelectType.Single) {
@@ -628,14 +623,8 @@ class Table extends RawTable {
                     break;
                 }
             }
-            t.isExpanded = false;
-            t.renderContent();
-            t.renderHeader();
-            t.renderFooter();
+            document.getElementById(t.GUID).parentElement.innerHTML = `<span class="text-muted">${t.getTablename() + ' &rarr; ' + id}</span>`;
             t.onSelectionChanged.trigger();
-            if (ExistingModal) {
-                ExistingModal.close();
-            }
             return;
         }
         else {
@@ -648,7 +637,7 @@ class Table extends RawTable {
                 TheRow = row; });
             if (t.SM) {
                 const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
-                t.renderEditForm(TheRow, diffJSON, ExistingModal);
+                t.renderEditForm(TheRow, diffJSON, null);
             }
             else {
                 const tblTxt = 'in ' + t.getTableIcon() + ' ' + t.getTableAlias();
@@ -658,12 +647,12 @@ class Table extends RawTable {
                     const v = TheRow[key];
                     FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
                 }
-                const guid = (ExistingModal) ? ExistingModal.getDOMID() : null;
+                const guid = null;
                 for (const key of Object.keys(TheRow)) {
                     FormObj[key].value = TheRow[key];
                 }
                 const fModify = new FormGenerator(t, id, FormObj, guid);
-                const M = ExistingModal || new Modal('', '', '', true);
+                const M = new Modal('', '', '', true);
                 M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
                 M.setContent(fModify.getHTML());
                 fModify.initEditors();
@@ -680,7 +669,6 @@ class Table extends RawTable {
                 for (const btn of btnsSave) {
                     btn.addEventListener('click', function (e) {
                         e.preventDefault();
-                        const closeModal = btn.classList.contains('andClose');
                     });
                 }
                 const form = document.getElementById(M.getDOMID()).getElementsByTagName('form')[0];
@@ -835,8 +823,10 @@ class Table extends RawTable {
             if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
                 th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">' +
                     '<a href="' + location.hash + '/' + t.getTablename() + '/create"><i class="fa fa-link text-success"></i></a>';
-                const demoTable = 'sqms2_syllabuselement';
-                th += '<a class="ml-2" href="' + location.hash + '/' + t.getTablename() + '/create/' + demoTable + '/create"><i class="fa fa-plus text-success"></i></a></th>';
+                const colN = colnames[1];
+                const colM = colnames[2];
+                const objTable2 = t.Columns[colM].foreignKey.table;
+                th += '<a class="ml-2" href="' + location.hash + '/' + t.getTablename() + '/create/' + objTable2 + '/create"><i class="fa fa-plus text-success"></i></a></th>';
             }
             else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
                 th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="' + location.hash + '/' + t.getTablename() +
@@ -879,25 +869,6 @@ class Table extends RawTable {
         }
         return th;
     }
-    getHeader() {
-        let t = this;
-        const hasEntries = t.Rows && (t.Rows.length > 0);
-        let NoText = 'No Objects';
-        if (t.TableType != TableType.obj)
-            NoText = 'No Relations';
-        let Text = '';
-        if (t.selectedRow) {
-            const vals = recflattenObj(t.selectedRow);
-            Text = '' + vals.join(' | ');
-        }
-        else {
-            Text = t.getSearch();
-        }
-        const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
-      ${t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>'}
-    </button>`;
-        return '';
-    }
     getContent() {
         let t = this;
         let tds = '';
@@ -922,9 +893,10 @@ class Table extends RawTable {
                 data_string = `<td scope="row" class="controllcoulm align-middle border-0">
           ${(t.selType == SelectType.Single ? (isSelected ?
                     '<i class="far fa-check-circle"></i>' :
-                    '<span class="modRow"><i class="far fa-circle"></i></span>') : (t.TableType == TableType.obj ?
-                    `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
-                    `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
+                    '<span class="modRow"><i class="far fa-circle"></i></span>')
+                    : (t.TableType == TableType.obj ?
+                        `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
+                        `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
             sortedColumnNames.forEach(function (col) {
@@ -995,8 +967,6 @@ class Table extends RawTable {
         <div class="clearfix"></div>
       </div>
     </div>`;
-    }
-    renderHeader() {
     }
     renderContent() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1105,11 +1075,10 @@ class Table extends RawTable {
     }
     renderHTML(DOM_ID) {
         return __awaiter(this, void 0, void 0, function* () {
-            const content = this.getHeader() + (yield this.getContent()) + this.getFooter();
+            const content = (yield this.getContent()) + this.getFooter();
             const el = document.getElementById(DOM_ID);
             if (el) {
                 el.innerHTML = content;
-                yield this.renderHeader();
                 yield this.renderContent();
                 yield this.renderFooter();
             }
@@ -1209,7 +1178,7 @@ class FormGenerator {
             const extTable = new Table(extTablename);
             let custFormCreate = {};
             const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table;
-            extTable.setReadOnly(el.mode_form == 'ro');
+            extTable.ReadOnly = (el.mode_form == 'ro');
             if (extTable.isRelationTable()) {
                 extTable.Columns[extTableColSelf].show_in_grid = false;
                 extTable.setColumnFilter(hideCol, this.oRowID.toString());

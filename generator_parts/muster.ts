@@ -359,6 +359,7 @@ class RawTable {
   protected PageLimit: number = 10;
   protected PageIndex: number = 0;
   public Columns: any;
+  public ReadOnly: boolean;
 
   constructor (tablename: string) {
     const t = this;
@@ -478,7 +479,6 @@ class Table extends RawTable {
   private selectedRow: any;
   private customFormCreateOptions: any = {};
   private diffFormCreateObject: any = {};
-  private ReadOnly: boolean;
   private TableType: TableType = TableType.obj;
   private GUIOptions = {
     maxCellLength: 50,
@@ -512,17 +512,12 @@ class Table extends RawTable {
     this.TableType = this.getConfig().table_type;
     this.setSort(this.getConfig().stdsorting);
 
-    this.setReadOnly(this.getConfig().mode == 'ro');
+    this.ReadOnly = (this.getConfig().mode == 'ro');
 
     if (this.getConfig().se_active)
       this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
     if (!this.ReadOnly)
       this.diffFormCreateObject = JSON.parse(this.getConfig().formcreate);
-  }
-  public setReadOnly(isRO: boolean) {
-    this.ReadOnly = isRO;
-    if (this.ReadOnly && this.selType == SelectType.NoSelect)
-      this.GUIOptions.showControlColumn = false;
   }
   public isRelationTable() {
     return (this.TableType !== TableType.obj);
@@ -773,8 +768,6 @@ class Table extends RawTable {
         callback();
     })
   }
-
-
   private getDefaultFormObject(): any {
     const me = this
     let FormObj = {};
@@ -788,129 +781,10 @@ class Table extends RawTable {
     }
     return FormObj;
   }
-
-  //--------------------------------------------------
-  
-  /*
-  public createEntry(): void {
-    let me = this
-
-    // Object
-    let ModalTitle = this.GUIOptions.modalHeaderTextCreate + `<span class="text-muted ml-3">in ${ this.getTableIcon() + ' ' + this.getTableAlias() }</span>`;
-    let CreateBtns = `<div class="ml-auto mr-0">
-    <button class="btn btn-success btnCreateEntry andReopen" type="button">${this.GUIOptions.modalButtonTextCreate}</button>
-    <button class="btn btn-outline-success btnCreateEntry ml-1" type="button">${this.GUIOptions.modalButtonTextCreate} &amp; Close</button>
-  </div>`;
-    // Relation
-    if (this.TableType !== TableType.obj) {
-      ModalTitle = this.GUIOptions.Relation.createTitle + `<span class="text-muted ml-3">in ${ this.getTableAlias() }</span>`;
-      CreateBtns = `<div class="ml-auto mr-0"><button class="btn btn-success btnCreateEntry" type="button">${this.GUIOptions.Relation.createBtnRelate}</button></div>`;
-    }
-    
-    //--- Overwrite and merge the differences from diffObject
-    let defFormObj = me.getDefaultFormObject();
-    const diffFormCreate = me.diffFormCreateObject;
-    let newObj = mergeDeep({}, defFormObj, diffFormCreate);
-    // Custom Form
-    newObj = mergeDeep({}, newObj, this.customFormCreateOptions);
-    //--------------------------------------------------------
-    // In the create form do not show reverse foreign keys
-    // => cannot be related because Element does not exist yet
-    for (const key of Object.keys(newObj)) {
-      if (newObj[key].field_type == 'reversefk')
-        newObj[key].mode_form = 'hi';
-    }
-
-    // Create a new Create-Form
-    const fCreate = new FormGenerator(me, undefined, newObj, null);
-    // Create Modal
-    const M = new Modal(ModalTitle, fCreate.getHTML(), CreateBtns, true);
-    M.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
-    const ModalID = M.getDOMID();
-    fCreate.initEditors();
-  
-    // Bind Buttonclick
-    const btns = document.getElementById(ModalID).getElementsByClassName('btnCreateEntry');
-    for (const btn of btns) {
-      btn.addEventListener('click', function(e){
-        e.preventDefault();
-        M.setLoadingState(true);
-        // Read out all input fields with {key:value}
-        let data = fCreate.getValues();
-        const reOpenModal = btn.classList.contains('andReopen');
-        //---> CREATE
-        me.createRow(data, function(r){
-          M.setLoadingState(false);
-          //---> created          
-          let msgs = r;
-          // Handle Transition Feedback
-          let counter = 0; // 0 = trans, 1 = in -- but only at Create!
-          msgs.forEach(msg => {
-            // Show Message
-            if (msg.show_message) {
-              const stateEntry = msg['_entry-point-state'];
-              const stateTo = me.renderStateButton(stateEntry['id'], false);
-              let tmplTitle = '';
-              if (counter == 0) tmplTitle = `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>`;
-              if (counter == 1) tmplTitle = `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>`;
-              let resM = new Modal(tmplTitle, msg.message);
-              resM.options.btnTextClose = me.GUIOptions.modalButtonTextModifyClose;
-              resM.show();
-            }
-            // Check if Element was created
-            if (msg.element_id) {
-              // Success?
-              if (msg.element_id > 0) {
-                console.info('Element created! ID:', msg.element_id);
-                // load rows and render Table
-                me.loadRows(function(){
-                  me.renderContent();
-                  me.renderFooter();
-                  me.renderHeader();
-                  me.onEntriesModified.trigger();
-                  // Reopen Modal => Modal should stay open
-                  if (reOpenModal) {
-                    me.modifyRow(msg.element_id, M);
-                  }
-                  else
-                    M.close();
-                })
-              }
-            }
-            else {
-              // ElementID is defined but 0 => the transscript aborted
-              if (msg.element_id == 0) {
-                alert(msg.errormsg);
-                //$('#'+ModalID+' .modal-body').prepend(`<div class="alert alert-danger" role="alert"><b>Database Error!</b>&nbsp;${msg.errormsg}</div>`);
-              }
-            }
-            // Special Case for Relations (reactivate them)
-            if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {
-              // load rows and render Table
-              me.loadRows(function(){
-                me.renderContent();
-                me.renderFooter();
-                me.renderHeader();
-                me.onEntriesModified.trigger();
-                M.close();
-              })
-            }
-            counter++;
-          });
-
-        });
-      })
-    }    
-    // Show Modal
-    M.show();
-    fCreate.refreshEditors();
-  }
-  */
-    
-  public modifyRow(id: number, ExistingModal: Modal = null) {
+  //--------------------------------------------------   
+  public modifyRow(id: number) {
     let t = this
     const pcname = t.getPrimaryColname();
-
     // Check Selection-Type
     if (t.selType == SelectType.Single) {
       //------------------------------------ SINGLE SELECT
@@ -921,16 +795,9 @@ class Table extends RawTable {
           break;
         }
       }
-      t.isExpanded = false;
-      // Render HTML
-      t.renderContent();
-      t.renderHeader();
-      t.renderFooter();
+      document.getElementById(t.GUID).parentElement.innerHTML = `<span class="text-muted">${t.getTablename() + ' &rarr; ' + id}</span>`;
+
       t.onSelectionChanged.trigger();
-      // when clicking create from FK-Selector
-      if (ExistingModal) {
-        ExistingModal.close();
-      }
       return
     }
     else {
@@ -948,7 +815,7 @@ class Table extends RawTable {
       if (t.SM) {
         //-------- EDIT-Modal WITH StateMachine
         const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
-        t.renderEditForm(TheRow, diffJSON, ExistingModal);
+        t.renderEditForm(TheRow, diffJSON, null);
       }
       else {
         //-------- EDIT-Modal WITHOUT StateMachine
@@ -960,13 +827,13 @@ class Table extends RawTable {
           const v = TheRow[key];
           FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
         }
-        const guid = (ExistingModal) ? ExistingModal.getDOMID() : null;
+        const guid = null;
         // Set default values
         for (const key of Object.keys(TheRow)) {
           FormObj[key].value = TheRow[key];
         }
         const fModify = new FormGenerator(t, id, FormObj, guid);
-        const M: Modal = ExistingModal || new Modal('', '', '', true);
+        const M: Modal = new Modal('', '', '', true);
         M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
         M.setContent(fModify.getHTML());
         fModify.initEditors();
@@ -987,8 +854,6 @@ class Table extends RawTable {
         for (const btn of btnsSave) {
           btn.addEventListener('click', function(e){
             e.preventDefault();
-            const closeModal = btn.classList.contains('andClose');
-            //t.saveEntry(M, fModify.getValues(), closeModal);
           })
         }
        // Add the Primary RowID
@@ -1166,7 +1031,6 @@ class Table extends RawTable {
   }
   private htmlHeaders(colnames) {
     let t = this;
-
     let th = '';
 
     // Pre fill with 1 because of selector
@@ -1177,9 +1041,11 @@ class Table extends RawTable {
         th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">'+
         '<a href="'+ location.hash + '/' + t.getTablename() + '/create"><i class="fa fa-link text-success"></i></a>';
 
-        const demoTable = 'sqms2_syllabuselement';
-        th += '<a class="ml-2" href="'+ location.hash + '/' + t.getTablename() + '/create/'+demoTable+'/create"><i class="fa fa-plus text-success"></i></a></th>';
+        const colN = colnames[1];
+        const colM = colnames[2];
+        const objTable2 = t.Columns[colM].foreignKey.table;
 
+        th += '<a class="ml-2" href="'+ location.hash + '/' + t.getTablename() + '/create/'+ objTable2 +'/create"><i class="fa fa-plus text-success"></i></a></th>';
       }
       else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
         th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="'+ location.hash + '/' + t.getTablename() + 
@@ -1232,32 +1098,30 @@ class Table extends RawTable {
     }
     return th;
   }
+  /*
   private getHeader(): string {
     let t = this
     const hasEntries = t.Rows && (t.Rows.length > 0);
     let NoText: string = 'No Objects';
     if (t.TableType != TableType.obj) NoText = 'No Relations';
     let Text: string = '';
-
     // TODO: 
     // Pre-Selected Row
     if (t.selectedRow) {
-        // Set the selected text -> concat foreign keys
-        const vals = recflattenObj(t.selectedRow);
-        Text = '' + vals.join(' | ');
+      // Set the selected text -> concat foreign keys
+      const vals = recflattenObj(t.selectedRow);
+      Text = '' + vals.join(' | ');
     } else {
       Text = t.getSearch(); // Filter was set
     }
-
-    /*const searchBar = `<div class="form-group m-0 p-0 mr-1">
+    const searchBar = `<div class="form-group m-0 p-0 mr-1">
       <input type="text" ${ (!hasEntries ? 'readonly disabled ' : '') }class="form-control${ (!hasEntries ? '-plaintext' : '') } w-100 filterText"
         ${ (Text != '' ? ' value="' + Text + '"' : '') }
         placeholder="${ (!hasEntries ? NoText : t.GUIOptions.filterPlaceholderText) }">
-    </div>`;*/
+    </div>`;
     const btnExpand = `<button class="btn btn-light btnExpandTable ml-auto mr-0" title="Expand or Collapse Table" type="button">
       ${ t.isExpanded ? '<i class="fa fa-chevron-up"></i>' : '<i class="fa fa-chevron-down"></i>' }
     </button>`;
-
     /*
     const formParams = encodeURI(JSON.stringify(t.customFormCreateOptions));
     const btnCreate = `<a href="#/${t.getTablename()}/create/${formParams}" class="btn btn-${
@@ -1265,10 +1129,7 @@ class Table extends RawTable {
       'outline-success' : 'success'} btnCreateEntry mr-1">
     ${ t.TableType != TableType.obj ?
       '<i class="fa fa-link"></i><span class="d-none d-md-inline pl-2">Add Relation</span>' : ''} </a>`;
-    */
-
-    // Concat HTML
-    /*let html: string = '<div class="tbl_header form-inline">';  
+    let html: string = '<div class="tbl_header form-inline">';  
     /*  
     if  (t.selType === SelectType.NoSelect && ((!t.PageLimit && t.TableType !== TableType.obj) || t.actRowCount <= t.PageLimit)) {}
     else html += searchBar;
@@ -1279,14 +1140,13 @@ class Table extends RawTable {
     {}
     else if (!t.ReadOnly)
       html += btnCreate;
-
     if (t.selType === SelectType.Single && hasEntries)
       html += btnExpand;
     html += '</div>';
-    */
-
     return '';
   }
+  */
+  
   private getContent(): string {
     let t = this
     let tds: string = '';
@@ -1311,16 +1171,14 @@ class Table extends RawTable {
       }
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn) {
-
         //const path = location.hash;
         //const escPath = path.replace(/\//g, ";");
-
         data_string = `<td scope="row" class="controllcoulm align-middle border-0">
           ${ (t.selType == SelectType.Single ? (isSelected ? 
               '<i class="far fa-check-circle"></i>' :
               '<span class="modRow"><i class="far fa-circle"></i></span>'
-            
-            ) : ( t.TableType == TableType.obj ?
+            )
+            : ( t.TableType == TableType.obj ?
               `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
               `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`)
             )
@@ -1413,56 +1271,6 @@ class Table extends RawTable {
     </div>`;
   }
   //---------------------------------------- Render (Events etc.)
-  private renderHeader() {
-    //let t = this;
-    //const tableEl = document.getElementById(t.GUID).parentElement;
-    // Replace new HTML
-    //tableEl.getElementsByClassName('tbl_header')[0].innerHTML = t.getHeader();
-    //------------------------------------------ Events
-    // Edit Row    
-    /*
-    async function filterEvent(t: Table) {
-      t.PageIndex = 0; // jump to first page
-      const element = <HTMLInputElement>tableEl.getElementsByClassName('filterText')[0];
-      const filterText = element.value;
-      t.setSearch(filterText);
-      t.loadRows(async function(){
-        await t.renderFooter();
-        await t.renderContent();
-      })
-    }
-    let el = null;
-    // hitting Return on searchbar at Filter (OK)
-    el = tableEl.getElementsByClassName('filterText')[0];
-    if (el) el.addEventListener('keydown', function(e: KeyboardEvent){
-      if (e.keyCode == 13) { e.preventDefault(); filterEvent(t); }
-    });
-    // Show Workflow Button clicked
-    el = tableEl.getElementsByClassName('btnShowWorkflow')[0];
-    if (el) el.addEventListener('click', function(e){
-      const btn = event.target || event.srcElement;
-      e.preventDefault();
-      document.getElementById('router').innerHTML += '<li class="breadcrumb-item"><a href="#sqms2_topic">Workflow</a></li>';
-      //console.log("Workflow Button has been clicked");
-      t.SM.renderHTML(tableEl.querySelector('.tbl_content'));
-    });
-    */
-    // Create Button clicked
-    /*
-    el = tableEl.getElementsByClassName('btnCreateEntry')[0];
-    if (el) el.addEventListener('click', function(e){ e.preventDefault(); t.createEntry(); });
-    */
-    // Expand Table
-    /*
-    const el = tableEl.getElementsByClassName('btnExpandTable')[0];
-    if (el) el.addEventListener('click', function(e){ e.preventDefault();
-      t.isExpanded = !t.isExpanded;
-      t.renderContent();
-      t.renderHeader();
-      t.renderFooter();
-    });
-    */
-  }
   private async renderContent() {
     let t = this;
     const output = await t.getContent();
@@ -1492,6 +1300,7 @@ class Table extends RawTable {
           const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
           const Tablename = RowData[0];
           const ID = RowData[1];
+
           console.log("modRow: ", Tablename, ' -> ', ID);
           if (t.getTablename() !== Tablename) {
             // External Table
@@ -1587,11 +1396,10 @@ class Table extends RawTable {
   }
   public async renderHTML(DOM_ID: string) {
     // GUI
-    const content = this.getHeader() + await this.getContent() + this.getFooter();
+    const content = await this.getContent() + this.getFooter();
     const el = document.getElementById(DOM_ID);
     if (el) {
       el.innerHTML = content;
-      await this.renderHeader();
       await this.renderContent();
       await this.renderFooter();
     }
@@ -1717,7 +1525,7 @@ class FormGenerator {
       const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table;
       //console.log(this.oTable.getTablename() ,' -> [' + extTablename + ':' + extTable.getTableType() + '] -> ', tablenameM);
 
-      extTable.setReadOnly(el.mode_form == 'ro');
+      extTable.ReadOnly = (el.mode_form == 'ro');
 
       if (extTable.isRelationTable()) {
         // Relation:
@@ -1993,9 +1801,7 @@ function loadFKTable(element, tablename, customfilter): void {
   tmpTable.loadRows(rows => {
     if (rows["count"] == 0) {
       //console.log('origin -->', location.hash);
-
       // Das ist der sonderfall mit create -> create
-
       document.getElementById(randID).innerHTML = 
         '<p class="text-muted mt-2"><span class="mr-3">No Entries found</span><a class="btn btn-success" href="'+
           location.hash + '/' + tmpTable.getTablename() + '/create">Create</a></p>';

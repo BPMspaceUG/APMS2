@@ -14,7 +14,6 @@ import modifyView from './views/modify.js';
 const routes = [
   new Route('dashboard', '/', dashboardView),
   //-- CREATE
-  //new Route('create', '/:table/create/:p', createView), // with Parameters
   new Route('create', '/:table/create', createView),
   new Route('workflow', '/:table/workflow', workflowView),
   new Route('modify', '/:table/:id', modifyView),

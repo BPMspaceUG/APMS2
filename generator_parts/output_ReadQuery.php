@@ -78,8 +78,7 @@ class ReadQuery {
       ($forCounting ? '' : $this->getLimit());
   }
   public function getCountStmtWOLimits() {
-    $sql = "SELECT COUNT(*) FROM (" . $this->getStatement(true) . ") AS n";
-    return $sql;
+    return "SELECT COUNT(*) FROM (" . $this->getStatement(true) . ") AS n";
   }
   public function getValues() {
     if (is_null($this->filter)) return [];
