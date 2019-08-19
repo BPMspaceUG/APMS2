@@ -2,35 +2,29 @@
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
-  function generateConfig($dbUser, $dbPass, $dbServer, $dbName, $urlLogin, $secretKey) {
+  function generateConfig($user = "", $pass = "", $host = "", $name = "", $urlLogin = "", $secretKey = "") {
     global $act_version_link;
-    return  "<?php
-    // APMS Generated Project (".date("Y-m-d H:i:s").")
-    // Version: $act_version_link
-    // ==================================================
-    //-- Database
-    define('DB_USER', '$dbUser');
-    define('DB_PASS', '$dbPass');
-    define('DB_HOST', '$dbServer');
-    define('DB_NAME', '$dbName');
+    $data = "<?php\n";
+    // Dont change every time
+    if (!(empty($user) && empty($pass) && empty($host) && empty($name) && empty($urlLogin) && empty($secretKey)))
+      $data .= "
+      // APMS Generated Project (".date("Y-m-d H:i:s").")
+      // Version: $act_version_link
+      // ==================================================";
+    $data .= "//-- Database
+    define('DB_USER', '$user');
+    define('DB_PASS', '$pass');
+    define('DB_HOST', '$host');
+    define('DB_NAME', '$name');
     //-- Authentication + API
-    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service which returns a JWT-Token
-    define('AUTH_KEY', '$secretKey'); // AuthKey which also has to be known by the Authentication-Service
+    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service -> returns a JWT-Token
+    define('AUTH_KEY', '$secretKey'); // Shared AuthKey which has to be known by the Authentication-Service
     ";
-  }
-  function loadFile($fname) {
-    $fh = fopen($fname, "r");
-    $content = stream_get_contents($fh);
-    fclose($fh);
-    return $content;
+    return $data;
   }
   function createSubDirIfNotExists($dirname) {
     if (!is_dir($dirname))
       mkdir($dirname, 0750, true);
-  }  
-  function createFile($filename, $content) {
-    file_put_contents($filename, $content);
-    chmod($filename, 0660);
   }
 
   // Global Variables
@@ -38,12 +32,14 @@
   $content = "";
 	// Load data from Angular
   if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
-    $_REQUEST = json_decode(file_get_contents('php://input'), true);  
+    $_REQUEST = json_decode(file_get_contents('php://input'), true);
+
   // Parameters
   $db_server = $_REQUEST['host'];
   $db_user = $_REQUEST['user'];
   $db_pass = $_REQUEST['pwd'];
   $db_name = $_REQUEST['db_name'];
+
   $data = $_REQUEST['data'];
   $createRoleManagement = $_REQUEST['create_RoleManagement'];
   $createHistoryTable = $_REQUEST['create_HistoryTable'];
@@ -63,17 +59,18 @@
     if (!is_dir('../../APMS_test')) {
       mkdir('../../APMS_test', 0750, true);
       echo "APMS_test Directory created!\n";
-    } else {
-      echo "APMS_test Directory found.\n";
     }
+    else
+      echo "APMS_test Directory found.\n";
   }
   echo "\n";
   // ---------------------- Get actual Version of APMS
   $filepath = __DIR__."/../.git/refs/heads/master";
   $act_version = trim(@file_get_contents($filepath));
-  $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/" . $act_version;
-  echo "Generator-Version: " . $act_version . "\n";
-  // Open a new DB-Connection
+  $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/".$act_version;
+
+  echo "Generator-Version: ".$act_version."\n";
+
   define('DB_HOST', $db_server);
   define('DB_NAME', $db_name);
   define('DB_USER', $db_user);
@@ -164,20 +161,26 @@
       $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
       $cols = $table["columns"];
       if ($table_type != 'obj') {
-        //----------- RELATION Table
+        //====================================
+        //----------- RELATION
+        //====================================        
+        /*
         echo "Create Relation Scripts ($table_type)\n";
         // Load Template
-        $templateScript = loadFile("./../template_scripts/".$table_type.".php");
+        $templateScript = file_get_contents("./../template_scripts/".$table_type.".php");
         $templateScript = str_replace("<?php", '', $templateScript); // Remove first chars ('<?php')
         $templateScript = substr($templateScript, 2); // Remove newline char
         $res = $SM->createRelationScripts($templateScript);
         echo "-----------------------------";
         echo ($res == 0 ? 'OK' : 'Fail');
         echo "\n\n";
+        */
       }
       else {
-        //----------- OBJECT Table
-        // TODO: Create Basic form and set RO, RW
+        //====================================
+        //----------- OBJECT
+        //====================================
+        // Create Basic form and set RO, RW
         $rights_ro = [];
         // for all columns and virtual-columns
         foreach ($cols as $colname => $col) {
@@ -195,12 +198,12 @@
           $formData = $SM->getFormDataByStateID($state["id"]);
           if (strlen($formData) == 0) {
             // check if statename contains the phrase "active"
-            if (strpos($state["name"], "active") !== FALSE) {
+            if (strpos($state["name"], "active") !== FALSE)
               $SM->setFormDataByStateID($state["id"], $formDataRO);
-            }
           }
         }
       }
+
       // Exclude the following Columns:
       $excludeKeys = Config::getPrimaryColsByTablename($tablename, $data);
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData
@@ -215,7 +218,7 @@
       $SM = new StateMachine($con, $tablename); // Load correct Machine
       $EP_ID = $SM->getEntryPoint();
       $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD COLUMN `state_id` BIGINT(20) DEFAULT $EP_ID;";
-      $queries .= $queries;
+      //$queries .= $queries;
       $con->query($sql);
       // Generate CSS-Colors for states
       $allstates = $SM->getStates();
@@ -251,6 +254,7 @@
   $url_apiscript = '/APMS_test/'.$db_name.'/api.php';
   $API_url = $url_host.$url_apiscript;
   $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
+
   // TODO: Workaround
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
@@ -269,21 +273,22 @@
         </div>
       </li>
     </ul>
-  </div>';  
-  // ------------------- Load complete Project
-  $class_StateEngine = loadFile("./output_StateEngine.php");
-  $output_RequestHandler = loadFile("./output_RequestHandler.php");  
-  $output_DBHandler = loadFile("./output_DatabaseHandler.php");
-  $output_AuthHandler = loadFile("./output_AuthHandler.php");
-  $output_ReadQuery = loadFile("./output_ReadQuery.php");
-  $output_API = loadFile("./output_API.php");
-  $output_css = loadFile("./muster.css");
-  $output_JS = loadFile("./muster.js");
-  $output_header = loadFile("./output_header.html");
-  $output_content = loadFile("./output_content.html");
-  $output_footer = loadFile("./output_footer.html");
-  $output_index = loadFile("./output_index.php");
-  //  ------------------- Insert Code into Templates
+  </div>';
+  //------------------- Load complete Project
+  $class_StateEngine = file_get_contents("./output_StateEngine.php");
+  $output_RequestHandler = file_get_contents("./output_RequestHandler.php");  
+  $output_DBHandler = file_get_contents("./output_DatabaseHandler.php");
+  $output_AuthHandler = file_get_contents("./output_AuthHandler.php");
+  $output_ReadQuery = file_get_contents("./output_ReadQuery.php");
+  $output_API = file_get_contents("./output_API.php");
+  $output_css = file_get_contents("./muster.css");
+  $output_JS = file_get_contents("./muster.js");
+  $output_header = file_get_contents("./output_header.html");
+  $output_content = file_get_contents("./output_content.html");
+  $output_footer = file_get_contents("./output_footer.html");
+  $output_index = file_get_contents("./output_index.php");
+
+  //------------------- Insert Code into Templates
   $output_DBHandler = str_replace('replaceDBName', $db_name, $output_DBHandler); // For Config-Include
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
@@ -311,44 +316,43 @@
     createSubDirIfNotExists($project_dir."/src");
     //---- Put Files
     // JavaScript
-    createFile($project_dir."/js/main.js", $output_JS);    
-    createFile($project_dir."/js/app.js", loadFile("./app.js"));
+    file_put_contents($project_dir."/js/main.js", $output_JS);    
+    file_put_contents($project_dir."/js/app.js", file_get_contents("./app.js"));
     // Router
     createSubDirIfNotExists($project_dir."/js/router/");
-    createFile($project_dir."/js/router/Route.js", loadFile("./Route.js"));
-    createFile($project_dir."/js/router/Router.js", loadFile("./Router.js"));
+    file_put_contents($project_dir."/js/router/Route.js", file_get_contents("./Route.js"));
+    file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
     // Views
     createSubDirIfNotExists($project_dir."/js/views/");
     if (!file_exists($project_dir."/js/views/dashboard.js"))
-      createFile($project_dir."/js/views/dashboard.js", loadFile("./viewDashboard.js"));
-    createFile($project_dir."/js/views/create.js", loadFile("./viewCreate.js"));
-    createFile($project_dir."/js/views/read.js", loadFile("./viewRead.js"));
-    createFile($project_dir."/js/views/modify.js", loadFile("./viewModify.js"));
-    createFile($project_dir."/js/views/workflow.js", loadFile("./viewWorkflow.js"));
+    file_put_contents($project_dir."/js/views/dashboard.js", file_get_contents("./viewDashboard.js"));
+    file_put_contents($project_dir."/js/views/create.js", file_get_contents("./viewCreate.js"));
+    file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
+    file_put_contents($project_dir."/js/views/modify.js", file_get_contents("./viewModify.js"));
+    file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
 
     // Styles
-    createFile($project_dir."/css/main.css", $output_css);
+    file_put_contents($project_dir."/css/main.css", $output_css);
     if (!file_exists($project_dir."/css/custom.css"))
-      createFile($project_dir."/css/custom.css", "/* Custom Styles */\n");
+      file_put_contents($project_dir."/css/custom.css", "/* Custom Styles */\n");
     // Serverside-Scripts
-    createFile($project_dir."/src/RequestHandler.inc.php", $output_RequestHandler);
-    createFile($project_dir."/src/StateMachine.inc.php", $class_StateEngine);
-    createFile($project_dir."/src/DatabaseHandler.inc.php", $output_DBHandler);
-    createFile($project_dir."/src/AuthHandler.inc.php", $output_AuthHandler);
-    createFile($project_dir."/src/ReadQuery.inc.php", $output_ReadQuery);
+    file_put_contents($project_dir."/src/RequestHandler.inc.php", $output_RequestHandler);
+    file_put_contents($project_dir."/src/StateMachine.inc.php", $class_StateEngine);
+    file_put_contents($project_dir."/src/DatabaseHandler.inc.php", $output_DBHandler);
+    file_put_contents($project_dir."/src/AuthHandler.inc.php", $output_AuthHandler);
+    file_put_contents($project_dir."/src/ReadQuery.inc.php", $output_ReadQuery);
     // Main Directory
-    createFile($project_dir."/api.php", $output_API);
-    createFile($project_dir."/".$db_name.".inc.html", $output_all);
+    file_put_contents($project_dir."/api.php", $output_API);
+    file_put_contents($project_dir."/".$db_name.".inc.html", $output_all);
     // Index File
-    createFile($project_dir."/index.php", $output_index);
+    file_put_contents($project_dir."/index.php", $output_index);
     // Configuration
-    createFile($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
-    createFile($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig('','','','','','','')); // Example
-    createFile($project_dir."/".$db_name."-config.inc.json", $json);
+    file_put_contents($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
+    file_put_contents($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
+    file_put_contents($project_dir."/".$db_name."-config.inc.json", $json);
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
-      createFile($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
-
+      file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
     //------> Output information
     echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
     echo $queries;

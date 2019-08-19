@@ -233,7 +233,7 @@
         "table_alias" => $table_alias,
         "table_type" => $table == 'state_rules' ? 'n_m' : 'obj', // Default = Object
         "order" => (int)$table_counter,
-        "mode" => "rw",
+        "mode" => "rw", // TODO -> maybe hidden
         "stdfilter" => "",
         "stdsorting" => $sort_col,
         "in_menu" => false,

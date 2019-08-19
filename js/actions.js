@@ -46,11 +46,11 @@ APMS.controller('APMScontrol', function ($scope, $http) {
           if (typeof value === 'object')
             rec_test(obj[key], b[key]);
           else {
-            //console.log(key);
             // Special overwrites
-            if (key === 'col_options' && b[key] === "") {} // Do nothing (= leave server default val)
+            if (key === 'col_options' && b[key] === "")
+              {} // Do nothing (= leave server default val)
             else
-            obj[key] = b[key]; // overwrite
+              obj[key] = b[key]; // overwrite
           }
         }
       });

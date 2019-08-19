@@ -10,9 +10,8 @@ export default props => {
   // Checks
   if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
 
-  const t = new Table(actTable);  
+  const t = new Table(actTable);
   const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
-  //console.log("-> [" + textCommand + "] in Table", actTable);
 
   //--- Set Title  
   window.document.title = textCommand + ' ' + t.getTableAlias();
@@ -85,17 +84,18 @@ export default props => {
               // Success?
               if (msg.element_id > 0) {
                 //-------------------------------------------------------->>>>
-                console.info('Element created! ID:', msg.element_id);
-
+                const x = t.TableType === 'obj' ? 'Object' : 'Relation'
+                console.info(x + ' created! ID:', msg.element_id);
                 // Wenn die Tabelle vor mir eine Relationstabelle ist,
                 // dann erzeuge instant eine neue Relation und springe ins erste Obj.
-
                 // tbl / 1234 / tbl(rel) / create / tbl / [create]
+                //console.log(path);
                 if (path.length > 2) {
                   const cmd = path[path.length-3];
                   const tbl = path[path.length-4];
                   const objID = path[path.length-5];
                   const xTbl = new Table(tbl);
+                  console.log('Relation (N)-----'+tbl+'-----(M)');
                   if (cmd === 'create' && xTbl.TableType !== 'obj') {
                     // Create Relation here
                     const arrColnames = Object.keys(xTbl.Columns);
@@ -112,8 +112,6 @@ export default props => {
                     return;
                   }
                 }
-
-
                 // Redirect.
                 path[path.length-1] = msg.element_id; // replace last element
                 const modifyPathOfNewElement = '#/' + path.join('/'); // Go back at a Relation
@@ -159,15 +157,16 @@ export default props => {
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));
   const guiFullPath = guiPath.join(sep);
-
-
+  //------------------------------------------------------------
   let backPath = '#/' + t.getTablename(); // root Table
-  /*if (path.length > 2) {
+  /*
+  TODO: Achtung!!!! Modifiziert Path element
+  if (path.length > 2) {
     path.pop();
     path.pop();
     backPath = '#/' + path.join('/');
-  }*/
-
+  }
+  */
   //--------------
   return `<div>
     <h2>${guiFullPath}</h2>

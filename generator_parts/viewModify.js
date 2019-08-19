@@ -23,6 +23,7 @@ export default props => {
 
   // Get Row by ID
   function initForm() {
+    //console.log('initForm -->', t.getTablename(), ' : ', id);
     t.loadRow(id, row => {
       let actStateID = null;
       let diffObject = {};

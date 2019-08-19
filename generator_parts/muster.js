@@ -778,8 +778,12 @@ class Table extends RawTable {
             if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
                 th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">' +
                     '<a href="' + location.hash + '/' + t.getTablename() + '/create"><i class="fa fa-link text-success"></i></a>';
-                const colN = colnames[1];
-                const colM = colnames[2];
+                const cols = [];
+                colnames.map(col => {
+                    if (t.Columns[col].field_type == 'foreignkey')
+                        cols.push(col);
+                });
+                const colM = cols[1];
                 const objTable2 = t.Columns[colM].foreignKey.table;
                 th += '<a class="ml-2" href="' + location.hash + '/' + t.getTablename() + '/create/' + objTable2 + '/create"><i class="fa fa-plus text-success"></i></a></th>';
             }
@@ -792,7 +796,7 @@ class Table extends RawTable {
             if (t.Columns[colname].show_in_grid) {
                 const ordercol = t.getSortColname();
                 const orderdir = t.getSortDir();
-                th += `<th scope="col" data-colname="${colname}" ${(['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''}class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">` +
+                th += `<th data-colname="${colname}" ${(['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''}class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">` +
                     '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
                     '<div class="float-right pr-3">' + (colname == ordercol ?
                     '&nbsp;' + (orderdir == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (orderdir == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')) + '' : '') +
@@ -845,13 +849,14 @@ class Table extends RawTable {
                 isSelected = (t.selectedRow[pcname] == RowID);
             }
             if (t.GUIOptions.showControlColumn) {
+                const path = location.hash;
                 data_string = `<td scope="row" class="controllcoulm align-middle border-0">
           ${(t.selType == SelectType.Single ? (isSelected ?
                     '<i class="far fa-check-circle"></i>' :
                     '<span class="modRow"><i class="far fa-circle"></i></span>')
                     : (t.TableType == TableType.obj ?
                         `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
-                        `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
+                        `<a href="${path}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
             sortedColumnNames.forEach(function (col) {
