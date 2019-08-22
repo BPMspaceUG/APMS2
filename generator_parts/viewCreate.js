@@ -12,16 +12,13 @@ export default props => {
 
   const t = new Table(actTable);
   const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
-
   //--- Set Title  
   window.document.title = textCommand + ' ' + t.getTableAlias();
 
   //===================================================================
   // Generate HTML from Form
   //===================================================================
-
   const customCreateParams = {}; // Not needed!
-
   //--- Overwrite and merge the differences from diffObject
   const defFormObj = t.getDefaultFormObject();
   const diffFormCreate = t.diffFormCreateObject;
@@ -37,6 +34,7 @@ export default props => {
   }
   const fCreate = new FormGenerator(t, undefined, newObj, null);
   const HTML = fCreate.getHTML();
+
   //---------------------------------------------------
   // After HTML is placed in DOM
   setTimeout(() => {
@@ -64,7 +62,7 @@ export default props => {
         //---> CREATE
         t.createRow(data, function(r){
           //---> created
-          let msgs = r;
+          const msgs = r;
           // Handle Transition Feedback
           let counter = 0; // 0 = trans, 1 = in -- but only at Create!
           msgs.forEach(msg => {
@@ -84,42 +82,50 @@ export default props => {
               // Success?
               if (msg.element_id > 0) {
                 //-------------------------------------------------------->>>>
-                const x = t.TableType === 'obj' ? 'Object' : 'Relation'
-                console.info(x + ' created! ID:', msg.element_id);
+                console.info(t.TableType === 'obj' ? 'Object' : 'Relation' + ' created! ID:', msg.element_id);
+
                 // Wenn die Tabelle vor mir eine Relationstabelle ist,
                 // dann erzeuge instant eine neue Relation und springe ins erste Obj.
-                // tbl / 1234 / tbl(rel) / create / tbl / [create]
-                //console.log(path);
+
+                // origObj/1234  / tbl(rel)/create / newObj/create
+                //console.log('Path', path);
+
                 if (path.length > 2) {
-                  const cmd = path[path.length-3];
-                  const tbl = path[path.length-4];
-                  const objID = path[path.length-5];
-                  const xTbl = new Table(tbl);
-                  console.log('Relation (N)-----'+tbl+'-----(M)');
-                  if (cmd === 'create' && xTbl.TableType !== 'obj') {
+                  const relCmd = path[path.length-3];
+                  const relTablename = path[path.length-4];
+                  const relTable = new Table(relTablename);
+                  const origObjID = path[path.length-5];
+                  
+                  if (relCmd === 'create' && relTable.TableType !== 'obj') {
+                    console.log('Relation (N)-----'+relTablename+'-----(M)');
                     // Create Relation here
-                    const arrColnames = Object.keys(xTbl.Columns);
+                    const arrColnames = Object.keys(relTable.Columns);
                     let newRow = {};
-                    newRow[arrColnames[1]] = objID;
-                    newRow[arrColnames[2]] = msg.element_id;
-                    DB.request('create', {table: tbl, row: newRow}, function(){
-                      // <-- Go Back
-                      path.pop(); path.pop(); path.pop(); path.pop();
+                    newRow[arrColnames[1]] = origObjID; // origin ObjectID
+                    newRow[arrColnames[2]] = msg.element_id; // new ObjectID
+                    // Create Relation
+                    DB.request('create', {table: relTablename, row: newRow}, function(resp2){
+                      const RelID = resp2[1].element_id;
+                      // Replace both Creates
+                      path[path.length-1] = msg.element_id;
+                      path[path.length-3] = RelID;
+                      // Remove Relation
+                      path.splice(path.length-4, 2);
                       const modifyPathOfNewElement = '#/' + path.join('/'); // Go back to first Object
+                      //console.log(1, '------->', RelID);
                       document.location.assign(modifyPathOfNewElement);
                       return;
                     });
                     return;
                   }
-                }
+                }                
                 // Redirect.
                 path[path.length-1] = msg.element_id; // replace last element
                 const modifyPathOfNewElement = '#/' + path.join('/'); // Go back at a Relation
                 // Redirect
+                //console.log(2, '------->', modifyPathOfNewElement);
                 document.location.assign(modifyPathOfNewElement);
                 return;
-
-
               }
             }
             else {
@@ -146,7 +152,11 @@ export default props => {
   }, 10);
 
 
+
+
+
   // Path
+  /*
   const sep = '<span class="mx-1">&rarr;</span>';
   const guiPath = [];
   const count = path.length / 2;
@@ -157,16 +167,26 @@ export default props => {
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));
   const guiFullPath = guiPath.join(sep);
-  //------------------------------------------------------------
-  let backPath = '#/' + t.getTablename(); // root Table
-  /*
-  TODO: Achtung!!!! Modifiziert Path element
-  if (path.length > 2) {
-    path.pop();
-    path.pop();
-    backPath = '#/' + path.join('/');
-  }
   */
+  const guiPath = [];
+  const count = path.length / 2;
+  function getPart(table, id) {
+    const _t = new Table(table);
+    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableAlias()}:${id}</a>`;
+  }
+  for (let i = 0; i < count; i++)
+    guiPath.push(getPart(path[2*i], path[2*i+1]));      
+  const guiFullPath = guiPath.join('<span class="mx-1">&rarr;</span>');
+  //===========<====== Back 2 Items or 4
+  let backPath = '#/' + t.getTablename();
+  const copiedPath = path.slice();
+  if (copiedPath.length > 2) {
+    while (copiedPath[copiedPath.length-1] === 'create') {
+      copiedPath.pop();
+      copiedPath.pop();      
+    }
+    backPath = '#/' + copiedPath.join('/');
+  }
   //--------------
   return `<div>
     <h2>${guiFullPath}</h2>

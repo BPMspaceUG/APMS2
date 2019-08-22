@@ -24,21 +24,13 @@ body {margin-bottom: 60px;}
 /* Forms */
 #formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 #formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
-
 .customfooter {width: 100%;}
-.CodeMirror {
-    border: 1px solid #ced4da;
-    font-size: .85em;
-}
+.CodeMirror {border: 1px solid #ced4da; font-size: .85em;}
 
 /* StateEngine */
-.btnGridState {padding: .25em .5em; margin-top: -.5em; font-size: .75em;}
-.btnGridState:hover {color: white;}
-.label-state {background-color: #333; color: white; border: none; white-space: nowrap;}
-.btnStateChange {cursor: pointer; color: white !important;}
-.btnStateChange:hover{color: black !important;}
-
-.btnState:hover {color: white !important; filter: brightness(85%); }
+.btnState {cursor: pointer; color: white !important;}
+.btnState:hover {color: white !important; background-color: #333 !important;}
+.btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em;}
 
 /* State-Colors */
 /*###CSS_STATES###*/

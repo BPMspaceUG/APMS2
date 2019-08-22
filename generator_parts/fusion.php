@@ -289,11 +289,10 @@
   $output_index = file_get_contents("./output_index.php");
 
   //------------------- Insert Code into Templates
-  $output_DBHandler = str_replace('replaceDBName', $db_name, $output_DBHandler); // For Config-Include
+
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
-  $output_index = str_replace('replaceDBName', $db_name, $output_index); // Project Name
   $output_content = str_replace('<!-- replaceAccountHandler -->', $AccountHandler, $output_content); // Account-URL
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
   //===> Compose Main HTML-File
@@ -343,13 +342,13 @@
     file_put_contents($project_dir."/src/ReadQuery.inc.php", $output_ReadQuery);
     // Main Directory
     file_put_contents($project_dir."/api.php", $output_API);
-    file_put_contents($project_dir."/".$db_name.".inc.html", $output_all);
+    file_put_contents($project_dir."/content.inc.html", $output_all);
     // Index File
     file_put_contents($project_dir."/index.php", $output_index);
     // Configuration
-    file_put_contents($project_dir."/".$db_name."-config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
-    file_put_contents($project_dir."/".$db_name."-config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
-    file_put_contents($project_dir."/".$db_name."-config.inc.json", $json);
+    file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
+    file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
+    file_put_contents($project_dir."/config.inc.json", $json);
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");

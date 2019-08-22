@@ -1,6 +1,6 @@
 <?php
   // Includes
-  $config_file = __DIR__."/../replaceDBName-config.SECRET.inc.php";
+  $config_file = __DIR__."/../config.SECRET.inc.php";
   if (file_exists($config_file)) include_once($config_file);
   
   /****************************************************/

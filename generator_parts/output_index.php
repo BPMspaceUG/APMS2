@@ -51,4 +51,4 @@
   }
 
   // Success
-  require_once("replaceDBName.inc.html");
+  require_once("content.inc.html");

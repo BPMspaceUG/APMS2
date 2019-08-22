@@ -25,7 +25,7 @@
   //-------------------------------------------------------
   class Config {
     public static function getConfig() {
-      $filepath = __DIR__.'/../'.DB_NAME.'-config.inc.json';
+      $filepath = __DIR__.'/../config.inc.json';
       if (file_exists($filepath)) return file_get_contents($filepath);
       return null;
     }

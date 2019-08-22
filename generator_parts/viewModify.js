@@ -13,7 +13,6 @@ export default props => {
   if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
   if (isNaN(id)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
 
-
   // Create Table Object
   const t = new Table(actTable);
 
@@ -23,7 +22,7 @@ export default props => {
 
   // Get Row by ID
   function initForm() {
-    //console.log('initForm -->', t.getTablename(), ' : ', id);
+    console.log('initForm -->', t.getTablename(), ' : ', id);
     t.loadRow(id, row => {
       let actStateID = null;
       let diffObject = {};
@@ -168,18 +167,17 @@ export default props => {
   window.document.title = "Modify Entry in " + t.getTableAlias();
   
   // Path
-  const sep = '<span class="mx-1">&rarr;</span>';
   const guiPath = [];
   const count = path.length / 2;
   function getPart(table, id) {
     const _t = new Table(table);
-    return `<a class="text-decoration-none" href="#/${table}">${_t.getTableAlias()}</a>${sep}<span>${id}</span>`;
+    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableAlias()}:${id}</a>`;
   }
   for (let i = 0; i < count; i++)
-    guiPath.push(getPart(path[2*i], path[2*i+1]));
-  const guiFullPath = guiPath.join(sep);
-  
-  let backPath = '#/' + t.getTablename(); // root Table
+    guiPath.push(getPart(path[2*i], path[2*i+1]));      
+  const guiFullPath = guiPath.join('<span class="mx-1">&rarr;</span>');
+  //===========<====== Back 2 Items  
+  let backPath = '#/' + t.getTablename();
   if (path.length > 2) {
     path.pop();
     path.pop();
@@ -195,7 +193,7 @@ export default props => {
       Loading...
     </div>
     <hr>
-    <div class="text-center">
+    <div class="text-center pb-3">
       ${
         t.SM ?
         `<span id="saveBtns"></span><span class="mx-3 text-muted">go to</span><span id="nextstates"></span>` :

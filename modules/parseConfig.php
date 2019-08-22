@@ -24,8 +24,8 @@
 	// check
 	if ($data != "") {
 		// get data
-		$fname_json = __DIR__ . "/../../APMS_test/".$data."/".$data."-config.inc.json";
-		$fname_secret = __DIR__ . "/../../APMS_test/".$data."/".$data."-config.SECRET.inc.php";
+		$fname_json = __DIR__ . "/../../APMS_test/".$data."/config.inc.json";
+		$fname_secret = __DIR__ . "/../../APMS_test/".$data."/config.SECRET.inc.php";
 		//-----------------------
 		if (file_exists($fname_json) && file_exists($fname_secret)) {
 			$jsonFile = file_get_contents($fname_json);

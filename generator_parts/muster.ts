@@ -570,13 +570,11 @@ class Table extends RawTable {
   }
   private setState(data: any, RowID: number, targetStateID: number, callback) {
     let t = this;
-    let actStateID = undefined;
-    const pcname = t.getPrimaryColname();
-
-    console.log("SETSTATE:", t.getTablename(), ':', RowID, '[', actStateID, '-->', targetStateID, ']');
+    let actStateID = null;
+    //console.log("SETSTATE:", t.getTablename(), ':', RowID, '[', actStateID, '-->', targetStateID, ']');
 
     // Get Actual State
-    for (const row of t.Rows) { if (row[pcname] == RowID) actStateID = row['state_id']; }
+    for (const row of t.Rows) { if (row[t.getPrimaryColname()] == RowID) actStateID = row['state_id']; }
     // REQUEST
     t.transitRow(RowID, targetStateID, data, function(response) {
       t.onEntriesModified.trigger();
@@ -720,7 +718,7 @@ class Table extends RawTable {
     if (withDropdown) {
       // Dropdown
       return `<div class="dropdown">
-            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnGridState loadStates btn-sm label-state ${cssClass}"
+            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnState btnGrid loadStates btn-sm label-state ${cssClass}"
               data-stateid="${StateID}" data-toggle="dropdown">${name}</button>
             <div class="dropdown-menu p-0">
               <p class="m-0 p-3 text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading...</p>
@@ -728,7 +726,7 @@ class Table extends RawTable {
           </div>`;
     } else {
       // NO Dropdown
-      return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnGridState btn-sm label-state ${cssClass}">${name}</button>`;
+      return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnState btnGrid btn-sm label-state ${cssClass}">${name}</button>`;
     }
   }
   private formatCellFK(colname: string, cellData: any) {
@@ -1028,7 +1026,7 @@ class Table extends RawTable {
         if (t.PageIndex == t.PageIndex + btnIndex) { // Active
           pgntn += `<li class="page-item active"><span class="page-link">${t.PageIndex + 1 + btnIndex}</span></li>`;
         } else {
-          pgntn += `<li class="page-item"><a class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
+          pgntn += `<li class="page-item"><a href="${window.location}" class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
         }
       })
     }
@@ -1129,11 +1127,14 @@ class Table extends RawTable {
             if (nextstates.length > 0) {
               DropDownMenu.innerHTML = '';
               nextstates.map(state => {
+                // Create New Button-Element
                 const btn = document.createElement('a');
-                btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state'+state.id);
-                btn.text = state.name;
-                btn.addEventListener("click", function(){
-                  t.setState('', ID, state.id, function(){
+                btn.classList.add('dropdown-item', 'btnState', 'state'+state.id);
+                btn.setAttribute('href', 'javascript:void(0)');
+                btn.innerText = state.name;
+                btn.addEventListener("click", function(e){
+                  e.preventDefault();
+                  t.setState({}, ID, state.id, function(){
                     // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
                     t.loadRows(function(){ t.renderContent(); });
                   }); // Refresh same Table (or only the Row)
@@ -1152,10 +1153,11 @@ class Table extends RawTable {
                 DropDownMenu.innerHTML = '';
                 nextstates.map(state => {
                   const btn = document.createElement('a');
-                  btn.classList.add('dropdown-item', 'btnState', 'btnStateChange', 'state'+state.id);
+                  btn.classList.add('dropdown-item', 'btnState', 'state'+state.id);
+                  btn.setAttribute('href', 'javascript:void(0)');
                   btn.text = state.name;
                   btn.addEventListener("click", function(){
-                    tmpTable.setState('', ID, state.id, function(){
+                    tmpTable.setState({}, ID, state.id, function(){
                       // Refresh relation Table
                       t.loadRows(function(){ t.renderContent(); });
                     });
