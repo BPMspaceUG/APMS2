@@ -3,15 +3,25 @@ export default props => {
   const strPath = location.hash;
   const path = strPath.split('/');
   path.shift(); // Remove first element (#)
-  
-  // Get actual Table & ID
-  const actTable = path[path.length - 2];
 
   // Checks
   if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
 
+  // Get actual Table & ID
+  const actTable = path[path.length - 2];
   const t = new Table(actTable);
   const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
+
+  // Legend:
+  // [ -- ] Relation
+  // [ o  ] Object
+
+  // Possibilities:
+  // 1. o      -> Create new Object
+  // 2. --     -> Create new Relation
+  // 3. o--    -> Create new Relation between existing Objects
+  // 4. o--o   -> Create new Object and new Relation coming from an existing Object
+
   //--- Set Title  
   window.document.title = textCommand + ' ' + t.getTableAlias();
 
@@ -26,12 +36,29 @@ export default props => {
   // Custom Form
   newObj = mergeDeep({}, newObj, customCreateParams);
   //--------------------------------------------------------
-  // In the create form do not show reverse foreign keys
-  // => cannot be related because Element does not exist yet
+  // HIDE Reverse Foreign Keys (==> Create!) => can't be related - Object doesn't exist yet
   for (const key of Object.keys(newObj)) {
     if (newObj[key].field_type == 'reversefk')
       newObj[key].mode_form = 'hi';
   }
+
+  //=> Case 3
+  // is add Relation and Coming from an Object? => then preselect object
+  if (path.length > 2 && t.TableType !== 'obj') {
+    let key = null;
+    const tbl = path[path.length-4];
+    for (const colname of Object.keys(t.Columns)) {
+      const col = t.Columns[colname];
+      if (col.field_type == 'foreignkey' && col.foreignKey.table == tbl) {
+        key = colname;
+        break;
+      }
+    }
+    const origObjID = path[path.length-3];
+    newObj[key].value = origObjID;
+    newObj[key].mode_form = 'ro';
+  }
+
   const fCreate = new FormGenerator(t, undefined, newObj, null);
   const HTML = fCreate.getHTML();
 
@@ -39,9 +66,7 @@ export default props => {
   // After HTML is placed in DOM
   setTimeout(() => {
     fCreate.initEditors();
-
-    //--- FOCUS First Element
-    // TODO: check if is foreignKey || HTMLEditor
+    //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
     const elem = document.getElementsByClassName('rwInput')[0];
     if (elem) {
       const elemLen = elem.value.length;
@@ -148,7 +173,7 @@ export default props => {
         });
       });
     }
-
+    //---
   }, 10);
 
 
@@ -156,23 +181,11 @@ export default props => {
 
 
   // Path
-  /*
-  const sep = '<span class="mx-1">&rarr;</span>';
   const guiPath = [];
   const count = path.length / 2;
   function getPart(table, id) {
     const _t = new Table(table);
-    return `<a class="text-decoration-none" href="#/${table}">${_t.getTableAlias()}</a>${sep}<span>${id}</span>`;
-  }
-  for (let i = 0; i < count; i++)
-    guiPath.push(getPart(path[2*i], path[2*i+1]));
-  const guiFullPath = guiPath.join(sep);
-  */
-  const guiPath = [];
-  const count = path.length / 2;
-  function getPart(table, id) {
-    const _t = new Table(table);
-    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableAlias()}:${id}</a>`;
+    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableIcon() + ' ' + _t.getTableAlias()}:${id}</a>`;
   }
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));      
