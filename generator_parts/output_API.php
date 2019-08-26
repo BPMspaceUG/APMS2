@@ -20,7 +20,7 @@
     // Has to be authenicated via a external token
     $rawtoken = JWT::getBearerToken();
     try {
-      $token = JWT::decode($rawtoken, AUTH_KEY);
+      $tokendata = JWT::decode($rawtoken, AUTH_KEY);
     }
     catch (Exception $e) {
       // Invalid Token!
@@ -28,14 +28,15 @@
       die(json_encode(['error' => ['msg' => "Please use a Token for authentication."]]));
     }
     // Token is valid but expired?
-    if (property_exists($token, "exp")) {
-      if (($token->exp - time()) <= 0) {
+    // TODO: Only set iss timestamp in Token!!!
+    if (property_exists($tokendata, "exp")) {
+      if (($tokendata->exp - time()) <= 0) {
         http_response_code(401);
         die(json_encode(['error' => ['msg' => "This Token has expired. Please renew your Token."]]));
       }
     }
   }
-  //========================================= Parameter & Handling  
+  //========================================= Parameter & Handling
   try {
     $bodyData = json_decode(file_get_contents('php://input'), true);
     //--> Check Methods (GET, POST, PATCH)
@@ -46,10 +47,6 @@
       if (count($param) <= 0) {
         $command = 'init';
         $param = null;
-      } else {
-        // TODO: Check if Token is allowed to READ
-        //$allowedTablenames = array_keys($this->getConfigByRoleID($token->uid));
-        //if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
       }
     }
     else if ($ReqMethod === 'POST') {
@@ -62,14 +59,26 @@
       $command = 'update'; // TODO: transit
       $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
     }
-    else
+    else {
+      http_response_code(405);
       die(json_encode(['error' => ['msg' => "HTTP-Method not supported!"]]));
+    }
   }
   catch (Exception $e) {
+    http_response_code(400);
     die(json_encode(['error' => ['msg' => "Invalid data sent to API."]]));
   }
-
   //========================= Handle the Requests
 
-  $result = api(["cmd" => $command, "param" => $param]);
+  // Rights Management
+
+  // TODO: Check if Token is allowed to execute the Command
+  /*
+  $allowedTablenames = array_keys(Config::getConfigByRoleID($token->uid));
+  $tablename = $param["table"];
+  if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
+  */
+
+  $result = api(["cmd" => $command, "param" => $param], $tokendata);
+  // ========>
   echo $result;

@@ -22,7 +22,7 @@ export default props => {
 
   // Get Row by ID
   function initForm() {
-    console.log('initForm -->', t.getTablename(), ' : ', id);
+    //console.log('initForm -->', t.getTablename(), ' : ', id);
     t.loadRow(id, row => {
       let actStateID = null;
       let diffObject = {};
@@ -171,7 +171,7 @@ export default props => {
   const count = path.length / 2;
   function getPart(table, id) {
     const _t = new Table(table);
-    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableAlias()}:${id}</a>`;
+    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableIcon() + ' ' + _t.getTableAlias()}:${id}</a>`;
   }
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));      
@@ -196,7 +196,9 @@ export default props => {
     <div class="text-center pb-3">
       ${
         t.SM ?
-        `<span id="saveBtns"></span><span class="mx-3 text-muted">go to</span><span id="nextstates"></span>` :
+        `<span id="saveBtns"></span>
+        <span class="mx-3 text-muted">Go to</span>
+        <span id="nextstates"></span>` :
         `<a class="btn btn-primary btnSave" href="#/${props.table}">Save</a>`
       }
       <span class="mx-3 text-muted">or</span>

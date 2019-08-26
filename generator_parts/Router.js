@@ -20,12 +20,12 @@ export default class Router {
 		let routeMatch = requestPath.match(new RegExp(regexPath));
 		if(routeMatch !== null) {
 			params = routeMatch
-				.slice(1)
-				.reduce((params, value, index) => {
-					if(params === null) params = {};
-					params[paramNames[index]] = value;
-					return params;
-				}, null);
+			.slice(1)
+			.reduce((params, value, index) => {
+				if(params === null) params = {};
+				params[paramNames[index]] = value;
+				return params;
+			}, null);
 		}
 		route.setProps(params);
 		return routeMatch;

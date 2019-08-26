@@ -6,12 +6,12 @@
   $file_AH = __DIR__."/AuthHandler.inc.php"; if (file_exists($file_AH)) include_once($file_AH);
 
   // Global function for StateMachine
-  function api($data) {
+  function api($data, $token = null) {
     // Do not even connect outside -> just call the functions internally
     $cmd = $data["cmd"];
     $param = $data["param"];
     if ($cmd != "") {
-      $RH = new RequestHandler();
+      $RH = new RequestHandler($token);
       if (!is_null($param)) // are there parameters?
         $result = $RH->$cmd($param); // execute with params
       else
@@ -191,109 +191,17 @@
   }
 
   class RequestHandler {
+    private $token = null;
+
+    public function __construct($tokendata = null) {
+      $this->token = $tokendata;
+    }
     private static function splitQuery($row) {
       $res = array();
       foreach ($row as $key => $value) { 
         $res[] = array("key" => $key, "value" => $value);
       }
       return $res;
-    }
-    private function readRowByPrimaryID($tablename, $ElementID) {
-      $primColName = Config::getPrimaryColNameByTablename($tablename);
-
-      $result = NULL;
-      $pdo = DB::getInstance()->getConnection();
-      $stmt = $pdo->prepare("SELECT * FROM $tablename WHERE $primColName = ?");
-      $stmt->execute(array($ElementID));
-      while($row = $stmt->fetch(PDO::FETCH_NAMED)) {
-        $result = $row;
-      }
-      return $result;
-    }
-    private function getActualStateByRow($tablename, $row) {    
-      $result = -1; // default
-
-      $pkColName = Config::getPrimaryColNameByTablename($tablename);
-      $id = (int)$row[$pkColName];
-      $pdo = DB::getInstance()->getConnection();
-      $stmt = $pdo->prepare("SELECT state_id FROM $tablename WHERE $pkColName = ? LIMIT 1");
-      $stmt->execute(array($id));
-      $row = $stmt->fetch();
-
-      $result = $row['state_id'];
-      return $result;
-    }
-    private function validateParamStruct($allowed_keys, $param) {
-      if (!is_array($param)) return false;
-      $keys = array_keys($param);
-      foreach ($keys as $k) {
-        if (!in_array($k, $allowed_keys)) return false;
-      }
-      return true;
-    }
-    private function isValidFilterStruct($input) {
-      return !is_null($input) && is_array($input) && (array_key_exists('all', $input) || array_key_exists('columns', $input));
-    }
-    private function getFormCreate($param) {
-      $tablename = $param["table"];
-      // Check Parameter
-      if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
-      if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-
-      $SM = new StateMachine(DB::getInstance()->getConnection(), $tablename);
-      // StateMachine ?
-      if ($SM->getID() > 0) {
-        // Has StateMachine
-        $r = $SM->getCreateFormByTablename();
-        if (empty($r))
-          $r = "{}"; // default: allow editing (if there are no rules set)
-        else
-          return $r;
-      }
-      return '{}';
-    }
-    private function getNextStates($param) {
-      $tablename = $param["table"];
-      $stateID = $this->getActualStateByRow($tablename, $param['row']);
-      // Check Parameter
-      if (!Config::isValidTablename($tablename)) die('Invalid Tablename!');
-      if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-      // execute query
-      $SE = new StateMachine(DB::getInstance()->getConnection(), $tablename);
-      $res = $SE->getNextStates($stateID);
-      return json_encode($res);
-    }
-    private function logHistory($tablename, $value, $isCreate) {
-      if (Config::hasHistory()) {
-        // Identify via Token
-        /*
-        global $token;
-        $token_uid = -1;
-        if (property_exists($token, 'uid')) $token_uid = $token->uid;
-        */
-        // Write into Database
-        $UserID = 0; // TODO: TokenID
-        $sql = "INSERT INTO History (User_id, History_table, History_valuenew, History_created) VALUES (?,?,?,?)";
-        $pdo = DB::getInstance()->getConnection();
-        $histStmt = $pdo->prepare($sql);
-        $histStmt->execute([$UserID, $tablename, json_encode($value), ($isCreate ? "1" : "0")]);
-      }
-    }  
-    private function inititalizeTable($tablename) {
-      // Init Vars
-      $pdo = DB::getInstance()->getConnection();
-      $param = ["table" => $tablename];
-      $config = json_decode(Config::getConfig(), true);
-      $result = $config[$tablename];
-      // FormCreate
-      $result['formcreate'] = $this->getFormCreate($param);
-      // StateMachine
-      $SE = new StateMachine($pdo, $tablename);
-      if ($SE->getID() > 0) {
-        $result['sm_states'] = $SE->getStates();
-        $result['sm_rules'] = $SE->getLinks();
-      }
-      return $result;
     }
     private static function fmtCell($dtype, $inp) {
       if (is_null($inp)) return null;
@@ -364,6 +272,90 @@
       // Deliver
       return $tree;
     }
+
+    private function readRowByPrimaryID($tablename, $ElementID) {
+      $primColName = Config::getPrimaryColNameByTablename($tablename);
+
+      $result = NULL;
+      $pdo = DB::getInstance()->getConnection();
+      $stmt = $pdo->prepare("SELECT * FROM $tablename WHERE $primColName = ?");
+      $stmt->execute(array($ElementID));
+      while($row = $stmt->fetch(PDO::FETCH_NAMED)) {
+        $result = $row;
+      }
+      return $result;
+    }
+    private function getActualStateByRow($tablename, $row) {    
+      $result = -1; // default
+
+      $pkColName = Config::getPrimaryColNameByTablename($tablename);
+      $id = (int)$row[$pkColName];
+      $pdo = DB::getInstance()->getConnection();
+      $stmt = $pdo->prepare("SELECT state_id FROM $tablename WHERE $pkColName = ? LIMIT 1");
+      $stmt->execute(array($id));
+      $row = $stmt->fetch();
+
+      $result = $row['state_id'];
+      return $result;
+    }
+    private function validateParamStruct($allowed_keys, $param) {
+      if (!is_array($param)) return false;
+      $keys = array_keys($param);
+      foreach ($keys as $k) {
+        if (!in_array($k, $allowed_keys)) return false;
+      }
+      return true;
+    }
+    private function isValidFilterStruct($input) {
+      return !is_null($input) && is_array($input) && (array_key_exists('all', $input) || array_key_exists('columns', $input));
+    }
+    private function getFormCreate($param) {
+      $tablename = $param["table"];
+      // Check Parameter
+      if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
+      if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
+
+      $SM = new StateMachine(DB::getInstance()->getConnection(), $tablename);
+      // StateMachine ?
+      if ($SM->getID() > 0) {
+        // Has StateMachine
+        $r = $SM->getCreateFormByTablename();
+        if (empty($r))
+          $r = "{}"; // default: allow editing (if there are no rules set)
+        else
+          return $r;
+      }
+      return '{}';
+    }
+    private function logHistory($tablename, $value, $isCreate) {
+      /*
+      if (Config::hasHistory()) {
+        // Identify via Token
+        // Write into Database
+        $UserID = 0; // TODO: TokenID
+        $sql = "INSERT INTO History (User_id, History_table, History_valuenew, History_created) VALUES (?,?,?,?)";
+        $pdo = DB::getInstance()->getConnection();
+        $histStmt = $pdo->prepare($sql);
+        $histStmt->execute([$UserID, $tablename, json_encode($value), ($isCreate ? "1" : "0")]);
+      }
+      */
+    }  
+    private function inititalizeTable($tablename) {
+      // Init Vars
+      $pdo = DB::getInstance()->getConnection();
+      $param = ["table" => $tablename];
+      $config = json_decode(Config::getConfig(), true);
+      $result = $config[$tablename];
+      // FormCreate
+      $result['formcreate'] = $this->getFormCreate($param);
+      // StateMachine
+      $SE = new StateMachine($pdo, $tablename);
+      if ($SE->getID() > 0) {
+        $result['sm_states'] = $SE->getStates();
+        $result['sm_rules'] = $SE->getLinks();
+      }
+      return $result;
+    }
     private function getConfigByRoleID($RoleID) {
       // Collect ALL Tables!
       $conf = json_decode(Config::getConfig(), true);
@@ -400,12 +392,9 @@
     }
     //=======================================================
     // [GET] Reading
-    //----->
     public function init() {
-      global $token;
-      $config = $this->getConfigByRoleID($token->uid);
-      //===> Output to user
-      $res = ["user" => $token, "tables" => $config];
+      $config = $this->getConfigByRoleID($this->token->uid);
+      $res = ["user" => $this->token, "tables" => $config];
       return json_encode($res);
     }
     public function read($param) {
@@ -423,6 +412,13 @@
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
       //================================================
+      //-- Check Rights
+      if (!is_null($this->token)){
+        $allowedTablenames = array_keys($this->getConfigByRoleID($this->token->uid));
+        if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));        
+      }
+
+
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
       //--- Limit
@@ -556,7 +552,6 @@
       }
     }
     // Stored Procedure can be Read and Write (GET and POST)
-    //----->
     public function call($param) {
       // Strcuture: {name: "sp_table", inputs: ["test", 13, 42, "2019-01-01"]}
       //--------------------- Check Params
@@ -587,7 +582,6 @@
       }
     }
     // [POST] Creating
-    //----->
     public function create($param) {
       // Inputs
       $tablename = $param["table"];
@@ -671,8 +665,6 @@
       return json_encode($script_result);
     }
     // [PATCH] Changing
-    //----->
-    // TODO: Remove Update function bzw. combine into 1 Function (update = specialcase)
     public function update($param, $allowUpdateFromSM = false) {
        // Parameter
       $tablename = $param["table"];
@@ -802,30 +794,4 @@
       else 
         return fmtError("Transition not possible!");
     }
-    // [DELETE] Deleting
-    //----->
-    /*
-    public function delete($param) {
-      //---- NOT SUPPORTED FOR NOW [!]
-      die(fmtError('This Command is currently not supported!'));
-      // Parameter
-      $tablename = $param["table"];
-      $row = $param["row"];
-      // Check Parameter
-      if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
-      if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-      // Extract relevant Info via Config
-      $pcol = Config::getPrimaryColNameByTablename($tablename);
-      $id = (int)$row[$pcol];
-      // Execute on Database
-      $success = false;
-      $pdo = DB::getInstance()->getConnection();
-      $stmt = $pdo->prepare("DELETE FROM $tablename WHERE $pcol = ?");
-      $stmt->execute(array($id));
-      // Check if rows where updated
-      $success = ($pdo->rowCount() > 0);
-      // Output
-      return $success ? "1" : "0";
-    }
-    */
   }

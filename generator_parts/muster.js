@@ -577,7 +577,7 @@ class Table extends RawTable {
                     break;
                 }
             }
-            document.getElementById(t.GUID).parentElement.innerHTML = `<span class="text-muted">${t.getTablename() + ' &rarr; ' + id}</span>`;
+            document.getElementById(t.GUID).parentElement.innerHTML = `<span class="d-block text-muted" style="margin-top:.4rem;">${t.getTablename() + ' &rarr; ' + id}</span>`;
             t.onSelectionChanged.trigger();
             return;
         }
@@ -692,7 +692,7 @@ class Table extends RawTable {
                 }
                 if (fTbl)
                     htmlCell = fTbl.renderCell(col, Object.keys(col)[0]);
-                content += '<td class="border-0" style="width: ' + split + '%">' + htmlCell + '</td>';
+                content += '<td class="border-0" style="width: ' + split + '%;">' + htmlCell + '</td>';
             });
             if (fTbl && !fTbl.ReadOnly) {
                 rowID = firstEl[Object.keys(firstEl)[0]];
@@ -700,7 +700,7 @@ class Table extends RawTable {
                 content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
         <a href="${path}/${fTablename}/${rowID}"><i class="far fa-edit"></i></a></td>` + content;
             }
-            return `<table class="w-100 p-0 border-0"><tr data-rowid="${fTablename}:${rowID}" class="border">${content}</tr></table>`;
+            return `<table class="w-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
         }
         return escapeHtml(cellContent);
     }
@@ -794,7 +794,7 @@ class Table extends RawTable {
             if (t.Columns[colname].show_in_grid) {
                 const ordercol = t.getSortColname();
                 const orderdir = t.getSortDir();
-                th += `<th data-colname="${colname}" ${(['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''}class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">` +
+                th += `<th data-colname="${colname}" ${(['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:80px;width:80px;" ' : ''}class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">` +
                     '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
                     '<div class="float-right pr-3">' + (colname == ordercol ?
                     '&nbsp;' + (orderdir == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (orderdir == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')) + '' : '') +
@@ -843,33 +843,32 @@ class Table extends RawTable {
             const RowID = row[pcname];
             let data_string = '';
             let isSelected = false;
-            if (t.selectedRow) {
+            if (t.selectedRow)
                 isSelected = (t.selectedRow[pcname] == RowID);
-            }
             if (t.GUIOptions.showControlColumn) {
                 const path = location.hash;
-                data_string = `<td scope="row" class="controllcoulm align-middle border-0">
+                data_string = `<td class="controllcoulm align-middle">
           ${(t.selType == SelectType.Single ? (isSelected ?
-                    '<i class="far fa-check-circle"></i>' :
-                    '<span class="modRow"><i class="far fa-circle"></i></span>')
+                    '<i class="far fa-check-circle"></i>' : '<span class="modRow"><i class="far fa-circle"></i></span>')
                     : (t.TableType == TableType.obj ?
                         `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
                         `<a href="${path}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
             sortedColumnNames.forEach(function (col) {
-                if (t.Columns[col].show_in_grid)
-                    data_string += '<td class="align-middle py-0 px-0 border-0">' + t.renderCell(row, col) + '</td>';
+                if (t.Columns[col].show_in_grid) {
+                    data_string += '<td' + (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0"' : '') + '>' + t.renderCell(row, col) + '</td>';
+                }
             });
             if (t.GUIOptions.showControlColumn) {
-                tds += `<tr class="datarow${(isSelected ? ' table-info' : '')}" data-rowid="${t.getTablename() + ':' + row[pcname]}">${data_string}</tr>`;
+                tds += `<tr class="${(isSelected ? ' table-info' : '')}" data-rowid="${t.getTablename() + ':' + row[pcname]}">${data_string}</tr>`;
             }
             else {
                 if (t.ReadOnly) {
-                    tds += '<tr class="datarow" data-rowid="' + t.getTablename() + ':' + row[pcname] + '">' + data_string + '</tr>';
+                    tds += '<tr data-rowid="' + t.getTablename() + ':' + row[pcname] + '">' + data_string + '</tr>';
                 }
                 else {
-                    tds += '<tr class="datarow editFullRow modRow" data-rowid="' + t.getTablename() + ':' + row[pcname] + '">' + data_string + '</tr>';
+                    tds += '<tr class="editFullRow modRow" data-rowid="' + t.getTablename() + ':' + row[pcname] + '">' + data_string + '</tr>';
                 }
             }
         });
@@ -1115,19 +1114,15 @@ class FormGenerator {
                     v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
                 }
             }
-            result += `
-        <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
-        <div class="external-table">
-          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table + '\', \'' + ('' || escape(el.customfilter)) + '\')"' : ''}>
-            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
-            ${el.mode_form == 'ro' ? '' :
-                `<div class="input-group-append">
-                <button class="btn btn-primary btnLinkFK" title="Link Element" type="button">
-                  <i class="fa fa-unlink"></i>
-                </button>
-              </div>`}
-          </div>
-        </div>`;
+            const getSelection = (cont, isReadOnly) => {
+                if (isReadOnly)
+                    return '<span class="d-block text-muted" style="margin-top: .4rem;">' + cont + '</span>';
+                else
+                    return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' + el.fk_table + '\')" href="javascript:void(0);">' + cont + '</a>';
+            };
+            result += `<input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
+            result += (v ? getSelection(v, (el.mode_form === 'ro')) : getSelection('Nothing selected', (el.mode_form === 'ro')));
+            result += `</div>`;
         }
         else if (el.field_type == 'reversefk') {
             const tmpGUID = GUI.getID();
@@ -1354,9 +1349,8 @@ function recflattenObj(x) {
 }
 function loadFKTable(element, tablename, customfilter) {
     const randID = GUI.getID();
-    const hiddenInput = element.parentNode.parentNode.parentNode.getElementsByClassName('inputFK')[0];
-    const placeholderTable = element.parentNode.parentNode.parentNode.getElementsByClassName('external-table')[0];
-    placeholderTable.innerHTML = '<div id="' + randID + '"></div>';
+    const hiddenInput = element.parentNode.getElementsByClassName('inputFK')[0];
+    element.outerHTML = '<div id="' + randID + '"></div>';
     hiddenInput.value = null;
     let tmpTable = null;
     try {

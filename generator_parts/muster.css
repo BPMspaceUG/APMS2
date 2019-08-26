@@ -5,8 +5,8 @@ body {margin-bottom: 60px;}
 #app h2 {font-size: 1.25em;}
 
 /* Table */
-/*.tablewrapper {overflow-x: auto;}*/
 .datatbl {font-size: 1em; }
+.datatbl p {margin: 0; padding: 0;}
 .datatbl thead tr {/*background-color: #eee;*/ font-size: .8em;}
 .datatbl thead th {cursor: pointer; height: 30px;}
 .datatbl thead th:first-of-type {cursor: auto;}
@@ -14,7 +14,6 @@ body {margin-bottom: 60px;}
 .datatbl td {color: #333; height: 34px;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
 .datatbl .sorted {color: steelblue; min-width: 100px; white-space: nowrap;}
-.datatbl .datarow:hover {cursor: auto;}
 .datatbl .editFullRow:hover {cursor: pointer;}
 .external-table input.editable {cursor: pointer;}
 /* --- For the html inside the table --- */
@@ -30,7 +29,7 @@ body {margin-bottom: 60px;}
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important;}
 .btnState:hover {color: white !important; background-color: #333 !important;}
-.btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em;}
+.btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%;}
 
 /* State-Colors */
 /*###CSS_STATES###*/

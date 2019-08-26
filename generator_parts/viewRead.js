@@ -27,11 +27,10 @@ export default props => {
 
     // Bind Events to Searchbox for Realtime Search
     const searchBox = document.getElementById('searchBox');
-    const myHandler = (event) => {
+    const myHandler = () => {
       // Real-Time Search
-      console.log("Search:", searchBox.value);      
+      //console.log("Search:", searchBox.value);      
       t.setSearch(searchBox.value); // Set Filter
-
       t.loadRows(function(){
         t.renderHTML('tablecontent');
       });
@@ -49,7 +48,7 @@ export default props => {
   window.document.title = t.getTableAlias();
 
   return `<div>
-    <h2>${t.getTableAlias()}</h2>
+    <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>
     <hr>
     <form class="form-inline mb-1">
       <input type="text" id="searchBox" class="form-control d-inline-block w-25 mr-1" placeholder="Search..."/>

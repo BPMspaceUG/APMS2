@@ -633,8 +633,7 @@ class Table extends RawTable {
           break;
         }
       }
-      document.getElementById(t.GUID).parentElement.innerHTML = `<span class="text-muted">${t.getTablename() + ' &rarr; ' + id}</span>`;
-
+      document.getElementById(t.GUID).parentElement.innerHTML = `<span class="d-block text-muted" style="margin-top:.4rem;">${t.getTablename() + ' &rarr; ' + id}</span>`;
       t.onSelectionChanged.trigger();
       return
     }
@@ -775,18 +774,16 @@ class Table extends RawTable {
         }
         if (fTbl) htmlCell = fTbl.renderCell(col, Object.keys(col)[0]);
         // TODO: Hier zu einem String machen
-        content += '<td class="border-0" style="width: '+ split +'%">' + htmlCell + '</td>';
+        content += '<td class="border-0" style="width: '+ split +'%;">' + htmlCell + '</td>';
       });
       // Add Edit Button Prefix -> Only if is not ReadOnly
       if (fTbl && !fTbl.ReadOnly) {
         rowID = firstEl[Object.keys(firstEl)[0]];
-
         const path = location.hash;
-
         content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
         <a href="${path}/${fTablename}/${rowID}"><i class="far fa-edit"></i></a></td>` + content;
       }
-      return `<table class="w-100 p-0 border-0"><tr data-rowid="${fTablename}:${rowID}" class="border">${content}</tr></table>`;
+      return `<table class="w-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
     }
     // Cell is no String and no Object   
     return escapeHtml(cellContent);
@@ -900,7 +897,7 @@ class Table extends RawTable {
         const ordercol = t.getSortColname();
         const orderdir = t.getSortDir();
         th += `<th data-colname="${colname}" ${
-          (['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:120px;width:120px;" ' : ''
+          (['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:80px;width:80px;" ' : ''
         }class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">`+
         // Title
         '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
@@ -957,17 +954,14 @@ class Table extends RawTable {
       let data_string: string = '';
       let isSelected: boolean = false;
       // Check if selected
-      if (t.selectedRow) {
+      if (t.selectedRow) 
         isSelected = (t.selectedRow[pcname] == RowID);
-      }
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn) {
         const path = location.hash;
-        //const escPath = path.replace(/\//g, ";");
-        data_string = `<td scope="row" class="controllcoulm align-middle border-0">
+        data_string = `<td class="controllcoulm align-middle">
           ${ (t.selType == SelectType.Single ? (isSelected ? 
-              '<i class="far fa-check-circle"></i>' :
-              '<span class="modRow"><i class="far fa-circle"></i></span>'
+              '<i class="far fa-check-circle"></i>' : '<span class="modRow"><i class="far fa-circle"></i></span>'
             )
             : ( t.TableType == TableType.obj ?
               `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
@@ -979,24 +973,23 @@ class Table extends RawTable {
       // Generate HTML for Table-Data Cells sorted
       sortedColumnNames.forEach(function(col) {
         // Check if it is displayed
-        if (t.Columns[col].show_in_grid) 
-          data_string += '<td class="align-middle py-0 px-0 border-0">' + t.renderCell(row, col) + '</td>';
+        if (t.Columns[col].show_in_grid) {
+          data_string += '<td'+ (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0"' : '') +'>' + t.renderCell(row, col) + '</td>';
+        }
       })
-
       //--------------------------------- ROW
-
       // Add row to table
       if (t.GUIOptions.showControlColumn) {
         // Edit via first column
-        tds += `<tr class="datarow${(isSelected ? ' table-info' : '')}" data-rowid="${t.getTablename()+':'+row[pcname]}">${data_string}</tr>`;
+        tds += `<tr class="${(isSelected ? ' table-info' : '')}" data-rowid="${t.getTablename()+':'+row[pcname]}">${data_string}</tr>`;
       }
       else {
         if (t.ReadOnly) {
           // Edit via click
-          tds += '<tr class="datarow" data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
+          tds += '<tr data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
         } else {
           // Edit via click on full Row
-          tds += '<tr class="datarow editFullRow modRow" data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
+          tds += '<tr class="editFullRow modRow" data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
         }
       }
     })
@@ -1227,7 +1220,8 @@ class FormGenerator {
     let result: string = '';
     let v: string = el.value || '';
     if (el.mode_form == 'hi') return '';
-    const form_label: string = el.column_alias ? `<label class="col-sm-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';    
+    const form_label: string = el.column_alias ? `<label class="col-sm-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
+
     //--- Textarea
     if (el.field_type == 'textarea') {
       result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
@@ -1287,20 +1281,24 @@ class FormGenerator {
           v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
         }
       }
-      result += `
-        <input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">
-        <div class="external-table">
-          <div class="input-group" ${el.mode_form == 'rw' ? 'onclick="loadFKTable(this, \'' + el.fk_table +'\', \'' + ('' || escape(el.customfilter)) + '\')"' : ''}>
-            <input type="text" class="form-control filterText${el.mode_form == 'rw' ? ' bg-white editable' : ''}" ${v !== '' ? 'value="' + v + '"' : ''} placeholder="Nothing selected" readonly>
-            ${ el.mode_form == 'ro' ? '' :
-              `<div class="input-group-append">
-                <button class="btn btn-primary btnLinkFK" title="Link Element" type="button">
-                  <i class="fa fa-unlink"></i>
-                </button>
-              </div>`
-            }
-          </div>
-        </div>`;
+      const getSelection = (cont, isReadOnly) => {
+        if (isReadOnly)
+          return '<span class="d-block text-muted" style="margin-top: .4rem;">'+ cont +'</span>';
+        else
+          return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' + el.fk_table +'\')" href="javascript:void(0);">'+ cont +'</a>';
+      }
+
+      result += `<input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
+      result += (v ? getSelection(v, (el.mode_form === 'ro')) : getSelection('Nothing selected', (el.mode_form === 'ro')) );
+      result += `</div>`;
+
+      /*<div class="external-table">
+        <div class="input-group text-muted">
+          ${ el.mode_form == 'rw' ? (
+            '<span class="mt-2"><i class="fa fa-link mr-2"></i>' + v + '</span>' :
+            '<a class="mt-2" onclick="loadFKTable(this, \'' + el.fk_table +'\', \'' + ('' || escape(el.customfilter)) + '\')" href="javascript:void(0);">Select Element\u2026</a>'}
+            ) }
+        </div>*/
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
@@ -1576,9 +1574,9 @@ function recflattenObj(x) {
 //--- Expand foreign key
 function loadFKTable(element, tablename, customfilter): void {
   const randID = GUI.getID();
-  const hiddenInput = element.parentNode.parentNode.parentNode.getElementsByClassName('inputFK')[0];
-  const placeholderTable = element.parentNode.parentNode.parentNode.getElementsByClassName('external-table')[0];
-  placeholderTable.innerHTML = '<div id="' + randID + '"></div>';
+  const hiddenInput = element.parentNode.getElementsByClassName('inputFK')[0];
+  element.outerHTML = '<div id="' + randID + '"></div>';
+  
   hiddenInput.value = null;
 
   let tmpTable = null;
