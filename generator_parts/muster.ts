@@ -173,16 +173,10 @@ class Modal {
   public setContent(html: string) {
     document.getElementById(this.DOM_ID).getElementsByClassName('modal-body')[0].innerHTML = html;
   }
-  public show(focusFirstEditableField: boolean = true): void {  
+  public show(): void {  
     let modal = document.getElementById(this.DOM_ID);
     modal.classList.add('show');
     modal.style.display = 'block';
-    // GUI
-    if (focusFirstEditableField) {
-      let firstElement = (modal.getElementsByClassName('rwInput')[0] as HTMLElement);
-      // TODO: check if is foreignKey || HTMLEditor
-      if (firstElement) firstElement.focus();
-    }
   }
   public close(): void {
     document.getElementById(this.DOM_ID).parentElement.remove();
@@ -393,57 +387,28 @@ class RawTable {
     })
   }
   //---------------------------
-  public getNrOfRows(): number {
-    return this.actRowCount
-  }
-  public getTablename(): string {
-    return this.tablename;
-  }
-  public setSearch(searchText: string) {
-    this.Search = searchText;
-  }
-  public getSearch(): string {
-    return this.Search;
-  }
-  public getSortColname(): string {
-    return this.Sort.split(',')[0];
-  }
+  public getNrOfRows(): number { return this.actRowCount }
+  public getTablename(): string { return this.tablename; }
+  public setSearch(searchText: string) { this.Search = searchText; }
+  public getSearch(): string { return this.Search; }
+  public getSortColname(): string { return this.Sort.split(',')[0]; }
   public getSortDir(): string {
     let dir = this.Sort.split(',')[1];
     if (!dir) dir = "ASC";
     return dir;
   }
-  public setSort(sortStr: string) {
-    this.Sort = sortStr;
-  }
-  public setFilter(filterStr: string) {
-    this.Filter = filterStr;
-  }
+  public setSort(sortStr: string) { this.Sort = sortStr; }
+  public setFilter(filterStr: string) { this.Filter = filterStr; }
   public setColumnFilter(columnName: string, filterText: string) {
     this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
   }
-  public resetFilter() {
-    this.Filter = '';
-  }
-  public resetLimit() {
-    this.PageIndex = null;
-    this.PageLimit = null;
-  }
-  public getRows() {
-    return this.Rows;
-  }
-  public getConfig(): any {
-    return this.Config;
-  }
-  public getTableType(): TableType {
-    return this.Config.table_type;
-  }
-  public getPrimaryColname(): string {
-    return this.PriColname;
-  }
-  public setRows(ArrOfRows: any) {
-    this.Rows = ArrOfRows;
-  }
+  public resetFilter() { this.Filter = ''; }
+  public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+  public getRows() { return this.Rows; }
+  public getConfig(): any { return this.Config; }
+  public getTableType(): TableType { return this.Config.table_type; }
+  public getPrimaryColname(): string { return this.PriColname; }
+  public setRows(ArrOfRows: any) { this.Rows = ArrOfRows; }
   public getTableIcon(): string { return this.getConfig().table_icon; }
   public getTableAlias(): string { return this.getConfig().table_alias; }
 }
@@ -463,7 +428,7 @@ class Table extends RawTable {
     maxCellLength: 50,
     showControlColumn: true,
     showWorkflowButton: false,
-    smallestTimeUnitMins: true,
+    smallestTimeUnitMins: true,    
     Relation : {
       createTitle: "New Relation",
       createBtnRelate: "Add Relation"
@@ -571,7 +536,6 @@ class Table extends RawTable {
   private setState(data: any, RowID: number, targetStateID: number, callback) {
     let t = this;
     let actStateID = null;
-    //console.log("SETSTATE:", t.getTablename(), ':', RowID, '[', actStateID, '-->', targetStateID, ']');
 
     // Get Actual State
     for (const row of t.Rows) { if (row[t.getPrimaryColname()] == RowID) actStateID = row['state_id']; }
@@ -656,27 +620,30 @@ class Table extends RawTable {
       }
       else {
         //-------- EDIT-Modal WITHOUT StateMachine
-        const tblTxt = 'in '+ t.getTableIcon() +' ' + t.getTableAlias();
-        const ModalTitle = t.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+id+')</span><span class="text-muted ml-3">'+tblTxt+'</span>';
+        //const tblTxt = 'in '+ t.getTableIcon() +' ' + t.getTableAlias();
+        //const ModalTitle = t.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+id+')</span><span class="text-muted ml-3">'+tblTxt+'</span>';
         //--- Overwrite and merge the differences from diffObject
+        /*
         const FormObj = mergeDeep({}, t.getDefaultFormObject());
         for (const key of Object.keys(TheRow)) {
           const v = TheRow[key];
           FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
         }
-        const guid = null;
+        */
+        //const guid = null;
         // Set default values
-        for (const key of Object.keys(TheRow)) {
-          FormObj[key].value = TheRow[key];
-        }
-        const fModify = new FormGenerator(t, id, FormObj, guid);
-        const M: Modal = new Modal('', '', '', true);
-        M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
-        M.setContent(fModify.getHTML());
-        fModify.initEditors();
+        //for (const key of Object.keys(TheRow)) {
+        //  FormObj[key].value = TheRow[key];
+        //}
+        //const fModify = new FormGenerator(t, id, FormObj, guid);
+        //const M: Modal = new Modal('', '', '', true);
+        //M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
+        //M.setContent(fModify.getHTML());
+        //fModify.initEditors();
         // Set Modal Header
-        M.setHeader(ModalTitle);
+        //M.setHeader(ModalTitle);
         // Save buttons
+        /*
         M.setFooter(`<div class="ml-auto mr-0">
           <button class="btn btn-primary btnSave" type="button">
             <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
@@ -706,10 +673,10 @@ class Table extends RawTable {
           M.show();
           fModify.refreshEditors();
         }
+        */
       }
     }
   }
-
   //---------------------------------------------------- Pure HTML building Functions
   private renderStateButton(StateID: any, withDropdown: boolean, altName: string = undefined): string {
     const name = altName || this.SM.getStateNameById(StateID);
@@ -742,7 +709,7 @@ class Table extends RawTable {
     })
     return cols;
   }
-  private formatCell(colname: string, cellContent: any, isHTML: boolean = false): string {
+  private formatCell(colname: string, cellContent: any, isHTML: boolean = false, mainRowID: number): string {
     if (isHTML) return cellContent;
     // check cell type
     if (typeof cellContent == 'string') {
@@ -779,11 +746,14 @@ class Table extends RawTable {
       // Add Edit Button Prefix -> Only if is not ReadOnly
       if (fTbl && !fTbl.ReadOnly) {
         rowID = firstEl[Object.keys(firstEl)[0]];
-        const path = location.hash;
+        const path = location.hash.split('/');
+        path.shift(); // remove first element: #
+        if (path.length === 1) path.push(mainRowID.toString()); // Add Primary RowID
+        path.push(fTablename, rowID); 
         content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-        <a href="${path}/${fTablename}/${rowID}"><i class="far fa-edit"></i></a></td>` + content;
+        <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
       }
-      return `<table class="w-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
+      return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
     }
     // Cell is no String and no Object   
     return escapeHtml(cellContent);
@@ -860,7 +830,7 @@ class Table extends RawTable {
     }
     //--- OTHER
     const isHTML = t.Columns[col].is_virtual || t.Columns[col].field_type == 'htmleditor';
-    value = t.formatCell(col, value, isHTML);
+    value = t.formatCell(col, value, isHTML, row[t.getPrimaryColname()]);
     return value;
   }
   private htmlHeaders(colnames) {
@@ -965,7 +935,7 @@ class Table extends RawTable {
             )
             : ( t.TableType == TableType.obj ?
               `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
-              `<a href="${path}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`)
+              `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`)
             )
           }
         </td>`;
@@ -974,7 +944,7 @@ class Table extends RawTable {
       sortedColumnNames.forEach(function(col) {
         // Check if it is displayed
         if (t.Columns[col].show_in_grid) {
-          data_string += '<td'+ (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0"' : '') +'>' + t.renderCell(row, col) + '</td>';
+          data_string += '<td '+ (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '') +'>' + t.renderCell(row, col) + '</td>';
         }
       })
       //--------------------------------- ROW
@@ -1287,8 +1257,7 @@ class FormGenerator {
         else
           return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' + el.fk_table +'\')" href="javascript:void(0);">'+ cont +'</a>';
       }
-
-      result += `<input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
+      result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
       result += (v ? getSelection(v, (el.mode_form === 'ro')) : getSelection('Nothing selected', (el.mode_form === 'ro')) );
       result += `</div>`;
 
@@ -1444,7 +1413,7 @@ class FormGenerator {
     for (const key of Object.keys(editors)) {
       const edi = editors[key];
       if (edi['objQuill']) 
-        result[key] = edi['objQuill'].root.innerHTML; //edi.getContents();
+        result[key] = edi['objQuill'].root.innerHTML;
       else if (edi['objCodemirror'])
         result[key] = edi['objCodemirror'].getValue();
     }
@@ -1463,9 +1432,10 @@ class FormGenerator {
   public initEditors() {
     //--- Editors
     let t = this;
+    let cnt = 0;
     for (const key of Object.keys(t.editors)) {
       const options = t.editors[key];
-
+      //--- Quill.
       if (options.editor === 'quill') {
         let QuillOptions = {theme: 'snow'};
         if (options.mode == 'ro') {
@@ -1473,8 +1443,10 @@ class FormGenerator {
           QuillOptions['modules'] = {toolbar: false};
         }
         t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
-        t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
+        t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '<p></p>';
+        if (cnt === 0) t.editors[key]['objQuill'].focus();
       }
+      //--- Codemirror
       else if (options.editor === 'codemirror') {
         const editor = CodeMirror.fromTextArea(document.getElementById(options.id), {
           lineNumbers: true,
@@ -1484,9 +1456,10 @@ class FormGenerator {
         editor.setSize(null, 111);
         t.editors[key]['objCodemirror'] = editor;
       }
+      cnt++;
     }
     //--- Live-Validate Number Inputs
-    let elements = document.querySelectorAll('.modal input[type=number]');
+    let elements = document.querySelectorAll('input[type=number]');
     for (let el of elements) {
       el.addEventListener('keydown', function(e: KeyboardEvent){
         const kc: number = e.keyCode;
@@ -1509,7 +1482,7 @@ class FormGenerator {
       })
     }
     //--- Do a submit - if on any R/W field return is pressed
-    elements = document.querySelectorAll('.modal .rwInput:not(textarea)');
+    elements = document.querySelectorAll('.rwInput:not(textarea)');
     for (let el of elements) {
       el.addEventListener('keydown', function(e: KeyboardEvent){
         if (e.which == 13) e.preventDefault(); // Prevent Page Reload

@@ -12,6 +12,12 @@
   </footer>
   <!-- JS -->  
   <script src="js/main.js"></script>
-  <script src="js/app.js" type="module"></script>  
+  <script src="js/app.js" type="module"></script>
+  <script>
+    $("#menu-toggle").click(function(e) {
+      e.preventDefault();
+      $("#wrapper").toggleClass("toggled");
+    });
+  </script>
 </body>
 </html>

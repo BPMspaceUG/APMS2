@@ -155,15 +155,10 @@ class Modal {
     setContent(html) {
         document.getElementById(this.DOM_ID).getElementsByClassName('modal-body')[0].innerHTML = html;
     }
-    show(focusFirstEditableField = true) {
+    show() {
         let modal = document.getElementById(this.DOM_ID);
         modal.classList.add('show');
         modal.style.display = 'block';
-        if (focusFirstEditableField) {
-            let firstElement = modal.getElementsByClassName('rwInput')[0];
-            if (firstElement)
-                firstElement.focus();
-        }
     }
     close() {
         document.getElementById(this.DOM_ID).parentElement.remove();
@@ -352,58 +347,29 @@ class RawTable {
             callback(response);
         });
     }
-    getNrOfRows() {
-        return this.actRowCount;
-    }
-    getTablename() {
-        return this.tablename;
-    }
-    setSearch(searchText) {
-        this.Search = searchText;
-    }
-    getSearch() {
-        return this.Search;
-    }
-    getSortColname() {
-        return this.Sort.split(',')[0];
-    }
+    getNrOfRows() { return this.actRowCount; }
+    getTablename() { return this.tablename; }
+    setSearch(searchText) { this.Search = searchText; }
+    getSearch() { return this.Search; }
+    getSortColname() { return this.Sort.split(',')[0]; }
     getSortDir() {
         let dir = this.Sort.split(',')[1];
         if (!dir)
             dir = "ASC";
         return dir;
     }
-    setSort(sortStr) {
-        this.Sort = sortStr;
-    }
-    setFilter(filterStr) {
-        this.Filter = filterStr;
-    }
+    setSort(sortStr) { this.Sort = sortStr; }
+    setFilter(filterStr) { this.Filter = filterStr; }
     setColumnFilter(columnName, filterText) {
         this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}';
     }
-    resetFilter() {
-        this.Filter = '';
-    }
-    resetLimit() {
-        this.PageIndex = null;
-        this.PageLimit = null;
-    }
-    getRows() {
-        return this.Rows;
-    }
-    getConfig() {
-        return this.Config;
-    }
-    getTableType() {
-        return this.Config.table_type;
-    }
-    getPrimaryColname() {
-        return this.PriColname;
-    }
-    setRows(ArrOfRows) {
-        this.Rows = ArrOfRows;
-    }
+    resetFilter() { this.Filter = ''; }
+    resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+    getRows() { return this.Rows; }
+    getConfig() { return this.Config; }
+    getTableType() { return this.Config.table_type; }
+    getPrimaryColname() { return this.PriColname; }
+    setRows(ArrOfRows) { this.Rows = ArrOfRows; }
     getTableIcon() { return this.getConfig().table_icon; }
     getTableAlias() { return this.getConfig().table_alias; }
 }
@@ -594,48 +560,6 @@ class Table extends RawTable {
                 t.renderEditForm(TheRow, diffJSON, null);
             }
             else {
-                const tblTxt = 'in ' + t.getTableIcon() + ' ' + t.getTableAlias();
-                const ModalTitle = t.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">(' + id + ')</span><span class="text-muted ml-3">' + tblTxt + '</span>';
-                const FormObj = mergeDeep({}, t.getDefaultFormObject());
-                for (const key of Object.keys(TheRow)) {
-                    const v = TheRow[key];
-                    FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
-                }
-                const guid = null;
-                for (const key of Object.keys(TheRow)) {
-                    FormObj[key].value = TheRow[key];
-                }
-                const fModify = new FormGenerator(t, id, FormObj, guid);
-                const M = new Modal('', '', '', true);
-                M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
-                M.setContent(fModify.getHTML());
-                fModify.initEditors();
-                M.setHeader(ModalTitle);
-                M.setFooter(`<div class="ml-auto mr-0">
-          <button class="btn btn-primary btnSave" type="button">
-            <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
-          </button>
-          <button class="btn btn-outline-primary btnSave andClose" type="button">
-            ${this.GUIOptions.modalButtonTextModifySaveAndClose}
-          </button>
-        </div>`);
-                const btnsSave = document.getElementById(M.getDOMID()).getElementsByClassName('btnSave');
-                for (const btn of btnsSave) {
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                    });
-                }
-                const form = document.getElementById(M.getDOMID()).getElementsByTagName('form')[0];
-                const newEl = document.createElement("input");
-                newEl.setAttribute('value', '' + id);
-                newEl.setAttribute('name', pcname);
-                newEl.setAttribute('type', 'hidden');
-                newEl.classList.add('rwInput');
-                form.appendChild(newEl);
-                if (M) {
-                    M.show();
-                    fModify.refreshEditors();
-                }
             }
         }
     }
@@ -667,7 +591,7 @@ class Table extends RawTable {
         });
         return cols;
     }
-    formatCell(colname, cellContent, isHTML = false) {
+    formatCell(colname, cellContent, isHTML = false, mainRowID) {
         if (isHTML)
             return cellContent;
         if (typeof cellContent == 'string') {
@@ -696,11 +620,15 @@ class Table extends RawTable {
             });
             if (fTbl && !fTbl.ReadOnly) {
                 rowID = firstEl[Object.keys(firstEl)[0]];
-                const path = location.hash;
+                const path = location.hash.split('/');
+                path.shift();
+                if (path.length === 1)
+                    path.push(mainRowID.toString());
+                path.push(fTablename, rowID);
                 content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-        <a href="${path}/${fTablename}/${rowID}"><i class="far fa-edit"></i></a></td>` + content;
+        <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
             }
-            return `<table class="w-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
+            return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
         }
         return escapeHtml(cellContent);
     }
@@ -765,7 +693,7 @@ class Table extends RawTable {
             return t.renderStateButton(stateID, false, value['name']);
         }
         const isHTML = t.Columns[col].is_virtual || t.Columns[col].field_type == 'htmleditor';
-        value = t.formatCell(col, value, isHTML);
+        value = t.formatCell(col, value, isHTML, row[t.getPrimaryColname()]);
         return value;
     }
     htmlHeaders(colnames) {
@@ -852,12 +780,12 @@ class Table extends RawTable {
                     '<i class="far fa-check-circle"></i>' : '<span class="modRow"><i class="far fa-circle"></i></span>')
                     : (t.TableType == TableType.obj ?
                         `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
-                        `<a href="${path}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
+                        `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
             sortedColumnNames.forEach(function (col) {
                 if (t.Columns[col].show_in_grid) {
-                    data_string += '<td' + (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0"' : '') + '>' + t.renderCell(row, col) + '</td>';
+                    data_string += '<td ' + (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '') + '>' + t.renderCell(row, col) + '</td>';
                 }
             });
             if (t.GUIOptions.showControlColumn) {
@@ -1120,7 +1048,7 @@ class FormGenerator {
                 else
                     return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' + el.fk_table + '\')" href="javascript:void(0);">' + cont + '</a>';
             };
-            result += `<input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
+            result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
             result += (v ? getSelection(v, (el.mode_form === 'ro')) : getSelection('Nothing selected', (el.mode_form === 'ro')));
             result += `</div>`;
         }
@@ -1257,6 +1185,7 @@ class FormGenerator {
     }
     initEditors() {
         let t = this;
+        let cnt = 0;
         for (const key of Object.keys(t.editors)) {
             const options = t.editors[key];
             if (options.editor === 'quill') {
@@ -1266,7 +1195,9 @@ class FormGenerator {
                     QuillOptions['modules'] = { toolbar: false };
                 }
                 t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
-                t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '';
+                t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '<p></p>';
+                if (cnt === 0)
+                    t.editors[key]['objQuill'].focus();
             }
             else if (options.editor === 'codemirror') {
                 const editor = CodeMirror.fromTextArea(document.getElementById(options.id), {
@@ -1277,8 +1208,9 @@ class FormGenerator {
                 editor.setSize(null, 111);
                 t.editors[key]['objCodemirror'] = editor;
             }
+            cnt++;
         }
-        let elements = document.querySelectorAll('.modal input[type=number]');
+        let elements = document.querySelectorAll('input[type=number]');
         for (let el of elements) {
             el.addEventListener('keydown', function (e) {
                 const kc = e.keyCode;
@@ -1293,7 +1225,7 @@ class FormGenerator {
                 }
             });
         }
-        elements = document.querySelectorAll('.modal .rwInput:not(textarea)');
+        elements = document.querySelectorAll('.rwInput:not(textarea)');
         for (let el of elements) {
             el.addEventListener('keydown', function (e) {
                 if (e.which == 13)

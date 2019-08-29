@@ -1,24 +1,43 @@
 html {position: relative; min-height: 100%;}
 body {margin-bottom: 60px;}
-.footer {position: absolute; bottom: 0; width: 100%; height: 60px; line-height: 60px; background-color: #f5f5f5; font-size: 12px;}
 
 #app h2 {font-size: 1.25em;}
 
+/* SIDEBAR */
+body {overflow-x: hidden;}
+#sidebar-wrapper {
+    min-height: 100vh; margin-left: -15rem; -webkit-transition: margin .25s ease-out;
+    -moz-transition: margin .25s ease-out; -o-transition: margin .25s ease-out; transition: margin .25s ease-out;
+}
+#sidebar-wrapper .sidebar-heading {padding: 0.875rem 1.25rem; font-size: 1.2rem;}
+#sidebar-wrapper .list-group {width: 15rem; }
+#page-content-wrapper {min-width: 100vw;}
+#wrapper.toggled #sidebar-wrapper {margin-left: 0;}
+@media (min-width: 768px) {
+    #sidebar-wrapper {margin-left: 0;}
+    #page-content-wrapper {min-width: 0; width: 100%;}
+    #wrapper.toggled #sidebar-wrapper {margin-left: -15rem;}
+}
+
+/* FOOTER */
+.footer {position: absolute; bottom: 0; width: 100%; height: 60px; line-height: 60px;
+    background-color: #f5f5f5; font-size: 12px; border-top: 1px solid lightgrey;}
+
 /* Table */
 .datatbl {font-size: 1em; }
-.datatbl p {margin: 0; padding: 0;}
 .datatbl thead tr {/*background-color: #eee;*/ font-size: .8em;}
 .datatbl thead th {cursor: pointer; height: 30px;}
 .datatbl thead th:first-of-type {cursor: auto;}
 .controllcoulm {text-align: center; min-width: 50px; width: 50px;}
-.datatbl td {color: #333; height: 34px;}
+
+.datatbl td {color: #333; height: 34px; vertical-align: middle;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
 .datatbl .sorted {color: steelblue; min-width: 100px; white-space: nowrap;}
 .datatbl .editFullRow:hover {cursor: pointer;}
 .external-table input.editable {cursor: pointer;}
 /* --- For the html inside the table --- */
-.datatbl .datarow td p, h1, h2, h3, h4, h5, h6 {margin: 0; padding: 0;}
-.datatbl .datarow td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
+.datatbl td p, h1, h2, h3, h4, h5, h6 {margin: 0; padding: 0;}
+.datatbl td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
 
 /* Forms */
 #formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
@@ -27,7 +46,7 @@ body {margin-bottom: 60px;}
 .CodeMirror {border: 1px solid #ced4da; font-size: .85em;}
 
 /* StateEngine */
-.btnState {cursor: pointer; color: white !important;}
+.btnState {cursor: pointer; color: white !important; white-space: nowrap;}
 .btnState:hover {color: white !important; background-color: #333 !important;}
 .btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%;}
 

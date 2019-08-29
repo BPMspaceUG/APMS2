@@ -70,15 +70,7 @@
   }
   //========================= Handle the Requests
 
-  // Rights Management
-
-  // TODO: Check if Token is allowed to execute the Command
-  /*
-  $allowedTablenames = array_keys(Config::getConfigByRoleID($token->uid));
-  $tablename = $param["table"];
-  if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));
-  */
-
+  // Handle Command and Rights Management
   $result = api(["cmd" => $command, "param" => $param], $tokendata);
-  // ========>
-  echo $result;
+
+  /*[OUTPUT]========>*/ echo $result;

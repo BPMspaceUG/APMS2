@@ -9,7 +9,6 @@ import createView from './views/create.js';
 import workflowView from './views/workflow.js';
 import modifyView from './views/modify.js';
 
-
 // The Order is important!!
 const routes = [
   new Route('dashboard', '/', dashboardView),
@@ -20,15 +19,16 @@ const routes = [
   new Route('read', '/:table', readView),
 ];
 
-
 document.addEventListener('DOMContentLoaded', function(){
     // Create objects
     DB.loadConfig(function(config){
       const router = new Router(routes, document.getElementById('app'));
       //==========================================================
-      // User
-      document.getElementById('username').innerText = config.user.firstname + ' ' + config.user.lastname + ' (' + config.user.uid +')'; 
-      // Tables
+      // Set actual User
+      const elemUser = document.getElementById('username');
+      elemUser.innerText = config.user.firstname + ' ' + config.user.lastname;
+      elemUser.setAttribute('title', 'UserID: '+config.user.uid);
+      // Set Table Links
       Object.keys(config.tables).forEach(tname => {
         // Render only if in Menu
         if (config.tables[tname].in_menu) {
@@ -36,11 +36,11 @@ document.addEventListener('DOMContentLoaded', function(){
           const alias = config.tables[tname].table_alias;
           // Create GUI Elements
           const tmpBtn = document.createElement('a');
-          tmpBtn.setAttribute('class', 'nav-link');
+          tmpBtn.setAttribute('class', 'list-group-item list-group-item-action bg-light');
           tmpBtn.setAttribute('href', '#/' + tname);
           tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
           // and add them
-          document.getElementById('nav').appendChild(tmpBtn);
+          document.getElementById('sidebar-links').appendChild(tmpBtn);
         }
       });
       //==========================================================
