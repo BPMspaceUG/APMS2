@@ -259,21 +259,21 @@
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
-  $AccountHandler = '<div class="collapse navbar-collapse" id="navbarText">
-    <ul class="navbar-nav ml-auto">
-      <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-          <i class="fas fa-user"></i>
-          <span id="username">Account</span>
-        </a>
-        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
-          <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_change_password.php">Change Password</a>
-          <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_manage_emails.php">Manage E-Mails</a>
-          <a class="dropdown-item" href="?logout">Logout</a>
-        </div>
-      </li>
-    </ul>
-  </div>';
+  // collapse navbar-collapse
+  $AccountHandler = '
+  <ul class="nav ml-auto">
+    <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle text-muted" href="#" id="navbarDropdown" role="button" data-toggle="dropdown">
+        <i class="fas fa-user"></i><span class="d-none d-md-inline" id="username">Account</span>
+      </a>
+      <div class="dropdown-menu dropdown-menu-right">
+        <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_change_password.php">Change Password</a>
+        <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_manage_emails.php">Manage E-Mails</a>
+        <a class="dropdown-item" href="?logout">Logout</a>
+      </div>
+    </li>
+  </ul>';
+  
   //------------------- Load complete Project
   $class_StateEngine = file_get_contents("./output_StateEngine.php");
   $output_RequestHandler = file_get_contents("./output_RequestHandler.php");  

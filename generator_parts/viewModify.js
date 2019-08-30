@@ -1,8 +1,7 @@
 export default props => {
 
   let newForm = null;
-  const strPath = location.hash;
-  const path = strPath.split('/');
+  const path = location.hash.split('/');
   path.shift(); // Remove first element (#)
   
   // Get actual Table & ID
@@ -22,7 +21,6 @@ export default props => {
 
   // Get Row by ID
   function initForm() {
-    //console.log('initForm -->', t.getTablename(), ' : ', id);
     t.loadRow(id, row => {
       let actStateID = null;
       let diffObject = {};
@@ -115,9 +113,10 @@ export default props => {
             }
             else {
               // Other State-Button
-              btn.setAttribute('class', 'btn btnState mr-2 state' + state.id);
+              btn.setAttribute('class', 'btn btnState btnEnabled mr-2 state' + state.id);
               btn.innerText = state.name;
-              document.getElementById('nextstates').appendChild(btn);
+              const nextStateContainer = document.getElementById('nextstates');
+              nextStateContainer.appendChild(btn); // add StateBtn
             }      
           }
         }
@@ -195,14 +194,14 @@ export default props => {
     <hr>
     <div class="text-center pb-3">
       ${
-        t.SM ?
-        `<span id="saveBtns"></span>
-        <span class="mx-3 text-muted">Go to</span>
-        <span id="nextstates"></span>` :
-        `<a class="btn btn-primary btnSave" href="#/${props.table}">Save</a>`
+        t.SM ? 
+          // Statemachine
+          '<span class="mr-3" id="saveBtns"></span><span class="mr-3" id="nextstates"></span>'
+        : 
+          // NO Statemachine
+          `<a class="btn btn-primary btnSave" href="#/${props.table}">Save</a><span class="mx-3 text-muted">or</span>`
       }
-      <span class="mx-3 text-muted">or</span>
-      <span><a class="btn btn-light" href="${backPath}">&larr; Back</a></span>
+      <span><a class="btn btn-light" href="${backPath}">Back</a></span>
   </div>
 </div>`;
 }

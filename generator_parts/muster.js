@@ -244,7 +244,7 @@ class StateMachine {
             }
         });
         const options = {
-            height: '300px',
+            height: '400px',
             edges: { color: { color: '#888888' }, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {} },
             nodes: {
                 shape: 'box', margin: 20, heightConstraint: { minimum: 40 }, widthConstraint: { minimum: 80, maximum: 200 },
@@ -559,8 +559,6 @@ class Table extends RawTable {
                 const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
                 t.renderEditForm(TheRow, diffJSON, null);
             }
-            else {
-            }
         }
     }
     renderStateButton(StateID, withDropdown, altName = undefined) {
@@ -568,7 +566,7 @@ class Table extends RawTable {
         const cssClass = 'state' + StateID;
         if (withDropdown) {
             return `<div class="dropdown">
-            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnState btnGrid loadStates btn-sm label-state ${cssClass}"
+            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnState btnGrid btnEnabled loadStates btn-sm label-state ${cssClass}"
               data-stateid="${StateID}" data-toggle="dropdown">${name}</button>
             <div class="dropdown-menu p-0">
               <p class="m-0 p-3 text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading...</p>
@@ -576,7 +574,7 @@ class Table extends RawTable {
           </div>`;
         }
         else {
-            return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnState btnGrid btn-sm label-state ${cssClass}">${name}</button>`;
+            return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnState btnGrid btnDisabled btn-sm label-state ${cssClass}">${name}</button>`;
         }
     }
     formatCellFK(colname, cellData) {
@@ -909,7 +907,7 @@ class Table extends RawTable {
                                 DropDownMenu.innerHTML = '';
                                 nextstates.map(state => {
                                     const btn = document.createElement('a');
-                                    btn.classList.add('dropdown-item', 'btnState', 'state' + state.id);
+                                    btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
                                     btn.setAttribute('href', 'javascript:void(0)');
                                     btn.innerText = state.name;
                                     btn.addEventListener("click", function (e) {
@@ -931,7 +929,7 @@ class Table extends RawTable {
                                     DropDownMenu.innerHTML = '';
                                     nextstates.map(state => {
                                         const btn = document.createElement('a');
-                                        btn.classList.add('dropdown-item', 'btnState', 'state' + state.id);
+                                        btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
                                         btn.setAttribute('href', 'javascript:void(0)');
                                         btn.text = state.name;
                                         btn.addEventListener("click", function () {
@@ -1042,14 +1040,27 @@ class FormGenerator {
                     v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
                 }
             }
-            const getSelection = (cont, isReadOnly) => {
+            const getSelection = (cont, isReadOnly, custfilter) => {
+                if (custfilter) {
+                    const rd = this.data;
+                    const colnames = Object.keys(rd);
+                    console.log(rd);
+                    for (const colname of colnames) {
+                        const pattern = '%' + colname + '%';
+                        if (custfilter.indexOf(pattern) >= 0) {
+                            const firstCol = Object.keys(rd[colname].value)[0];
+                            custfilter = custfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+                        }
+                    }
+                }
                 if (isReadOnly)
                     return '<span class="d-block text-muted" style="margin-top: .4rem;">' + cont + '</span>';
                 else
-                    return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' + el.fk_table + '\')" href="javascript:void(0);">' + cont + '</a>';
+                    return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' +
+                        el.fk_table + '\', \'' + escape(custfilter) + '\')" href="javascript:void(0);">' + cont + '</a>';
             };
             result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
-            result += (v ? getSelection(v, (el.mode_form === 'ro')) : getSelection('Nothing selected', (el.mode_form === 'ro')));
+            result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter));
             result += `</div>`;
         }
         else if (el.field_type == 'reversefk') {
@@ -1292,6 +1303,7 @@ function loadFKTable(element, tablename, customfilter) {
         document.getElementById(randID).innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
         return;
     }
+    console.log('customfilter ---> ', customfilter);
     if (customfilter)
         tmpTable.setFilter(customfilter);
     tmpTable.loadRows(rows => {

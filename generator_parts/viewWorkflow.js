@@ -2,21 +2,28 @@ export default props => {
     
   const t = new Table(props.table);
 
-  setTimeout(function(){
-    t.SM.renderHTML(document.getElementById('statemachine'));
-  }, 1);
-
-  // Set Title
-  window.document.title = "Workflow of " + t.getTableAlias();
-
+  if (t.SM) {
+    setTimeout(function(){
+      t.SM.renderHTML(document.getElementById('statemachine'));
+    }, 1);
+    // Set Title
+    window.document.title = "Workflow of " + t.getTableAlias();
+    return `<div>
+      <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}:Workflow</h2>
+      <hr>
+      <div id="statemachine"></div>
+      <br>
+      <hr>
+      <div class="text-center">
+        <span><a class="btn btn-light" href="#/${t.getTablename()}">Back</a></span>
+      </div>
+    </div>`;
+  } 
+  // Error
   return `<div>
-    <h2>
-      <a class="text-decoration-none" href="#/${props.table}">${t.getTableAlias()}</a>
-      <span>&rarr;</span>
-      <span class="text-info">Workflow</span>
-    </h2>
-    <hr>
-    <div id="statemachine"></div>
-    <br>
+    <p style="color: red;">Error: This Table does not have a Workflow!</p>
+  </div>
+  <div class="text-center">
+    <span><a class="btn btn-light" href="#/${t.getTablename()}">Back</a></span>
   </div>`;
 }

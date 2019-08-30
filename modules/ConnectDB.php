@@ -164,8 +164,9 @@
             "field_type" => $fieldtype,
           );
           // Append FK-Settings
-          if ($fk["table"] != '')
+          if ($fk["table"] != '') {
             $additional_info["foreignKey"] = $fk;
+          }
           // Append Enum-Settings
           if ($fieldtype == 'enum') {
             // Get Enum-Fields from DB            

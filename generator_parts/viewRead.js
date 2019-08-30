@@ -53,7 +53,7 @@ export default props => {
     <form class="form-inline mb-1">
       <input type="text" id="searchBox" class="form-control d-inline-block w-25 mr-1" placeholder="Search..."/>
       <a class="btn btn-success mr-1" href="#/${props.table}/create">${textCreate}</a>
-      <a class="btn btn-info${ (!t.SM) ? ' disabled' : '' }" href="#/${props.table}/workflow">Workflow</a>
+      ${t.SM ? '<a class="btn btn-info" href="#/'+props.table+'/workflow">Workflow</a>' : ''}
     </div>
     <div id="tablecontent"></div>
   </div>`;

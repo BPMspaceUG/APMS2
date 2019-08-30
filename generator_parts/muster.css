@@ -47,8 +47,12 @@ body {overflow-x: hidden;}
 
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap;}
-.btnState:hover {color: white !important; background-color: #333 !important;}
 .btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%;}
+
+.btnEnabled:hover {color: white !important; background-color: #333 !important;}
+.btnDisabled:focus, .btnDisabled:active:focus, .btnDisabled.active:focus {
+    outline: none !important; outline-style: none; box-shadow: none !important;}
+.btnDisabled:hover {background-color: none !important; cursor: default;}
 
 /* State-Colors */
 /*###CSS_STATES###*/

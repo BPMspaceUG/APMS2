@@ -209,7 +209,7 @@ export default props => {
     <div class="text-center">
       <a class="btn btn-success btnCreate" href="#/">${textCommand}</a>
       <span class="mx-3 text-muted">or</span>
-      <span><a class="btn btn-light" href="${backPath}">&larr; Back</a></span>
+      <span><a class="btn btn-light" href="${backPath}">Back</a></span>
     </div>
   </div>`;
 }

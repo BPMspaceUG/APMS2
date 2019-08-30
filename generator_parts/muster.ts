@@ -276,7 +276,7 @@ class StateMachine {
       }
     });
     const options = {
-      height: '300px',
+      height: '400px',
       edges: {color: {color: '#888888'}, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {}},
       nodes: {
         shape: 'box', margin: 20, heightConstraint: {minimum: 40}, widthConstraint: {minimum: 80, maximum: 200},
@@ -611,69 +611,11 @@ class Table extends RawTable {
       // Get Row
       let TheRow = null;
       this.Rows.forEach(row => { if (row[pcname] == id) TheRow = row; });
-
       // Set Form
       if (t.SM) {
         //-------- EDIT-Modal WITH StateMachine
         const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
         t.renderEditForm(TheRow, diffJSON, null);
-      }
-      else {
-        //-------- EDIT-Modal WITHOUT StateMachine
-        //const tblTxt = 'in '+ t.getTableIcon() +' ' + t.getTableAlias();
-        //const ModalTitle = t.GUIOptions.modalHeaderTextModify + '<span class="text-muted mx-3">('+id+')</span><span class="text-muted ml-3">'+tblTxt+'</span>';
-        //--- Overwrite and merge the differences from diffObject
-        /*
-        const FormObj = mergeDeep({}, t.getDefaultFormObject());
-        for (const key of Object.keys(TheRow)) {
-          const v = TheRow[key];
-          FormObj[key].value = isObject(v) ? v[Object.keys(v)[0]] : v;
-        }
-        */
-        //const guid = null;
-        // Set default values
-        //for (const key of Object.keys(TheRow)) {
-        //  FormObj[key].value = TheRow[key];
-        //}
-        //const fModify = new FormGenerator(t, id, FormObj, guid);
-        //const M: Modal = new Modal('', '', '', true);
-        //M.options.btnTextClose = this.GUIOptions.modalButtonTextModifyClose;
-        //M.setContent(fModify.getHTML());
-        //fModify.initEditors();
-        // Set Modal Header
-        //M.setHeader(ModalTitle);
-        // Save buttons
-        /*
-        M.setFooter(`<div class="ml-auto mr-0">
-          <button class="btn btn-primary btnSave" type="button">
-            <i class="fa fa-floppy-o"></i> ${this.GUIOptions.modalButtonTextModifySave}
-          </button>
-          <button class="btn btn-outline-primary btnSave andClose" type="button">
-            ${this.GUIOptions.modalButtonTextModifySaveAndClose}
-          </button>
-        </div>`);
-        //--------------------------------------------------
-        // Bind functions to Save Buttons
-        const btnsSave = document.getElementById(M.getDOMID()).getElementsByClassName('btnSave');
-        for (const btn of btnsSave) {
-          btn.addEventListener('click', function(e){
-            e.preventDefault();
-          })
-        }
-       // Add the Primary RowID
-        const form = document.getElementById(M.getDOMID()).getElementsByTagName('form')[0];
-        const newEl = document.createElement("input");
-        newEl.setAttribute('value', '' + id);
-        newEl.setAttribute('name', pcname);
-        newEl.setAttribute('type', 'hidden');
-        newEl.classList.add('rwInput');
-        form.appendChild(newEl);
-        // Finally show Modal if none existed
-        if (M) {
-          M.show();
-          fModify.refreshEditors();
-        }
-        */
       }
     }
   }
@@ -684,7 +626,7 @@ class Table extends RawTable {
     if (withDropdown) {
       // Dropdown
       return `<div class="dropdown">
-            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnState btnGrid loadStates btn-sm label-state ${cssClass}"
+            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnState btnGrid btnEnabled loadStates btn-sm label-state ${cssClass}"
               data-stateid="${StateID}" data-toggle="dropdown">${name}</button>
             <div class="dropdown-menu p-0">
               <p class="m-0 p-3 text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading...</p>
@@ -692,7 +634,7 @@ class Table extends RawTable {
           </div>`;
     } else {
       // NO Dropdown
-      return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnState btnGrid btn-sm label-state ${cssClass}">${name}</button>`;
+      return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnState btnGrid btnDisabled btn-sm label-state ${cssClass}">${name}</button>`;
     }
   }
   private formatCellFK(colname: string, cellData: any) {
@@ -1092,7 +1034,7 @@ class Table extends RawTable {
               nextstates.map(state => {
                 // Create New Button-Element
                 const btn = document.createElement('a');
-                btn.classList.add('dropdown-item', 'btnState', 'state'+state.id);
+                btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
                 btn.setAttribute('href', 'javascript:void(0)');
                 btn.innerText = state.name;
                 btn.addEventListener("click", function(e){
@@ -1116,7 +1058,7 @@ class Table extends RawTable {
                 DropDownMenu.innerHTML = '';
                 nextstates.map(state => {
                   const btn = document.createElement('a');
-                  btn.classList.add('dropdown-item', 'btnState', 'state'+state.id);
+                  btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
                   btn.setAttribute('href', 'javascript:void(0)');
                   btn.text = state.name;
                   btn.addEventListener("click", function(){
@@ -1168,6 +1110,9 @@ class Table extends RawTable {
     return this.onEntriesModified.expose();
   }
 }
+
+
+
 
 //==============================================================
 // Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON) !JQ
@@ -1251,23 +1196,32 @@ class FormGenerator {
           v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
         }
       }
-      const getSelection = (cont, isReadOnly) => {
+      const getSelection = (cont, isReadOnly, custfilter) => {
+
+        // Replace Patterns
+        if (custfilter) {
+          const rd = this.data;
+          const colnames = Object.keys(rd);
+          console.log(rd);
+          for (const colname of colnames) {
+            const pattern = '%'+colname+'%';
+            if (custfilter.indexOf(pattern) >= 0) {
+              const firstCol = Object.keys(rd[colname].value)[0];
+              custfilter = custfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+            }
+          }
+        }
+
         if (isReadOnly)
           return '<span class="d-block text-muted" style="margin-top: .4rem;">'+ cont +'</span>';
         else
-          return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' + el.fk_table +'\')" href="javascript:void(0);">'+ cont +'</a>';
+          return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' +
+            el.fk_table +'\', \'' + escape(custfilter) + '\')" href="javascript:void(0);">'+ cont +'</a>';
       }
       result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
-      result += (v ? getSelection(v, (el.mode_form === 'ro')) : getSelection('Nothing selected', (el.mode_form === 'ro')) );
+      result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter) );
       result += `</div>`;
 
-      /*<div class="external-table">
-        <div class="input-group text-muted">
-          ${ el.mode_form == 'rw' ? (
-            '<span class="mt-2"><i class="fa fa-link mr-2"></i>' + v + '</span>' :
-            '<a class="mt-2" onclick="loadFKTable(this, \'' + el.fk_table +'\', \'' + ('' || escape(el.customfilter)) + '\')" href="javascript:void(0);">Select Element\u2026</a>'}
-            ) }
-        </div>*/
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
@@ -1501,9 +1455,6 @@ class FormGenerator {
 
 
 
-
-
-
 //==================================================================== Global Helper Methods
 
 //-------------------------------------------
@@ -1559,7 +1510,10 @@ function loadFKTable(element, tablename, customfilter): void {
     document.getElementById(randID).innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
     return
   }
+
+  console.log('customfilter ---> ', customfilter);
   if (customfilter) tmpTable.setFilter(customfilter);
+
   // Load
   tmpTable.loadRows(rows => {
     if (rows["count"] == 0) {

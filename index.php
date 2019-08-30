@@ -235,7 +235,7 @@
                           </select>
                           <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.col_id" placeholder="JoinID">
                           <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.col_subst" placeholder="ReplacedCloumn">
-                          <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.foreignKey.customfilter" placeholder="Filter">
+                          <input ng-if="(col.foreignKey.table != '')" type="text" class="form-control form-control-sm w-100" ng-model="col.customfilter" placeholder="Filter">
                         </div>
                         <!-- Enum -->
                         <div ng-if="col.field_type == 'enum'">
