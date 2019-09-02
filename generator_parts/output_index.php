@@ -18,10 +18,21 @@
       exit();
     }
   }
+
+  //=================================================================
   //----------------------------> LOG OUT
   if (isset($_GET['logout'])) {
     gotoLogin();
   }
+  else if (isset($_GET['emails'])) {
+    // Redirect to Manage E-Mails
+    exit();
+  }
+  else if (isset($_GET['changepw'])) {
+    // Redirect to Change Password
+    exit();
+  }
+
   $rawtoken = JWT::getBearerToken(); // Check Cookies
   // Check GET Parameter (if has token -> then if valid save as cookie)
   if (is_null($rawtoken) && isset($_GET["token"]))

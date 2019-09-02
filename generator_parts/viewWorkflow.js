@@ -14,7 +14,7 @@ export default props => {
       <div id="statemachine"></div>
       <br>
       <hr>
-      <div class="text-center">
+      <div class="text-center pb-3">
         <span><a class="btn btn-light" href="#/${t.getTablename()}">Back</a></span>
       </div>
     </div>`;
@@ -23,7 +23,7 @@ export default props => {
   return `<div>
     <p style="color: red;">Error: This Table does not have a Workflow!</p>
   </div>
-  <div class="text-center">
+  <div class="text-center pb-3">
     <span><a class="btn btn-light" href="#/${t.getTablename()}">Back</a></span>
   </div>`;
 }

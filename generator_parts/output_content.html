@@ -6,9 +6,7 @@
     <!-- Sidebar -->
     <div class="bg-light border-right" id="sidebar-wrapper">
       <div class="sidebar-heading">replaceDBName</div>
-      <div class="list-group list-group-flush" id="sidebar-links">
-        <a href="#/" class="list-group-item list-group-item-action bg-light"><i class="fas fa-tachometer-alt"></i><span class="ml-2">Dashboard</span></a>
-      </div>
+      <div class="list-group list-group-flush" id="sidebar-links"></div>
     </div>
 
     <!-- Content -->
@@ -17,7 +15,18 @@
         <a class="btn" href="javascript:void(0)" id="menu-toggle">
           <span class="navbar-toggler-icon"></span>
         </a>
-        <!-- replaceAccountHandler -->
+        <ul class="nav ml-auto">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle text-muted" href="#" id="navbarDropdown" role="button" data-toggle="dropdown">
+              <i class="fas fa-user"></i><span class="d-none d-md-inline" id="username">Account</span>
+            </a>
+            <div class="dropdown-menu dropdown-menu-right">
+              <a class="dropdown-item" href="?changepw">Change Password</a>
+              <a class="dropdown-item" href="?emails">Manage E-Mails</a>
+              <a class="dropdown-item" href="?logout">Logout</a>
+            </div>
+          </li>
+        </ul>
       </nav>    
       <!-- App -->
       <div class="container-fluid">

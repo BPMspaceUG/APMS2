@@ -3,43 +3,49 @@ export default class Router {
 	constructor(routes = [], renderNode) {
 		this.routes = routes;
 		this.renderNode = renderNode;
-		let path = location.hash.substr(1).trim();
-		if (path === '') path = '/';
-		this.navigate(path); //location.pathname + location.hash);
+		this.navigate(location.hash.substr(1).trim());
 	}
 	addRoutes(routes) {
 		this.routes = [...this.routes, ...routes];
 	}
-	match(route, requestPath) {
-		let paramNames = [];
-		let regexPath = route.path.replace(/([:*])(\w+)/g, (full, colon, name) => {
-			paramNames.push(name);
-			return '([^\/]+)';
-		}) + '(?:\/|$)';
-		let params = {};		
-		let routeMatch = requestPath.match(new RegExp(regexPath));
-		if(routeMatch !== null) {
-			params = routeMatch
-			.slice(1)
-			.reduce((params, value, index) => {
-				if(params === null) params = {};
-				params[paramNames[index]] = value;
-				return params;
-			}, null);
-		}
-		route.setProps(params);
-		return routeMatch;
-	}
 	navigate(path) {
-		const route = this.routes.filter(route => this.match(route, path))[0];
-		if (!route) {
-			// Route not found
-			this.renderNode.innerHTML = "404! Page not found";
+		//---> Router Start
+		if (path === '') path = '/'; // Init
+		const pathElems = path.split('/');
+		pathElems.shift();
+		const last = pathElems[pathElems.length - 1];
+		let route = null;
+
+		if (pathElems.length === 1) {
+			// Dashboard || Read
+			if (last === "") {
+				// --> Dashboard
+				route = this.routes[0];
+				route.setProps({});
+			} else {
+				// --> Read!
+				route = this.routes[4]; // Read!
+				route.setProps({table: last});
+			}
 		}
-		else {
-			//console.log(path, '--->', route);
-			window.location.href = path.search('/#') === -1 ? '#' + path : path;
-			this.renderNode.innerHTML = route.renderView(); // innerHTML must be avoided
+		else if (pathElems.length > 1) {			
+			const prelast = pathElems[pathElems.length - 2];			
+			if (last === 'workflow') {
+				// --> Workflow
+				route = this.routes[2];
+				route.setProps({table: prelast});
+			}
+			else if (last === 'create') {
+				// --> Create
+				route = this.routes[1];
+				route.setProps({table: prelast});
+			}
+			else {
+				// --> Modify
+				route = this.routes[3];
+				route.setProps({table: prelast});
+			}
 		}
-	}	
+		this.renderNode.innerHTML = route.renderView();
+	}
 }

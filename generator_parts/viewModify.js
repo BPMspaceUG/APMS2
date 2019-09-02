@@ -1,4 +1,4 @@
-export default props => {
+export default () => {
 
   let newForm = null;
   const path = location.hash.split('/');
@@ -6,11 +6,11 @@ export default props => {
   
   // Get actual Table & ID
   const actTable = path[path.length - 2];
-  const id = path[path.length - 1];
+  const actRowID = path[path.length - 1];
 
   // Checks
   if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
-  if (isNaN(id)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
+  if (isNaN(actRowID)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
 
   // Create Table Object
   const t = new Table(actTable);
@@ -21,7 +21,8 @@ export default props => {
 
   // Get Row by ID
   function initForm() {
-    t.loadRow(id, row => {
+    // Load the whole Row-Data from ID
+    t.loadRow(actRowID, row => {
       let actStateID = null;
       let diffObject = {};
       let newObj = {};
@@ -38,7 +39,7 @@ export default props => {
         newObj[key].value = row[key];
 
       // Generate a Modify-Form
-      newForm = new FormGenerator(t, id, newObj, null);
+      newForm = new FormGenerator(t, actRowID, newObj, null);
       document.getElementById('formedit').innerHTML = newForm.getHTML();
 
       // --- GUI
@@ -65,7 +66,7 @@ export default props => {
               //------------------------------------
               // => TRANSITION (with Statemachine)
               //------------------------------------
-              t.transitRow(id, state.id, newRowData, function(response) {
+              t.transitRow(actRowID, state.id, newRowData, function(response) {
                 if (response.error) {
                   console.log('ERROR', response.error.msg);
                   return;
@@ -149,8 +150,7 @@ export default props => {
         e.preventDefault();
         const newRowData = newForm.getValues();
         if (!t.SM) {
-
-          t.updateRow(props.id, newRowData, function(resp){
+          t.updateRow(actRowID, newRowData, function(resp){
             if (resp == "1")
               document.location.assign('#/' + t.getTablename());
             else
@@ -199,7 +199,7 @@ export default props => {
           '<span class="mr-3" id="saveBtns"></span><span class="mr-3" id="nextstates"></span>'
         : 
           // NO Statemachine
-          `<a class="btn btn-primary btnSave" href="#/${props.table}">Save</a><span class="mx-3 text-muted">or</span>`
+          `<a class="btn btn-primary btnSave" href="#/${actTable}">Save</a><span class="mx-3 text-muted">or</span>`
       }
       <span><a class="btn btn-light" href="${backPath}">Back</a></span>
   </div>

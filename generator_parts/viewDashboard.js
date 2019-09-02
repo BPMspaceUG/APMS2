@@ -1,4 +1,4 @@
-export default (props) => {
+export default () => {
 
   // Set Title
   window.document.title = "Dashboard";

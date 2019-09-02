@@ -1,4 +1,4 @@
-export default props => {
+export default () => {
   
   const strPath = location.hash;
   const path = strPath.split('/');
@@ -177,9 +177,6 @@ export default props => {
   }, 10);
 
 
-
-
-
   // Path
   const guiPath = [];
   const count = path.length / 2;
@@ -206,7 +203,7 @@ export default props => {
     <hr>
     <div class="my-3" id="formcreate">${HTML}</div>
     <hr>
-    <div class="text-center">
+    <div class="text-center pb-3">
       <a class="btn btn-success btnCreate" href="#/">${textCommand}</a>
       <span class="mx-3 text-muted">or</span>
       <span><a class="btn btn-light" href="${backPath}">Back</a></span>

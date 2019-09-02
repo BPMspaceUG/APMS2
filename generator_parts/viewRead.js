@@ -13,33 +13,31 @@ export default props => {
     }
   }
 
-
   const t = new Table(props.table);
 
+  const displayRows = function(t) {
+    if (t.actRowCount === 0) {
+      document.getElementById('searchBox').outerHTML = '<span class="text-muted mr-3">No Entries</span>';
+    } else
+      t.renderHTML('tablecontent');
+  }
+
   // Load Rows
-  t.loadRows(function(){
-    t.renderHTML('tablecontent');
-  });
+  t.loadRows(() => displayRows(t));
 
   //----------------------------
   // Execute this Code after rending DOM
   setTimeout(() => {
-
     // Bind Events to Searchbox for Realtime Search
     const searchBox = document.getElementById('searchBox');
-    const myHandler = () => {
-      // Real-Time Search
-      //console.log("Search:", searchBox.value);      
+    // Real-Time Search   
+    const dHandler = debounced(200, () => {
       t.setSearch(searchBox.value); // Set Filter
-      t.loadRows(function(){
-        t.renderHTML('tablecontent');
-      });
-
-    }
-    const dHandler = debounced(200, myHandler);
+      t.loadRows(() => t.renderHTML('tablecontent'));
+    });
     searchBox.addEventListener("input", dHandler);
   },
-  10);  
+  10);
   //----------------------------
 
   const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
@@ -51,9 +49,9 @@ export default props => {
     <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>
     <hr>
     <form class="form-inline mb-1">
-      <input type="text" id="searchBox" class="form-control d-inline-block w-25 mr-1" placeholder="Search..."/>
+      <input type="text" id="searchBox" class="form-control d-inline-block w-50 w-lg-25 mr-1" placeholder="Search..."/>
       <a class="btn btn-success mr-1" href="#/${props.table}/create">${textCreate}</a>
-      ${t.SM ? '<a class="btn btn-info" href="#/'+props.table+'/workflow">Workflow</a>' : ''}
+      ${t.SM ? '<a class="btn btn-info" href="#/'+props.table+'/workflow"><span class="d-none d-lg-inline">Workflow</span><span class="d-lg-none">WF</span></a>' : ''}
     </div>
     <div id="tablecontent"></div>
   </div>`;

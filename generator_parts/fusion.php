@@ -249,17 +249,22 @@
   }
 
   // Generate URLs
+  /*
   $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
   $url_host = explode('APMS', $actual_link)[0];
   $url_apiscript = '/APMS_test/'.$db_name.'/api.php';
   $API_url = $url_host.$url_apiscript;
-  $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
+  */
 
-  // TODO: Workaround
+  // Remove Filename from URL...
+  $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
+
+
   // collapse navbar-collapse
+  /*
   $AccountHandler = '
   <ul class="nav ml-auto">
     <li class="nav-item dropdown">
@@ -273,6 +278,7 @@
       </div>
     </li>
   </ul>';
+  */
   
   //------------------- Load complete Project
   $class_StateEngine = file_get_contents("./output_StateEngine.php");
@@ -293,7 +299,6 @@
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
-  $output_content = str_replace('<!-- replaceAccountHandler -->', $AccountHandler, $output_content); // Account-URL
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
   //===> Compose Main HTML-File
   $output_all = $output_header.$output_content.$output_footer;
@@ -304,6 +309,7 @@
   $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
   // Define ProjectPath
   $Path_APMS_test = __DIR__ . "/../../APMS_test";
+
 	// check if APMS test exists
   if (is_dir($Path_APMS_test)) {
   	// Path for Project
@@ -329,7 +335,6 @@
     file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
     file_put_contents($project_dir."/js/views/modify.js", file_get_contents("./viewModify.js"));
     file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
-
     // Styles
     file_put_contents($project_dir."/css/main.css", $output_css);
     if (!file_exists($project_dir."/css/custom.css"))
@@ -343,7 +348,6 @@
     // Main Directory
     file_put_contents($project_dir."/api.php", $output_API);
     file_put_contents($project_dir."/content.inc.html", $output_all);
-    // Index File
     file_put_contents($project_dir."/index.php", $output_index);
     // Configuration
     file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
@@ -352,6 +356,7 @@
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
+
     //------> Output information
     echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
     echo $queries;
