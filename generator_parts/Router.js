@@ -14,6 +14,7 @@ export default class Router {
 		const pathElems = path.split('/');
 		pathElems.shift();
 		const last = pathElems[pathElems.length - 1];
+		const first = pathElems[0];
 		let route = null;
 
 		if (pathElems.length === 1) {
@@ -25,7 +26,7 @@ export default class Router {
 			} else {
 				// --> Read!
 				route = this.routes[4]; // Read!
-				route.setProps({table: last});
+				route.setProps({table: last, origin: first});
 			}
 		}
 		else if (pathElems.length > 1) {			
@@ -33,17 +34,17 @@ export default class Router {
 			if (last === 'workflow') {
 				// --> Workflow
 				route = this.routes[2];
-				route.setProps({table: prelast});
+				route.setProps({table: prelast, origin: first});
 			}
 			else if (last === 'create') {
 				// --> Create
 				route = this.routes[1];
-				route.setProps({table: prelast});
+				route.setProps({table: prelast, origin: first});
 			}
 			else {
 				// --> Modify
 				route = this.routes[3];
-				route.setProps({table: prelast});
+				route.setProps({table: prelast, origin: first});
 			}
 		}
 		this.renderNode.innerHTML = route.renderView();

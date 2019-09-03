@@ -1,4 +1,4 @@
-export default () => {
+export default (props) => {
 
   let newForm = null;
   const path = location.hash.split('/');
@@ -84,7 +84,7 @@ export default () => {
                 if (messages.length > 0) {
                   messages.reverse(); // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
                   const htmlStateFrom = t.renderStateButton(actStateID, false);
-                  const htmlStateTo = t.renderStateButton(targetStateID, false);
+                  const htmlStateTo = t.renderStateButton(state.id, false);
                   for (const msg of messages) {
                     let title = '';
                     if (msg.type == 0) title = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
@@ -162,8 +162,14 @@ export default () => {
   }, 10);
   //----------------------------
 
-  // Set Title
+  //--- Set Title
   window.document.title = "Modify Entry in " + t.getTableAlias();
+  //--- Mark actual Link
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
+  });
   
   // Path
   const guiPath = [];

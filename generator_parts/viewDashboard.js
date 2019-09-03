@@ -1,7 +1,13 @@
 export default () => {
 
-  // Set Title
+  //--- Set Title
   window.document.title = "Dashboard";
+  //--- Mark actual Link
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/') link.classList.add('active');
+  });
 
   return `<div>
     <h2>Dashboard</h2>

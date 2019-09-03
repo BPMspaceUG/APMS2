@@ -133,7 +133,7 @@ class Modal {
       <div class="modal-dialog${sizeType}">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">${this.heading}</h5>
+            <h5 class="modal-title w-75">${this.heading}</h5>
             <button type="button" class="close closeButton" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -398,7 +398,7 @@ class RawTable {
     return dir;
   }
   public setSort(sortStr: string) { this.Sort = sortStr; }
-  public setFilter(filterStr: string) { this.Filter = filterStr; }
+  public setFilter(filterStr: string) {this.Filter = filterStr; }
   public setColumnFilter(columnName: string, filterText: string) {
     this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
   }
@@ -997,7 +997,7 @@ class Table extends RawTable {
           const Tablename = RowData[0];
           const ID = RowData[1];
 
-          console.log("modRow: ", Tablename, ' -> ', ID);
+          //console.log("modRow: ", Tablename, ' -> ', ID);
           if (t.getTablename() !== Tablename) {
             // External Table
             const tmpTable = new Table(Tablename);
@@ -1197,12 +1197,11 @@ class FormGenerator {
         }
       }
       const getSelection = (cont, isReadOnly, custfilter) => {
-
         // Replace Patterns
         if (custfilter) {
           const rd = this.data;
           const colnames = Object.keys(rd);
-          console.log(rd);
+          //console.log(rd);
           for (const colname of colnames) {
             const pattern = '%'+colname+'%';
             if (custfilter.indexOf(pattern) >= 0) {
@@ -1211,12 +1210,11 @@ class FormGenerator {
             }
           }
         }
-
         if (isReadOnly)
           return '<span class="d-block text-muted" style="margin-top: .4rem;">'+ cont +'</span>';
         else
           return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' +
-            el.fk_table +'\', \'' + escape(custfilter) + '\')" href="javascript:void(0);">'+ cont +'</a>';
+            el.fk_table +'\', \'' + encodeURI(custfilter) + '\')" href="javascript:void(0);">'+ cont +'</a>';
       }
       result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
       result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter) );
@@ -1290,7 +1288,7 @@ class FormGenerator {
     }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
-      result += el.value;
+      result += '<div class="pt-2">' + el.value + '</div>';
     }
     //--- Enum
     else if (el.field_type == 'enum') {
@@ -1511,18 +1509,22 @@ function loadFKTable(element, tablename, customfilter): void {
     return
   }
 
-  console.log('customfilter ---> ', customfilter);
-  if (customfilter) tmpTable.setFilter(customfilter);
+  if (customfilter) {
+    const filterStr = decodeURI(customfilter);
+    console.log('cfilter ---> ', filterStr);
+    tmpTable.setFilter(filterStr);
+  }
 
   // Load
   tmpTable.loadRows(rows => {
-    if (rows["count"] == 0) {
+    //TODO: BUG!!!
+    /*if (rows["count"] == 0) {
       //console.log('origin -->', location.hash);
       // Das ist der sonderfall mit create -> create
       document.getElementById(randID).innerHTML = 
         '<p class="text-muted mt-2"><span class="mr-3">No Entries found</span><a class="btn btn-success" href="'+
           location.hash + '/' + tmpTable.getTablename() + '/create">Create</a></p>';
-    } else
+    } else*/
       tmpTable.renderHTML(randID);
   });
   tmpTable.SelectionHasChanged.on(function(){

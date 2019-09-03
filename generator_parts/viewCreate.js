@@ -1,4 +1,4 @@
-export default () => {
+export default (props) => {
   
   const strPath = location.hash;
   const path = strPath.split('/');
@@ -24,6 +24,12 @@ export default () => {
 
   //--- Set Title  
   window.document.title = textCommand + ' ' + t.getTableAlias();
+  //--- Mark actual Link
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
+  });
 
   //===================================================================
   // Generate HTML from Form
@@ -107,13 +113,11 @@ export default () => {
               // Success?
               if (msg.element_id > 0) {
                 //-------------------------------------------------------->>>>
-                console.info(t.TableType === 'obj' ? 'Object' : 'Relation' + ' created! ID:', msg.element_id);
+                console.info( (t.TableType === 'obj' ? 'Object' : 'Relation') + ' created! ID:', msg.element_id);
 
                 // Wenn die Tabelle vor mir eine Relationstabelle ist,
                 // dann erzeuge instant eine neue Relation und springe ins erste Obj.
-
                 // origObj/1234  / tbl(rel)/create / newObj/create
-                //console.log('Path', path);
 
                 if (path.length > 2) {
                   const relCmd = path[path.length-3];
@@ -130,25 +134,24 @@ export default () => {
                     newRow[arrColnames[2]] = msg.element_id; // new ObjectID
                     // Create Relation
                     DB.request('create', {table: relTablename, row: newRow}, function(resp2){
-                      const RelID = resp2[1].element_id;
+                      // Relation created -> get RelationID
+                      const RelID = (resp2.length === 1 ? resp2[0].element_id : resp2[1].element_id);
                       // Replace both Creates
                       path[path.length-1] = msg.element_id;
                       path[path.length-3] = RelID;
-                      // Remove Relation
+                      // Path: Remove Relation
                       path.splice(path.length-4, 2);
                       const modifyPathOfNewElement = '#/' + path.join('/'); // Go back to first Object
-                      //console.log(1, '------->', RelID);
                       document.location.assign(modifyPathOfNewElement);
                       return;
                     });
                     return;
                   }
-                }                
-                // Redirect.
+                }
+                // Redirect
                 path[path.length-1] = msg.element_id; // replace last element
                 const modifyPathOfNewElement = '#/' + path.join('/'); // Go back at a Relation
                 // Redirect
-                //console.log(2, '------->', modifyPathOfNewElement);
                 document.location.assign(modifyPathOfNewElement);
                 return;
               }

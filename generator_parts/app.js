@@ -23,13 +23,6 @@ const addButton = function(path, alias, icon) {
   tmpBtn.setAttribute('class', 'list-group-item list-group-item-action');
   tmpBtn.setAttribute('href', '#/' + path);
   tmpBtn.innerHTML = icon + `<span class="ml-2">${alias}</span>`;
-  // Mark actual Link
-  tmpBtn.addEventListener('click', function(el){
-    const links = document.querySelectorAll('#sidebar-links .list-group-item');
-    links.forEach(link => {link.classList.remove('active');});
-    tmpBtn.classList.add('active');
-  })
-  // and add the Button into the List
   document.getElementById('sidebar-links').appendChild(tmpBtn);
 }
 

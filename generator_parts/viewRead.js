@@ -1,4 +1,4 @@
-export default props => {
+export default (props) => {
   // Debouncing Event for RT-Search
   function debounced(delay, fn) {
     let timerId;
@@ -42,8 +42,15 @@ export default props => {
 
   const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
 
-  // Set Title
+  //--- Set Title
   window.document.title = t.getTableAlias();
+  //--- Mark actual Link
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
+  });
+
 
   return `<div>
     <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>

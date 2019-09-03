@@ -118,7 +118,7 @@ class Modal {
       <div class="modal-dialog${sizeType}">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">${this.heading}</h5>
+            <h5 class="modal-title w-75">${this.heading}</h5>
             <button type="button" class="close closeButton" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -876,7 +876,6 @@ class Table extends RawTable {
                         const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
                         const Tablename = RowData[0];
                         const ID = RowData[1];
-                        console.log("modRow: ", Tablename, ' -> ', ID);
                         if (t.getTablename() !== Tablename) {
                             const tmpTable = new Table(Tablename);
                             tmpTable.loadRow(ID, function (Row) {
@@ -1044,7 +1043,6 @@ class FormGenerator {
                 if (custfilter) {
                     const rd = this.data;
                     const colnames = Object.keys(rd);
-                    console.log(rd);
                     for (const colname of colnames) {
                         const pattern = '%' + colname + '%';
                         if (custfilter.indexOf(pattern) >= 0) {
@@ -1057,7 +1055,7 @@ class FormGenerator {
                     return '<span class="d-block text-muted" style="margin-top: .4rem;">' + cont + '</span>';
                 else
                     return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' +
-                        el.fk_table + '\', \'' + escape(custfilter) + '\')" href="javascript:void(0);">' + cont + '</a>';
+                        el.fk_table + '\', \'' + encodeURI(custfilter) + '\')" href="javascript:void(0);">' + cont + '</a>';
             };
             result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
             result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter));
@@ -1113,7 +1111,7 @@ class FormGenerator {
             result += `<textarea class="codeeditor" id="${newID}"></textarea>`;
         }
         else if (el.field_type == 'rawhtml') {
-            result += el.value;
+            result += '<div class="pt-2">' + el.value + '</div>';
         }
         else if (el.field_type == 'enum') {
             result += `<select name="${key}" class="custom-select${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}>`;
@@ -1303,17 +1301,13 @@ function loadFKTable(element, tablename, customfilter) {
         document.getElementById(randID).innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
         return;
     }
-    console.log('customfilter ---> ', customfilter);
-    if (customfilter)
-        tmpTable.setFilter(customfilter);
+    if (customfilter) {
+        const filterStr = decodeURI(customfilter);
+        console.log('cfilter ---> ', filterStr);
+        tmpTable.setFilter(filterStr);
+    }
     tmpTable.loadRows(rows => {
-        if (rows["count"] == 0) {
-            document.getElementById(randID).innerHTML =
-                '<p class="text-muted mt-2"><span class="mr-3">No Entries found</span><a class="btn btn-success" href="' +
-                    location.hash + '/' + tmpTable.getTablename() + '/create">Create</a></p>';
-        }
-        else
-            tmpTable.renderHTML(randID);
+        tmpTable.renderHTML(randID);
     });
     tmpTable.SelectionHasChanged.on(function () {
         const selRowID = tmpTable.getSelectedRowID();
