@@ -21,11 +21,11 @@ export default class Router {
 			// Dashboard || Read
 			if (last === "") {
 				// --> Dashboard
-				route = this.routes[0];
-				route.setProps({});
+				//route = this.routes[];
+				//route.setProps({});
 			} else {
 				// --> Read!
-				route = this.routes[4]; // Read!
+				route = this.routes[3]; // Read!
 				route.setProps({table: last, origin: first});
 			}
 		}
@@ -33,20 +33,21 @@ export default class Router {
 			const prelast = pathElems[pathElems.length - 2];			
 			if (last === 'workflow') {
 				// --> Workflow
-				route = this.routes[2];
+				route = this.routes[1];
 				route.setProps({table: prelast, origin: first});
 			}
 			else if (last === 'create') {
 				// --> Create
-				route = this.routes[1];
+				route = this.routes[0];
 				route.setProps({table: prelast, origin: first});
 			}
 			else {
 				// --> Modify
-				route = this.routes[3];
+				route = this.routes[2];
 				route.setProps({table: prelast, origin: first});
 			}
 		}
-		this.renderNode.innerHTML = route.renderView();
+		// ===> Output HTML
+		this.renderNode.innerHTML = route ? route.renderView() : '--> Entrypoint';
 	}
 }

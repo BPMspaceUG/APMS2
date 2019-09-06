@@ -57,7 +57,7 @@
         </div>
 
         <div ng-if="DBhasBeenLoaded ">
-          <!-- Content of Databases -->        
+          <!-- Content of Databases -->
           <div class="card mb-3">
             <div class="card-header">
               <span class="badge badge-success mr-2">2</span>Configuration
@@ -71,18 +71,23 @@
 
               <!-- Meta Setting -->
               <div class="my-3 float-left">
-                <label class="m-0 mr-3 font-weight-bold"><input type="checkbox" ng-model="meta.redirectToLogin" class="mr-2">Login-System</label>
+                <span class="m-0 mr-3 font-weight-bold">
+                  <input type="checkbox" ng-model="meta.redirectToLogin" class="mr-2">Login-System
+                </span>
                 <div ng-if="meta.redirectToLogin">
                     <label class="d-inline">Login-URL:</label>
                     <input type="text" class="form-control form-control-sm d-inline" style="width: 200px;" ng-model="meta.login_url"/>
                     <label class="d-inline">SecretKey:</label>
                     <input type="text" class="form-control form-control-sm d-inline" style="width: 200px;" ng-model="meta.secretkey"/>
                 </div>
+                <a href="#" class="btn btn-success btn-sm d-inline" ng-click="add_virtLink()">+ Link</a>
               </div>
+
               <div class="font-weight-bold my-3 float-right">
                 <label class="m-0 mr-3"><input type="checkbox" ng-model="meta.createRoles" class="mr-2">Role-Management</label>
                 <label class="m-0"><input type="checkbox" ng-model="meta.createHistory" class="mr-2">History</label>
-              </div>
+              </div>             
+
               <div class="clearfix"></div>
 
               <!-- Tables -->
@@ -273,7 +278,9 @@
                     <!---- CUSTOM FILTER ---->
                     <tr ng-show="tbl.showKids">
                       <td class="align-middle pb-3" colspan="8">
-                        <div class="row">
+
+                        <!-- Normal Table -->
+                        <div class="row" ng-hide="tbl.is_virtual">
                           <!-- Std. Filter -->
                           <div class="col">
                             <small class="text-muted">Standard-Filter on Serverside [filterJSON] i.e.: {"nin":["state_id","1,2,3"]}</small>
@@ -289,8 +296,15 @@
                             </form>
                           </div>
                         </div>
+
+                        <!-- Virtual -->
+                        <div ng-if="tbl.is_virtual">
+                          <textarea class="form-control" ng-model="tbl.virtualcontent"></textarea>
+                        </div>
+
+
                       </td>
-                    </tr>                 
+                    </tr>
 
                   </tbody>
                 </table>

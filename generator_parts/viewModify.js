@@ -9,7 +9,7 @@ export default (props) => {
   const actRowID = path[path.length - 1];
 
   // Checks
-  if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
+  if (path.length % 2 !== 0) return `<div><p style="color: red;">Modify: Path is invalid!</p></div>`;
   if (isNaN(actRowID)) return `<div><p style="color: red;">Error: ID is not a number!</p></div>`;
 
   // Create Table Object

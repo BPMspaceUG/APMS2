@@ -248,37 +248,11 @@
     }
   }
 
-  // Generate URLs
-  /*
-  $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-  $url_host = explode('APMS', $actual_link)[0];
-  $url_apiscript = '/APMS_test/'.$db_name.'/api.php';
-  $API_url = $url_host.$url_apiscript;
-  */
-
   // Remove Filename from URL...
   $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
-
-
-  // collapse navbar-collapse
-  /*
-  $AccountHandler = '
-  <ul class="nav ml-auto">
-    <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle text-muted" href="#" id="navbarDropdown" role="button" data-toggle="dropdown">
-        <i class="fas fa-user"></i><span class="d-none d-md-inline" id="username">Account</span>
-      </a>
-      <div class="dropdown-menu dropdown-menu-right">
-        <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_change_password.php">Change Password</a>
-        <a class="dropdown-item" href="'.$LOGIN_url2.'/LIAM2_Client_manage_emails.php">Manage E-Mails</a>
-        <a class="dropdown-item" href="?logout">Logout</a>
-      </div>
-    </li>
-  </ul>';
-  */
   
   //------------------- Load complete Project
   $class_StateEngine = file_get_contents("./output_StateEngine.php");
@@ -295,7 +269,6 @@
   $output_index = file_get_contents("./output_index.php");
 
   //------------------- Insert Code into Templates
-
   $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
   $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
   $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
@@ -329,8 +302,6 @@
     file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
     // Views
     createSubDirIfNotExists($project_dir."/js/views/");
-    if (!file_exists($project_dir."/js/views/dashboard.js"))
-    file_put_contents($project_dir."/js/views/dashboard.js", file_get_contents("./viewDashboard.js"));
     file_put_contents($project_dir."/js/views/create.js", file_get_contents("./viewCreate.js"));
     file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
     file_put_contents($project_dir."/js/views/modify.js", file_get_contents("./viewModify.js"));

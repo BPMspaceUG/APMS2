@@ -5,7 +5,7 @@ export default (props) => {
   path.shift(); // Remove first element (#)
 
   // Checks
-  if (path.length % 2 !== 0) return `<div><p style="color: red;">Path is invalid!</p></div>`;
+  if (path.length % 2 !== 0) return `<div><p style="color: red;">Create: Path is invalid!</p></div>`;
 
   // Get actual Table & ID
   const actTable = path[path.length - 2];

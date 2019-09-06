@@ -1,7 +1,6 @@
 <?php
   // Check if Request Method is POST
   if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST)) {
-    // Convert the input stream into PHP variables from Angular
     $_POST = json_decode(file_get_contents('php://input'), true);
   }
   $params = $_POST;
@@ -12,6 +11,7 @@
   $user = isset($params['user']) ? $params['user'] : null;
   $pwd = isset($params['pwd']) ? $params['pwd'] : null;
   $x_table = isset($params['x_table']) ? $params['x_table'] : null;
+
 
   // If all relevant params are available
   if (isset($host) && isset($user) && isset($pwd)) {
@@ -35,7 +35,8 @@
     }
   }
 
-  //---- Extracting databases
+  //===================================================================
+
   function getData($con) {
     $res = array();
     $query = "SHOW DATABASES";
@@ -54,7 +55,6 @@
     }
     return $res;
   }
-
   function beautifyName($rawname) {
     $arr = explode('_', $rawname);
     $alias = end($arr);
@@ -64,7 +64,6 @@
     }
     return ucfirst($alias);
   }
-
   function getDefaultFieldType($datatype) {
     $datatype = strtolower($datatype);
     // Numbers
@@ -87,29 +86,30 @@
     // Default
     else return 'text';
   }
-
-  // Extracting tables
   function getTables($con, $db) {
-    $query = "SHOW TABLES IN $db";
-    $nameParam = "Tables_in_$db";
-    $res = array();
-    $result = mysqli_query($con, $query);
-    $tables = array();
-    while ($row = $result->fetch_assoc()) {
-      $tables[] = $row[$nameParam];
-    }
+    // Init
+    $res = [];
+    $tables = [];
+
+    $result = mysqli_query($con, "SHOW TABLES IN $db");
+    while ($row = $result->fetch_assoc())
+      $tables[] = $row["Tables_in_$db"];
+
     // Loop Tables
     $table_counter = 1;
     foreach ($tables as $table) {
-      $query = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '$db' AND TABLE_NAME = '$table';";
-      $res2 = mysqli_query($con, $query);
-      $columns = array();
+      // Init
       $TableHasStateMachine = false;
+      $columns = [];
+      $sort_col = "";
+
+      // Check virtual Table
+      $query = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '$db' AND TABLE_NAME = '$table';";
+      $res2 = mysqli_query($con, $query);                
       // has columns ?
       if ($res2) {
         // Loop Columns
-        $column_counter = 1;
-        $sort_col = "";
+        $column_counter = 1;          
         while ($row2 = $res2->fetch_assoc()) {
           // Column information
           $column_info = $row2;
@@ -143,7 +143,7 @@
           }
           // enrich column info
           /*------------------------------
-                   C O L U M N S
+                  C O L U M N S
           ------------------------------*/
           // Generate Beautiful alias
           $alias = beautifyName($column_name);
@@ -187,16 +187,16 @@
           $column_counter++;
         }
         //------------------------------------------------ Auto Foreign Keys
-        $fKeys = array();
+        $fKeys = [];
         $query = "SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME ".
           "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA = '$db' AND TABLE_NAME = '$table'";
         $resX = mysqli_query($con, $query);
         while ($row = $resX->fetch_assoc()) {
           $colname = $row["COLUMN_NAME"];
-          $fKeys[$colname] = array(
+          $fKeys[$colname] = [
             "refeTable" => $row["REFERENCED_TABLE_NAME"],
             "colID" => $row["REFERENCED_COLUMN_NAME"]
-          );
+          ];
         }
         // Columns and Foreign Keys exist
         if (count($columns) > 0 && count($fKeys)) {
@@ -204,7 +204,6 @@
           foreach ($columns as $colname => $col) {
             // check if entry exists
             if (array_key_exists($colname, $fKeys)) {
-
               // Check if keys are empty
               if ($colname != 'state_id'
               && empty($columns[$colname]["foreignKey"]["table"])
@@ -217,8 +216,7 @@
                 $columns[$colname]["foreignKey"]["col_subst"] = '*'; //$fKeys[$colname]["colID"];
                 // Set field type to foreign-key
                 $columns[$colname]["field_type"] = 'foreignkey';
-              }
-              
+              }              
             }
           }
         }
@@ -230,7 +228,7 @@
       /*------------------------------
         T A B L E S
       ------------------------------*/
-      $res[$table] = array(
+      $res[$table] = [
         "table_alias" => $table_alias,
         "table_type" => $table == 'state_rules' ? 'n_m' : 'obj', // Default = Object
         "order" => (int)$table_counter,
@@ -240,9 +238,11 @@
         "in_menu" => false,
         "se_active" => $TableHasStateMachine,
         "columns" => $columns
-      );
+      ];
+      //------------------------------
       $table_counter++;
     }
-    // Output
+
+    // ===> Output Basic Structure!
     return $res;
   }

@@ -1,4 +1,5 @@
 export default (props) => {
+
   // Debouncing Event for RT-Search
   function debounced(delay, fn) {
     let timerId;
@@ -14,6 +15,18 @@ export default (props) => {
   }
 
   const t = new Table(props.table);
+  //--- Set Title
+  window.document.title = t.getTableAlias();
+  //--- Mark actual Link
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
+  });
+  const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
+
+  if (t.Config.is_virtual)
+    return eval('(function() {' + t.Config.virtualcontent + '}())') || '';
 
   const displayRows = function(t) {
     if (t.actRowCount === 0) {
@@ -21,7 +34,6 @@ export default (props) => {
     } else
       t.renderHTML('tablecontent');
   }
-
   // Load Rows
   t.loadRows(() => displayRows(t));
 
@@ -36,21 +48,8 @@ export default (props) => {
       t.loadRows(() => t.renderHTML('tablecontent'));
     });
     searchBox.addEventListener("input", dHandler);
-  },
-  10);
+  }, 10);
   //----------------------------
-
-  const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
-
-  //--- Set Title
-  window.document.title = t.getTableAlias();
-  //--- Mark actual Link
-  const links = document.querySelectorAll('#sidebar-links .list-group-item');
-  links.forEach(link => {
-    link.classList.remove('active');
-    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
-  });
-
 
   return `<div>
     <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>

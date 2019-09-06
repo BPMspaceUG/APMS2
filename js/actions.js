@@ -55,21 +55,26 @@ APMS.controller('APMScontrol', function ($scope, $http) {
         }
       });
     }
-    rec_test(newConfig, oldConfig);    
-    // Virtual Columns
+    rec_test(newConfig, oldConfig);
+    //=================================== Virtual Tables + Columns
     //console.log("OLD:", oldConfig);
     //console.log("NEW:", newConfig);
-    Object.keys(oldConfig).forEach(function(table){
-      //console.log(table)
-      Object.keys(oldConfig[table].columns).forEach(function(column){
-        let col = oldConfig[table].columns[column]
+    Object.keys(oldConfig).forEach(tname => {
+      //console.log(tname);
+      const tbl = oldConfig[tname];
+      if (tbl.is_virtual) {
+        newConfig[tname] = tbl;
+      }
+      //--Columns
+      Object.keys(oldConfig[tname].columns).forEach(cname => {
+        const col = oldConfig[tname].columns[cname];
         if (col.is_virtual) {
-          //console.log(table, " -> ", column);
-          newConfig[table].columns[column] = col
+          //console.log(tname, " -> ", column);
+          newConfig[tname].columns[cname] = col
         }
       })
     });
-    // Return new Config
+    // ===> Return new Config
     $scope.tables = newConfig
   }
   $scope.loadConfigByName = function() {
@@ -248,15 +253,20 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     });
   }
   // GUI------------------------------------
-  // Add virtual column
+
+  function rand_name(prefix, arr) {
+    let newname = prefix;
+    while (arr[newname]) 
+      newname = newname + 'x';
+    return newname;
+  }
+
+  //---------------------- VIRTUAL COLUMN
+
   $scope.add_virtCol = function(tbl, tablename){
     console.log("Add virtual Column for", tablename);
     const cols = $scope.tables[tablename].columns;
-    // TODO: Improve Name generation i.e. with Hash
-    let new_virt_colname = 'virtualCol';
-    while (cols[new_virt_colname]) {
-      new_virt_colname = new_virt_colname + 'x';
-    }
+    const new_virt_colname = rand_name('virtualCol', cols);
     $scope.tables[tablename].columns[new_virt_colname] = {
       field_type: 'reversefk',
       column_alias: "Table",
@@ -269,17 +279,30 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     }
     return
   }
-  // Delete virtual column
   $scope.del_virtCol = function(tbl, colname){    
     delete tbl.columns[colname];
   }
-  $scope.addNewOrigin = function() {
-    const text = $scope.x.newOriginText;
-    const filter = $scope.x.newOriginFilter;
-    console.log(text, filter);
-    $scope.x.newOriginText = '';
-    $scope.x.newOriginFilter = '';
+
+  //---------------------- VIRTUAL TABLE
+
+  $scope.add_virtLink = function() {
+    console.log("Add virtual Table");
+    const tbls = $scope.tables;
+    const new_virt_tblname = rand_name('virtualTbl', tbls);
+    $scope.tables[new_virt_tblname] = {
+      table_alias: 'Virtual Table',
+      table_icon: '<i class="far fa-star"></i>',
+      href: '#',
+      order: 3,
+      mode: 'ro',
+      in_menu: true,
+      se_active: false,
+      is_virtual: true,
+      columns: [],
+    };
   }
+  
+
   $scope.changeSortOrder = function(col, inc) {
     const newIndex = parseInt(col.col_order) + inc;
     col.col_order = newIndex
@@ -290,8 +313,12 @@ APMS.controller('APMScontrol', function ($scope, $http) {
   }
   $scope.openProject = function(){
     // Build new URL and execute in new Tab
-    // TODO: Needs improvement
-    const url = window.location.href.replace("APMS2", "APMS_test")
+    const href = window.location.href;
+    const hash = window.location.hash;
+    let url = (hash.length > 0) ? href.split(hash)[0] : href;
+    url = url.replace('#','','g');
+    url = url.replace("APMS2", "APMS_test");
+    // Open in new Tab    
     window.open(url + $scope.dbNames.model+"/")
   }
   $scope.toggle_kids = function(tbl) {
