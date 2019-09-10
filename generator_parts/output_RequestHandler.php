@@ -241,7 +241,7 @@
       $tree = [];
       //-------- Loop Row
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
-        $x = random_int(10000, 99999); // Roffl
+       // $x = random_int(10000, 99999); // Roffl
         $ID = $singleRow[0]; // PrimaryID
         //-----------------------------------
         // Loop Cell
@@ -258,10 +258,12 @@
           if (!is_null($val)) {
             $col = $parts[1];
             //--- Trick for later merging! (has many)
+            /*
             if (!Config::doesColExistInTable($tablename, $col)
              && !Config::doesVirtualColExistInTable($tablename, $col)) {
               $parts[1] .= '/' . $x; // has Many --> TODO: instead of X use primaryID
             }
+            */
             $path = implode('/', $parts);
             self::path2tree($tree, $path, $val);
           }

@@ -91,7 +91,7 @@
     $res = [];
     $tables = [];
 
-    $result = mysqli_query($con, "SHOW TABLES IN $db");
+    $result = mysqli_query($con, "SHOW FULL TABLES IN $db WHERE Table_type = 'BASE TABLE'");
     while ($row = $result->fetch_assoc())
       $tables[] = $row["Tables_in_$db"];
 

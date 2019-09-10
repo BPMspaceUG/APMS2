@@ -148,18 +148,55 @@
     $con->exec($sql);
   }  
   //---------------------------------
+  $sqlCreateViewEdges = "CREATE OR REPLACE VIEW `_edges` AS ";
+  $sqlCreateViewEdgesStmts = [];
+  $sqlCreateViewNodes = "CREATE OR REPLACE VIEW `_nodes` AS ";
+  $sqlCreateViewNodesStmts = [];
+
   foreach ($data as $tablename => $table) {
     // Get Data
     $se_active = (bool)$table["se_active"];
     $table_type = $table["table_type"];
+    $cols = $table["columns"];
+    $primKey = Config::getPrimaryColsByTablename($tablename, $data);
+
     // TODO: Check if the "table" is no view
+
+    //-------- View _nodes, _edges
+    $primaryCol = $primKey[0];
+    // Check if is an Relation Table
+    if ($table_type != "obj") {
+      // _EDGES
+      // For each ForeignKey "LEFT" and "RIGHT"
+      $count = 0;
+      foreach ($cols as $colname => $col) {
+        if ($col["field_type"] == "foreignkey" && $tablename != "state_rules" && $colname != "state_id" && $se_active) {
+          // Append to sql Statement
+          $sqlCreateViewEdgesStmts[] = 'SELECT "'.$tablename.'" AS EdgeType,
+          '.$count.' AS EdgePartner,
+          '.$primaryCol.' AS EdgeID,
+          '.$colname.' AS ObjectID,
+          state_id AS EdgeStateID
+          FROM '.$tablename;
+          $count++;
+        }
+      }
+    }
+    else {
+      // _NODES
+      if (!$se_active)
+      $sqlCreateViewNodesStmts[] = 'SELECT "'.$tablename.'" AS ObjectType,
+        '.$primaryCol.' AS ObjectID,
+        state_id AS ObjectStateID
+        FROM '.$tablename;
+    }
+
     //--- Create StateMachine
     if ($se_active) {
       // ------- StateMachine Creation
       $SM = new StateMachine($con);
       $SM->createDatabaseStructure();
-      $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
-      $cols = $table["columns"];
+      $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);      
       if ($table_type != 'obj') {
         //====================================
         //----------- RELATION
@@ -203,15 +240,16 @@
           }
         }
       }
-
       // Exclude the following Columns:
-      $excludeKeys = Config::getPrimaryColsByTablename($tablename, $data);
+      $excludeKeys = $primKey;
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData
       $vcols = Config::getVirtualColnames($tablename, $data);
       foreach ($vcols as $vc) $excludeKeys[] = $vc;
+
       $queries .= "-- ============================ StateMachine\n";
       $queries .= $SM->getQueryLog();
       $queries .= "\n\n";
+      
       unset($SM); // Clean up
       // ------------ Connection to existing structure !
       // Set the default Entrypoint for the Table (when creating an entry the Process starts here)
@@ -247,6 +285,12 @@
       $con->query($sql);
     }
   }
+  $sqlCreateViewEdges .= implode(" UNION ", $sqlCreateViewEdgesStmts) . ';';
+  $sqlCreateViewNodes .= implode(" UNION ", $sqlCreateViewNodesStmts) . ';';
+
+  $con->exec($sqlCreateViewEdges);
+  $con->exec($sqlCreateViewNodes);
+
 
   // Remove Filename from URL...
   $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
