@@ -241,40 +241,47 @@
       $tree = [];
       //-------- Loop Row
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
-       // $x = random_int(10000, 99999); // Roffl
-        $ID = $singleRow[0]; // PrimaryID
         //-----------------------------------
         // Loop Cell
+
+        // TODO: Improve this with Link
+        /*
+        if ($tablename == '_nodes')
+          $singleRow[] = "http://localhost/APMS_test/bpmspace_sqms2_v1/api.php?table=_edges";
+        */
         foreach($singleRow as $i => $value) {
           $meta = $stmt->getColumnMeta($i);
           //--- Make a good Path
           $strPath = $meta["table"];
           $parts = explode('/', $strPath);
+
           array_shift($parts); // Remove first element of Path (= Origin-Table)
-          array_unshift($parts, $ID); // Prepend ID
-          $parts[] = $meta["name"]; // Append Colname
-          // ------------ Path 👍
-          $val = self::fmtCell($meta['native_type'], $value); // Convert Value ??
-          if (!is_null($val)) {
-            $col = $parts[1];
-            //--- Trick for later merging! (has many)
-            /*
-            if (!Config::doesColExistInTable($tablename, $col)
-             && !Config::doesVirtualColExistInTable($tablename, $col)) {
-              $parts[1] .= '/' . $x; // has Many --> TODO: instead of X use primaryID
-            }
-            */
-            $path = implode('/', $parts);
-            self::path2tree($tree, $path, $val);
+          if ($tablename == '_nodes' ||  $tablename == '_orphans')
+            array_unshift($parts, $singleRow[1]);
+          else if ($tablename == '_edges') {
+            array_unshift($parts, $singleRow[2]);
+            array_unshift($parts, $singleRow[1]);
           }
+          array_unshift($parts, $singleRow[0]); // Prepend ID
+
+          $parts[] = $meta["name"]; // Append Colname
+          $path = implode("/", $parts);
+          // ------------ Path
+          $val = self::fmtCell($meta['native_type'], $value); // Convert Value
+          self::path2tree($tree, $path, $val);
         }
       }
-      // Re-Index Tree (--> start Lists at 0)
-      $tree = array_values($tree); // TODO: Make Recursive
       // Deliver
-      return $tree;
+      if ($tablename != '_nodes' && $tablename != '_edges' && $tablename != '_orphans') {
+        $result = null;
+        foreach ($tree as $el) {
+          $result[] = $el;
+        }
+        return $result;
+      }
+      else
+        return $tree;      
     }
-
     private function readRowByPrimaryID($tablename, $ElementID) {
       $primColName = Config::getPrimaryColNameByTablename($tablename);
 
@@ -401,16 +408,45 @@
     }
     public function read($param) {
       //--------------------- Check Params
-      $validParams = ['table', 'limit', 'sort', 'filter', 'search'];      
+      $validParams = ['table', 'limit', 'sort', 'filter', 'search', 'path'];      
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       // Parameters and default values
-      @$tablename = isset($param["table"]) ? $param["table"] : die(fmtError('Table is not set!'));
+      @$tablename = isset($param["table"]) ? $param["table"] : null;
+      @$path = isset($param["path"]) ? $param["path"] : null;
       @$limit = isset($param["limit"]) ? $param["limit"] : null;
       @$sort = isset($param["sort"]) ? $param["sort"] : null;
       @$filter = isset($param["filter"]) ? $param["filter"] : null; // additional Filter
       @$search = isset($param["search"]) ? $param["search"] : null; // all columns: [like this] OR [like this] OR ...
+
+
+      // ===> PATH
+
+      if (!is_null($path)) {
+
+        // Ask the Path [tname/id]
+        $parts = explode('/', $path);
+
+        $id = end($parts);
+        $tname = prev($parts);
+        
+        /*$result = [
+          "path" => $path,
+          "tablename" => $tname,
+          "id" => $id,
+          "edges" => "http://localhost/APMS_test/bpmspace_sqms2_v1/api.php?path=test/123"
+        ];*/
+
+        $tablename = $tname;
+      }
+
+        //return json_encode($result, true);
+      //}
+
+
+
       //--- Table
+      if (is_null($tablename)) die(fmtError('Table is not set!'));
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
       //================================================
@@ -419,8 +455,6 @@
         $allowedTablenames = array_keys($this->getConfigByRoleID($this->token->uid));
         if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));        
       }
-
-
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
       //--- Limit
@@ -533,7 +567,6 @@
       //$rq->addJoin('connections/testtableA/state.statemachine_id', 'state_machines.id'); // 3rd level
       //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
 
-
       $pdo = DB::getInstance()->getConnection();
       // Retrieve Number of Entries
       $stmtCnt = $pdo->prepare($rq->getCountStmtWOLimits());
@@ -550,7 +583,7 @@
       }
       else {
         // Error -> Return Error
-        die(fmtError($stmt->errorInfo()[2] . ' -> ' . $stmt->queryString ));
+        die(fmtError($stmt->errorInfo()[2] . ' -> ' . $stmt->queryString));
       }
     }
     // Stored Procedure can be Read and Write (GET and POST)

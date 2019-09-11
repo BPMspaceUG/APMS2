@@ -63,6 +63,33 @@ export default (props) => {
     const origObjID = path[path.length-3];
     newObj[key].value = origObjID;
     newObj[key].mode_form = 'ro';
+
+
+    // TODO: Read the existing Relations from the edges Table
+    //console.log('Relation Filter here.');
+    // 1. Step Load existing Objects
+    /*
+    const tmpEdges = new Table('_edges');
+    tmpEdges.setFilter('{"and":[{"=":["ObjectID",'+origObjID+']},{"=":["EdgeStateID",7502]}]}');
+    tmpEdges.loadRows(rows => {
+      const FreeObjects = [];
+      const edgeType = rows.records['sqms2_syllabuselement_desc'];
+      const edgeIDs = Object.keys(edgeType);
+      edgeIDs.forEach(edgeID => {
+        FreeObjects.push(edgeType[edgeID][0].ObjectID);
+      })
+      // Filter the Objects with this List
+      const filter = '{"in":["sqms2_Text_id", "' + FreeObjects.join(',') + '"]}';
+      console.log(filter);
+      newObj[key].customfilter = filter;
+      const fCreate = new FormGenerator(t, undefined, newObj, null);
+      const HTML = fCreate.getHTML();
+      console.log(newObj)
+      document.getElementById('formcreate').innerHTML = HTML;
+    });
+    */
+
+
   }
 
   const fCreate = new FormGenerator(t, undefined, newObj, null);

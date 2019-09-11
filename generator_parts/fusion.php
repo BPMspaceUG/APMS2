@@ -163,7 +163,8 @@
     // TODO: Check if the "table" is no view
 
     //-------- View _nodes, _edges
-    $primaryCol = $primKey[0];
+    if (count($primKey) > 0)
+      $primaryCol = $primKey[0];
     // Check if is an Relation Table
     if ($table_type != "obj") {
       // _EDGES
@@ -173,10 +174,10 @@
         if ($col["field_type"] == "foreignkey" && $tablename != "state_rules" && $colname != "state_id" && $se_active) {
           // Append to sql Statement
           $sqlCreateViewEdgesStmts[] = 'SELECT "'.$tablename.'" AS EdgeType,
-          '.$count.' AS EdgePartner,
           '.$primaryCol.' AS EdgeID,
-          '.$colname.' AS ObjectID,
-          state_id AS EdgeStateID
+          '.$count.' AS EdgePartner,
+          state_id AS EdgeStateID,
+          '.$colname.' AS ObjectID
           FROM '.$tablename;
           $count++;
         }
@@ -184,11 +185,13 @@
     }
     else {
       // _NODES
-      if (!$se_active)
-      $sqlCreateViewNodesStmts[] = 'SELECT "'.$tablename.'" AS ObjectType,
-        '.$primaryCol.' AS ObjectID,
-        state_id AS ObjectStateID
-        FROM '.$tablename;
+      if ($se_active) {
+        $sqlCreateViewNodesStmts[] = 'SELECT 
+         "'.$tablename.'" AS ObjectType,
+          '.$primaryCol.' AS ObjectID,
+          state_id AS ObjectStateID
+          FROM '.$tablename;
+      }
     }
 
     //--- Create StateMachine
@@ -285,12 +288,14 @@
       $con->query($sql);
     }
   }
+  // Create Views (_nodes, _edges, _orphans)
   $sqlCreateViewEdges .= implode(" UNION ", $sqlCreateViewEdgesStmts) . ';';
   $sqlCreateViewNodes .= implode(" UNION ", $sqlCreateViewNodesStmts) . ';';
-
+  $sqlCreateViewOrphans = 'CREATE OR REPLACE VIEW `_orphans` AS '.
+    'SELECT n.* FROM _nodes AS n LEFT JOIN _edges AS e ON e.ObjectID = n.ObjectID WHERE EdgeType IS NULL;';
   $con->exec($sqlCreateViewEdges);
   $con->exec($sqlCreateViewNodes);
-
+  $con->exec($sqlCreateViewOrphans);
 
   // Remove Filename from URL...
   $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
