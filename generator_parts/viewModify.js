@@ -21,6 +21,7 @@ export default (props) => {
 
   // Get Row by ID
   function initForm() {
+    console.log('initForm');
     // Load the whole Row-Data from ID
     t.loadRow(actRowID, row => {
       let actStateID = null;
@@ -33,8 +34,28 @@ export default (props) => {
         actStateID = row['state_id'];
         diffObject = t.SM.getFormDiffByState(actStateID);
       }
-      newObj = mergeDeep({}, defaultFormObj, diffObject);    
-      // Set values from Row
+      newObj = mergeDeep({}, defaultFormObj, diffObject);   
+
+
+      if (t.getTableType() !== 'obj') {
+        //console.log("Relation Table !");
+        // get Free Edges
+        const edges = new Table("_edges");
+        const stateIDselected = 7497;
+        edges.setFilter('{"=":["EdgeType","'+t.getTablename()+'"]},{"nin":["EdgeStateID","'+stateIDselected+'"]}')
+        edges.loadRows(rows => {
+          // Get all free Edges
+          const freeEdges = rows.records['sqms2_syllabus_desc'];
+          const freeObjIDs = [];
+          Object.keys(freeEdges).forEach(feID => {
+            const ObjID = freeEdges[feID][1].ObjectID;
+            freeObjIDs.push(ObjID);
+          });
+          console.log(freeObjIDs);
+          //newObj['sqms2_Text_id_fk_178796'].customfilter = '{"in":["","'+freeObjIDs.join(',')+'"]}'
+        })
+      }
+      // Set existing values from Row
       for (const key of Object.keys(row))
         newObj[key].value = row[key];
 
@@ -135,7 +156,6 @@ export default (props) => {
 
     })
   }
-  
   initForm();
 
   //----------------------------

@@ -64,7 +64,6 @@ export default (props) => {
     newObj[key].value = origObjID;
     newObj[key].mode_form = 'ro';
 
-
     // TODO: Read the existing Relations from the edges Table
     //console.log('Relation Filter here.');
     // 1. Step Load existing Objects
