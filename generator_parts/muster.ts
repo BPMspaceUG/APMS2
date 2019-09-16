@@ -1213,7 +1213,7 @@ class FormGenerator {
         if (isReadOnly)
           return '<span class="d-block text-muted" style="margin-top: .4rem;">'+ cont +'</span>';
         else
-          return '<a class="d-block text-decoration-none" style="margin-top: .4rem;" onclick="loadFKTable(this, \'' +
+          return '<a class="d-block text-decoration-none fkLink" style="margin-top:.4rem;" onclick="loadFKTable(this, \'' +
             el.fk_table +'\', \'' + (custfilter ? encodeURI(custfilter) : '') + '\')" href="javascript:void(0);">'+ cont +'</a>';
       }
       result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;

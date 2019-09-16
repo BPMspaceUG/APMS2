@@ -30,9 +30,11 @@
       return null;
     }
     public static function getColsByTablename($tablename, $data = null) {
+      $cols = [];
       if (is_null($data))
         $data = json_decode(Config::getConfig(), true);
-      $cols = $data[$tablename]["columns"];
+      if (!is_null($data) && array_key_exists($tablename, $data))
+        $cols = $data[$tablename]["columns"];
       return $cols;
     }
     public static function getColnamesByTablename($tablename) {
@@ -108,12 +110,14 @@
       return (!preg_match('/[^A-Za-z0-9_]/', $colname));
     }
     public static function getVirtualSelects($tablename, $data = null) {
-      $res = array();
-      $cols = Config::getColsByTablename($tablename, $data);
-      // Collect only virtual Columns
-      foreach ($cols as $colname => $col) {
-        if ($col["is_virtual"] && $col["field_type"] != "reversefk")
-          $res[$colname] = $col["virtual_select"];
+      $res = [];
+      if (!is_null($data)) {
+        $cols = Config::getColsByTablename($tablename, $data);
+        // Collect only virtual Columns
+        foreach ($cols as $colname => $col) {
+          if ($col["is_virtual"] && $col["field_type"] != "reversefk")
+            $res[$colname] = $col["virtual_select"];
+        }
       }
       return $res;
     }
@@ -185,8 +189,11 @@
       return $res;
     }
     public static function getStdFilter($tablename) {
+      $res = null;
       $data = json_decode(Config::getConfig(), true);
-      return $data[$tablename]["stdfilter"];
+      if (array_key_exists($tablename, $data))
+        $res = $data[$tablename]["stdfilter"];
+      return $res;
     }
   }
 
@@ -408,53 +415,33 @@
     }
     public function read($param) {
       //--------------------- Check Params
-      $validParams = ['table', 'limit', 'sort', 'filter', 'search', 'path'];      
+      $validParams = ['table', 'limit', 'sort', 'filter', 'search', 'view'];
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       // Parameters and default values
       @$tablename = isset($param["table"]) ? $param["table"] : null;
-      @$path = isset($param["path"]) ? $param["path"] : null;
+      @$view = isset($param["view"]) ? $param["view"] : null;
       @$limit = isset($param["limit"]) ? $param["limit"] : null;
       @$sort = isset($param["sort"]) ? $param["sort"] : null;
       @$filter = isset($param["filter"]) ? $param["filter"] : null; // additional Filter
       @$search = isset($param["search"]) ? $param["search"] : null; // all columns: [like this] OR [like this] OR ...
 
+      //--- Table / View
+      if (is_null($tablename) && is_null($view)) die(fmtError('Table/View is not set!'));      
+      if (!Config::isValidTablename($tablename) || !Config::isValidTablename($view)) die(fmtError('Invalid Table/View Name!'));
+      if (!Config::doesTableExist($tablename) && is_null($view)) die(fmtError('Table does not exist!'));
+      if (!is_null($view) && !is_null($tablename)) die(fmtError('Only Table OR View can be set!'));
 
-      // ===> PATH
-
-      if (!is_null($path)) {
-
-        // Ask the Path [tname/id]
-        $parts = explode('/', $path);
-
-        $id = end($parts);
-        $tname = prev($parts);
-        
-        /*$result = [
-          "path" => $path,
-          "tablename" => $tname,
-          "id" => $id,
-          "edges" => "http://localhost/APMS_test/bpmspace_sqms2_v1/api.php?path=test/123"
-        ];*/
-
-        $tablename = $tname;
-      }
-
-        //return json_encode($result, true);
-      //}
-
-
-
-      //--- Table
-      if (is_null($tablename)) die(fmtError('Table is not set!'));
-      if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
-      if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
       //================================================
-      //-- Check Rights
-      if (!is_null($this->token)){
-        $allowedTablenames = array_keys($this->getConfigByRoleID($this->token->uid));
-        if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));        
+      //-- Check Rights (only for Table!)
+      if (!is_null($tablename)) {
+        if (!is_null($this->token)){
+          $allowedTablenames = array_keys($this->getConfigByRoleID($this->token->uid));
+          if (!in_array($tablename, $allowedTablenames)) die(fmtError('No access to this Table!'));        
+        }
       }
+      if (!is_null($view)) $tablename = $view; // Same Select as normal Table
+
       // Build a new Read Query Object
       $rq = new ReadQuery($tablename);
       //--- Limit
@@ -583,7 +570,7 @@
       }
       else {
         // Error -> Return Error
-        die(fmtError($stmt->errorInfo()[2] . ' -> ' . $stmt->queryString));
+      die(fmtError($stmt->errorInfo()[2] /* .' -> '. $stmt->queryString */ ));
       }
     }
     // Stored Procedure can be Read and Write (GET and POST)

@@ -89,12 +89,13 @@
   function getTables($con, $db) {
     // Init
     $res = [];
-    $tables = [];
-
+    //====================================
+    // TABLES 
+    //====================================
     $result = mysqli_query($con, "SHOW FULL TABLES IN $db WHERE Table_type = 'BASE TABLE'");
+    $tables = [];
     while ($row = $result->fetch_assoc())
       $tables[] = $row["Tables_in_$db"];
-
     // Loop Tables
     $table_counter = 1;
     foreach ($tables as $table) {
@@ -102,7 +103,6 @@
       $TableHasStateMachine = false;
       $columns = [];
       $sort_col = "";
-
       // Check virtual Table
       $query = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '$db' AND TABLE_NAME = '$table';";
       $res2 = mysqli_query($con, $query);                
@@ -127,7 +127,6 @@
           //------------------------------------------------------
           // default Foreign Key Template
           $fk = array("table" => "", "col_id" => "", "col_subst" => "");
-
           // Pre-fill (default) values for Statemachine Tables
           if ($table == 'state' && $column_name == "statemachine_id") {
             $col_isFK = true;
@@ -143,12 +142,11 @@
           }
           // enrich column info
           /*------------------------------
-                  C O L U M N S
+            C O L U M N S
           ------------------------------*/
           // Generate Beautiful alias
           $alias = beautifyName($column_name);
-          $fieldtype = $col_isFK ? 'foreignkey' : getDefaultFieldType($col_datatype);
-          
+          $fieldtype = $col_isFK ? 'foreignkey' : getDefaultFieldType($col_datatype);          
           // Table Has StateMachine? && Set special datatype
           if ($column_name == "state_id" && $table != "state") {
             $fieldtype = 'state';
@@ -221,7 +219,6 @@
           }
         }
       } // Columns finished
-
       // TODO: Check if is a View => then ReadOnly = true
       // Generate a nice TableAlias
       $table_alias = beautifyName($table);
@@ -230,7 +227,7 @@
       ------------------------------*/
       $res[$table] = [
         "table_alias" => $table_alias,
-        "table_type" => $table == 'state_rules' ? 'n_m' : 'obj', // Default = Object
+        "table_type" => ($table == 'state_rules' ? 'n_m' : 'obj'), // Default = Object
         "order" => (int)$table_counter,
         "mode" => "rw", // TODO -> maybe hidden
         "stdfilter" => "",

@@ -17,10 +17,10 @@ export default (props) => {
   // [ o  ] Object
 
   // Possibilities:
-  // 1. o      -> Create new Object
-  // 2. --     -> Create new Relation
-  // 3. o--    -> Create new Relation between existing Objects
-  // 4. o--o   -> Create new Object and new Relation coming from an existing Object
+  // 1. /o      -> Create, Create new Object
+  // 2. /--     -> Relate, Create new Relation
+  // 3. o/--    -> Relate, Create new Relation coming from existing Object (fixed Obj)
+  // 4. o/--/o   -> Create & Relate, Create new Object and new Relation coming from an existing Object
 
   //--- Set Title  
   window.document.title = textCommand + ' ' + t.getTableAlias();
@@ -51,18 +51,41 @@ export default (props) => {
   //=> Case 3
   // is add Relation and Coming from an Object? => then preselect object
   if (path.length > 2 && t.TableType !== 'obj') {
-    let key = null;
+    let fixedKey = null;
     const tbl = path[path.length-4];
+    let cnt = 0;
     for (const colname of Object.keys(t.Columns)) {
       const col = t.Columns[colname];
       if (col.field_type == 'foreignkey' && col.foreignKey.table == tbl) {
-        key = colname;
-        break;
+        fixedKey = colname;
       }
+
+      if (cnt === 2) {
+        console.log(colname);
+        // TODO: Find all Relationtypes which are unselected
+        //const tname = t.getTablename(); // RelationType
+        t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id",7495]}');
+        t.loadRows(resp => {
+          const freeObj = [];
+          const rec = resp.records || [];
+          for (const row of rec) {
+            const pkey = Object.keys(row)[2];
+            const obj = row[pkey];
+            const objkey = Object.keys(obj)[0];
+            const objID = obj[objkey];
+            freeObj.push(objID);
+          }
+          const pColname = t.Columns[colname].foreignKey.col_id;
+          console.log(freeObj, pColname);
+          newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObj.join(',')+'"]}';
+          document.getElementById('formcreate').innerHTML = x();
+        })
+      }
+      cnt++;
     }
     const origObjID = path[path.length-3];
-    newObj[key].value = origObjID;
-    newObj[key].mode_form = 'ro';
+    newObj[fixedKey].value = origObjID;
+    newObj[fixedKey].mode_form = 'ro';
 
     // TODO: Read the existing Relations from the edges Table
     //console.log('Relation Filter here.');
@@ -87,12 +110,13 @@ export default (props) => {
       document.getElementById('formcreate').innerHTML = HTML;
     });
     */
-
-
   }
 
-  const fCreate = new FormGenerator(t, undefined, newObj, null);
-  const HTML = fCreate.getHTML();
+  function x() {
+    const fCreate = new FormGenerator(t, undefined, newObj, null);
+    return fCreate.getHTML();
+  }
+  const HTML = x();
 
   //---------------------------------------------------
   // After HTML is placed in DOM
@@ -226,6 +250,7 @@ export default (props) => {
     }
     backPath = '#/' + copiedPath.join('/');
   }
+
   //--------------
   return `<div>
     <h2>${guiFullPath}</h2>
