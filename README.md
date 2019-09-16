@@ -16,7 +16,6 @@
 ## Getting started
 
 1. Clone the Git-repository
-
 2. Compile TS-Files automatically: The javascript is generated via Typescript. So go into the project folder and start
 ```javascript
 tsc -w
