@@ -777,12 +777,10 @@ class Table extends RawTable {
   }
   private htmlHeaders(colnames) {
     let t = this;
-    let th = '';
-
+    let th = '';    
     // Pre fill with 1 because of selector
     if (t.GUIOptions.showControlColumn) {
       th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
-
       if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
         const cols = [];
         colnames.map(col => {
