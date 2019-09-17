@@ -56,7 +56,6 @@ export default (props) => {
       }
       newObj = mergeDeep({}, defaultFormObj, diffObject);
 
-
       if (t.getTableType() !== 'obj') {
         //=======================================
         // RELATION
