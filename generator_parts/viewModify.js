@@ -61,7 +61,6 @@ export default (props) => {
         // RELATION
         //=======================================
         console.log("This is a Relation!");
-
         // get Free Edges
         const data = {view: "_edges", limit: 10, filter: {}};
         //const stateIDselected = 7497;
