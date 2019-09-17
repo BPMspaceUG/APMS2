@@ -10,7 +10,8 @@ export default (props) => {
   // Get actual Table & ID
   const actTable = path[path.length - 2];
   const t = new Table(actTable);
-  const textCommand = t.TableType !== 'obj' ? 'Add Relation' : 'Create';
+  const textCommand = t.TableType !== 'obj' ? 'Relate' : 'Create';
+  let fCreate = null;
 
   // Legend:
   // [ -- ] Relation
@@ -41,6 +42,7 @@ export default (props) => {
   let newObj = mergeDeep({}, defFormObj, diffFormCreate);
   // Custom Form
   newObj = mergeDeep({}, newObj, customCreateParams);
+
   //--------------------------------------------------------
   // HIDE Reverse Foreign Keys (==> Create!) => can't be related - Object doesn't exist yet
   for (const key of Object.keys(newObj)) {
@@ -51,6 +53,9 @@ export default (props) => {
   //=> Case 3
   // is add Relation and Coming from an Object? => then preselect object
   if (path.length > 2 && t.TableType !== 'obj') {
+    //---------------------------
+    // RELATION
+    //---------------------------
     let fixedKey = null;
     const tbl = path[path.length-4];
     let cnt = 0;
@@ -61,10 +66,10 @@ export default (props) => {
       }
 
       if (cnt === 2) {
-        console.log(colname);
-        // TODO: Find all Relationtypes which are unselected
-        //const tname = t.getTablename(); // RelationType
-        t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id",7495]}');
+        //console.log(colname);
+        // TODO: Find all Relationtypes which are selected
+        const fltr = '{"nin":["`'+t.getTablename()+'`.state_id","7485,7487,7489,7491,7493,7495,7497,7499,7501,7503,7505,7507,7509"]}';
+        t.setFilter(fltr);
         t.loadRows(resp => {
           const freeObj = [];
           const rec = resp.records || [];
@@ -76,44 +81,24 @@ export default (props) => {
             freeObj.push(objID);
           }
           const pColname = t.Columns[colname].foreignKey.col_id;
-          console.log(freeObj, pColname);
-          newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObj.join(',')+'"]}';
+          if (freeObj.length > 0) {
+            newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObj.join(',')+'"]}';
+          } else {
+            newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
+          }
           document.getElementById('formcreate').innerHTML = x();
         })
       }
       cnt++;
     }
+    // Fix the origin Object
     const origObjID = path[path.length-3];
     newObj[fixedKey].value = origObjID;
     newObj[fixedKey].mode_form = 'ro';
-
-    // TODO: Read the existing Relations from the edges Table
-    //console.log('Relation Filter here.');
-    // 1. Step Load existing Objects
-    /*
-    const tmpEdges = new Table('_edges');
-    tmpEdges.setFilter('{"and":[{"=":["ObjectID",'+origObjID+']},{"=":["EdgeStateID",7502]}]}');
-    tmpEdges.loadRows(rows => {
-      const FreeObjects = [];
-      const edgeType = rows.records['sqms2_syllabuselement_desc'];
-      const edgeIDs = Object.keys(edgeType);
-      edgeIDs.forEach(edgeID => {
-        FreeObjects.push(edgeType[edgeID][0].ObjectID);
-      })
-      // Filter the Objects with this List
-      const filter = '{"in":["sqms2_Text_id", "' + FreeObjects.join(',') + '"]}';
-      console.log(filter);
-      newObj[key].customfilter = filter;
-      const fCreate = new FormGenerator(t, undefined, newObj, null);
-      const HTML = fCreate.getHTML();
-      console.log(newObj)
-      document.getElementById('formcreate').innerHTML = HTML;
-    });
-    */
   }
 
   function x() {
-    const fCreate = new FormGenerator(t, undefined, newObj, null);
+    fCreate = new FormGenerator(t, undefined, newObj, null);
     return fCreate.getHTML();
   }
   const HTML = x();
@@ -164,11 +149,9 @@ export default (props) => {
               if (msg.element_id > 0) {
                 //-------------------------------------------------------->>>>
                 console.info( (t.TableType === 'obj' ? 'Object' : 'Relation') + ' created! ID:', msg.element_id);
-
                 // Wenn die Tabelle vor mir eine Relationstabelle ist,
                 // dann erzeuge instant eine neue Relation und springe ins erste Obj.
                 // origObj/1234  / tbl(rel)/create / newObj/create
-
                 if (path.length > 2) {
                   const relCmd = path[path.length-3];
                   const relTablename = path[path.length-4];
@@ -228,7 +211,6 @@ export default (props) => {
     }
     //---
   }, 10);
-
 
   // Path
   const guiPath = [];

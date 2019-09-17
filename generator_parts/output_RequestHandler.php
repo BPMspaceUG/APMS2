@@ -111,13 +111,11 @@
     }
     public static function getVirtualSelects($tablename, $data = null) {
       $res = [];
-      if (!is_null($data)) {
-        $cols = Config::getColsByTablename($tablename, $data);
-        // Collect only virtual Columns
-        foreach ($cols as $colname => $col) {
-          if ($col["is_virtual"] && $col["field_type"] != "reversefk")
-            $res[$colname] = $col["virtual_select"];
-        }
+      $cols = Config::getColsByTablename($tablename, $data);
+      // Collect only virtual Columns
+      foreach ($cols as $colname => $col) {
+        if ($col["is_virtual"] && $col["field_type"] != "reversefk")
+          $res[$colname] = $col["virtual_select"];
       }
       return $res;
     }
@@ -250,12 +248,6 @@
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
         //-----------------------------------
         // Loop Cell
-
-        // TODO: Improve this with Link
-        /*
-        if ($tablename == '_nodes')
-          $singleRow[] = "http://localhost/APMS_test/bpmspace_sqms2_v1/api.php?table=_edges";
-        */
         foreach($singleRow as $i => $value) {
           $meta = $stmt->getColumnMeta($i);
           //--- Make a good Path
@@ -263,12 +255,14 @@
           $parts = explode('/', $strPath);
 
           array_shift($parts); // Remove first element of Path (= Origin-Table)
+
           if ($tablename == '_nodes' ||  $tablename == '_orphans')
             array_unshift($parts, $singleRow[1]);
           else if ($tablename == '_edges') {
             array_unshift($parts, $singleRow[2]);
             array_unshift($parts, $singleRow[1]);
           }
+
           array_unshift($parts, $singleRow[0]); // Prepend ID
 
           $parts[] = $meta["name"]; // Append Colname
@@ -280,7 +274,7 @@
       }
       // Deliver
       if ($tablename != '_nodes' && $tablename != '_edges' && $tablename != '_orphans') {
-        $result = null;
+        $result = [];
         foreach ($tree as $el) {
           $result[] = $el;
         }
@@ -487,10 +481,12 @@
         //--> Set Sorting
         $rq->setSorting($sortColumn, $sortDir);
       }
-      //--- Virtual-Columns      
-      $vc = Config::getVirtualSelects($tablename);
-      foreach ($vc as $col => $sel) {
-        $rq->addSelect("$sel AS `$col`");
+      //--- Virtual-Columns
+      if (is_null($view)) {
+        $vc = Config::getVirtualSelects($tablename);
+        foreach ($vc as $col => $sel) {
+          $rq->addSelect("$sel AS `$col`");
+        }
       }
       //--- Filter      
       $rq->setFilter('{"=":[1,1]}'); // default Minimum (1=1 --> always true)
@@ -555,6 +551,7 @@
       //$rq->addJoin('connections/testtableA/state/state_machines.testnode', 'testnode.testnode_id'); // 4th level
 
       $pdo = DB::getInstance()->getConnection();
+
       // Retrieve Number of Entries
       $stmtCnt = $pdo->prepare($rq->getCountStmtWOLimits());
       $stmtCnt->execute($rq->getValues());

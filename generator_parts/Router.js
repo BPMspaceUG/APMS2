@@ -18,14 +18,9 @@ export default class Router {
 		let route = null;
 
 		if (pathElems.length === 1) {
-			// Dashboard || Read
-			if (last === "") {
-				// --> Dashboard
-				//route = this.routes[];
-				//route.setProps({});
-			} else {
-				// --> Read!
-				route = this.routes[3]; // Read!
+			// --> Read
+			if (last !== "") {
+				route = this.routes[3];
 				route.setProps({table: last, origin: first});
 			}
 		}
@@ -48,6 +43,6 @@ export default class Router {
 			}
 		}
 		// ===> Output HTML
-		this.renderNode.innerHTML = route ? route.renderView() : '--> Entrypoint';
+		this.renderNode.innerHTML = route ? route.renderView() : document.location.assign('#/dashboard');
 	}
 }

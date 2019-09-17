@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (config.tables[tname].in_menu) {
         //--> Create Link
         const tmpBtn = document.createElement('a');
-        tmpBtn.setAttribute('class', 'list-group-item list-group-item-action');
+        tmpBtn.setAttribute('class', 'list-group-item list-group-item-action link-' + tname);
         tmpBtn.setAttribute('href', '#/' + tname);
         tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
         document.getElementById('sidebar-links').appendChild(tmpBtn);

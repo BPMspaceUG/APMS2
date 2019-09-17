@@ -10,8 +10,6 @@ class ReadQuery {
   private $joins = null;
   private $selectCustom = null;
 
-  const SEPERATOR = " "; // also "\n" for better debugging
-
   public function __construct($tablename) {
     $this->table = $tablename;
   }
@@ -20,7 +18,7 @@ class ReadQuery {
     $isValid = (!preg_match('/[^A-Za-z0-9\/_.`]/', $colname));
     return $isValid;
   }
-  private static function JsonLogicToSQL($arr, $prepStmt = false, &$values = []) {
+  private static function JsonLogicToSQL($arr, &$values = []) {
     $op = array_keys($arr)[0];
     $opLC = strtolower($op);
     // Compare Operators
@@ -50,7 +48,7 @@ class ReadQuery {
         else {
           $pname = ':p' . count($values); // param-name
           $values[$pname] = $val;
-          $value = $prepStmt ? $pname : $val;
+          $value = $pname;
         }
       }
       // Result
@@ -61,7 +59,7 @@ class ReadQuery {
       $comps = $arr[$op];
       $tmp = [];
       foreach ($comps as $comp) {
-        $tmp[] = self::JsonLogicToSQL($comp, $prepStmt, $values);
+        $tmp[] = self::JsonLogicToSQL($comp, $values);
       }
       if (!in_array(null, $tmp, true))
         return "(" . implode(" ".strtoupper($op)." ", $tmp) . ")";
@@ -70,20 +68,21 @@ class ReadQuery {
   }
   public function getStatement($forCounting = false) {
     return "SELECT ".
-      $this->getSelect().self::SEPERATOR."FROM `".$this->table."`".
-      ($forCounting ? '' : $this->getJoins()).
-      $this->getFilter(true).
+      ($forCounting ? 'COUNT(*)' : $this->getSelect()).
+      " FROM `".$this->table."`".
+      $this->getJoins(). // has also be in count because of filter on joined Tables
+      $this->getFilter().
       $this->getHaving().
       ($forCounting ? '' : $this->getSorting()).
       ($forCounting ? '' : $this->getLimit());
   }
   public function getCountStmtWOLimits() {
-    return "SELECT COUNT(*) FROM (" . $this->getStatement(true) . ") AS n";
+    return $this->getStatement(true);
   }
   public function getValues() {
     if (is_null($this->filter)) return [];
     $values = [];
-    self::JsonLogicToSQL($this->filter, true, $values);
+    self::JsonLogicToSQL($this->filter, $values);
     return $values;
   }
   //--- Custom Selects
@@ -110,7 +109,7 @@ class ReadQuery {
     $hasMany = $j[4] != "";
     // has 1 FK
     $alias = $hasMany ? $j[4] /*implode('/', [$j[0], $j[2]])*/ :  implode('/', [$j[0], $j[3]]);
-    return self::SEPERATOR."LEFT JOIN ".$j[2]." AS `$alias` ON `$path`.".$j[3]." = `$alias`.".$j[1];
+    return " LEFT JOIN ".$j[2]." AS `$alias` ON `$path`.".$j[3]." = `$alias`.".$j[1];
   }
   private function getJoins() {
     if (is_null($this->joins)) return "";
@@ -128,10 +127,9 @@ class ReadQuery {
     $strNewFilter = '{"and": ['.json_encode($this->filter).', '.$strFilter.']}';
     $this->filter = json_decode($strNewFilter, true);
   }
-  private function getFilter($prep = false) {
+  private function getFilter() {
     if (is_null($this->filter)) return "";
-    if ($prep) return self::SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter, true);
-    return self::SEPERATOR."WHERE ".self::JsonLogicToSQL($this->filter);
+    return " WHERE ".self::JsonLogicToSQL($this->filter);
   }
   //--- Having
   public function setHaving($strHaving) {
@@ -143,7 +141,7 @@ class ReadQuery {
   }
   private function getHaving() {
     if (is_null($this->having)) return "";
-    return self::SEPERATOR."HAVING ".self::JsonLogicToSQL($this->having);
+    return " HAVING ".self::JsonLogicToSQL($this->having);
   }
   //--- Order
   public function setSorting($column, $direction = "ASC") {
@@ -151,7 +149,7 @@ class ReadQuery {
     $this->sortDir = $direction;
   }
   private function getSorting() {
-    return is_null($this->sortCol) ? "" : self::SEPERATOR."ORDER BY ".$this->sortCol." ".$this->sortDir;
+    return is_null($this->sortCol) ? "" : " ORDER BY ".$this->sortCol." ".$this->sortDir;
   }
   //--- Limit
   public function setLimit($limit, $offset = 0) {
@@ -159,6 +157,6 @@ class ReadQuery {
     $this->offset = $offset;
   }
   private function getLimit() {
-    return is_null($this->limit) ? "" : self::SEPERATOR."LIMIT ".$this->offset.",".$this->limit;
+    return is_null($this->limit) ? "" : " LIMIT ".$this->offset.",".$this->limit;
   }
 }

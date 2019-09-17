@@ -7,6 +7,7 @@ export default (props) => {
   // Get actual Table & ID
   const actTable = path[path.length - 2];
   const actRowID = path[path.length - 1];
+  let actStateID = null;
 
   // Checks
   if (path.length % 2 !== 0) return `<div><p style="color: red;">Modify: Path is invalid!</p></div>`;
@@ -35,16 +36,12 @@ export default (props) => {
   }
 
 
-
-
-
   // Get Row by ID
   function initForm() {
     console.log('--- MODIFY ---');
     // 1. Read existing Element (Obj or Rel)
     // Load the whole Row-Data from ID
-    t.loadRow(actRowID, row => {
-      let actStateID = null;
+    t.loadRow(actRowID, row => {      
       let diffObject = {};
       let newObj = {};
       let defaultFormObj = t.getDefaultFormObject();
@@ -63,12 +60,13 @@ export default (props) => {
         console.log("Relation Table");
         
         // get Free Edges
-        const data = {view: "_edges", limit: 10, filter: {}};
+        const data = {view: "_edges", filter: {}};
         //const stateIDselected = 7497;
         data.filter = '{"=":["EdgeType","'+t.getTablename()+'"]}'; // {"nin":["EdgeStateID","'+ stateIDselected +'"]}
         DB.request('read', data, resp => {
           //---- Get all free Edges
           const freeEdges = resp.records[t.getTablename()];
+          //console.log(freeEdges);
           const freeObjIDs = [];
           Object.keys(freeEdges).forEach(feID => {
             const ObjID = freeEdges[feID][1].ObjectID;
@@ -117,6 +115,9 @@ export default (props) => {
         // Clear GUI
         el = document.getElementById('saveBtns'); if (el) el.innerHTML = "";
         el = document.getElementById('nextstates'); if (el) el.innerHTML = "";
+        // Set current State if has one
+        if (t.SM) 
+          document.getElementById('actualState').innerHTML = t.renderStateButton(actStateID, false);
         newForm.initEditors();      
         // MAKE Transition
         if (t.SM) {
@@ -200,8 +201,6 @@ export default (props) => {
   //----------------------------
   // Execute this Code after rending DOM
   //------------------------------------
-  // => UPDATE
-  //------------------------------------
   setTimeout(() => {
     const btns = document.getElementsByClassName('btnSave');
     for (const btn of btns) {
@@ -250,7 +249,7 @@ export default (props) => {
 
 
 return `<div>
-  <h2>${guiFullPath}</h2>
+  <h2>${guiFullPath}<span class="ml-2" style="font-size:.75em;" id="actualState">actState</span></h2>
   <hr>
   <p id="errorText" class="text-danger"></p>
   <div class="my-3" id="formedit">

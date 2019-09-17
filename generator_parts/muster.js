@@ -1035,8 +1035,12 @@ class FormGenerator {
                 if (isObject(x)) {
                     ID = x[Object.keys(x)[0]];
                     const vals = recflattenObj(x);
-                    v = vals.join(' | ');
-                    v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+                    if (vals.join().replace(/,/g, '').length === 0)
+                        v = null;
+                    else {
+                        v = vals.join(' | ');
+                        v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+                    }
                 }
             }
             const getSelection = (cont, isReadOnly, custfilter) => {
@@ -1051,13 +1055,16 @@ class FormGenerator {
                         }
                     }
                 }
+                cont = cont.replace(/<[^>]*>?/gm, '');
                 if (isReadOnly)
-                    return '<span class="d-block text-muted" style="margin-top: .4rem;">' + cont + '</span>';
+                    return `<span class="d-block text-muted" style="margin-top: .4rem;">${cont}</span>`;
                 else
-                    return '<a class="d-block text-decoration-none fkLink" style="margin-top:.4rem;" onclick="loadFKTable(this, \'' +
-                        el.fk_table + '\', \'' + (custfilter ? encodeURI(custfilter) : '') + '\')" href="javascript:void(0);">' + cont + '</a>';
+                    return `<a class="d-block text-decoration-none" style="margin-top:.4rem;"
+          onclick="loadFKTable(this, '${el.fk_table}', '${custfilter ? encodeURI(custfilter) : ''} ')"
+          href="javascript:void(0);">${cont}</a>`;
             };
-            result += `<div><input type="hidden" name="${key}" value="${ID != 0 ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
+            result += `<div><input type="hidden" name="${key}" value="${(ID && ID != 0) ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
+            console.log(v);
             result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter));
             result += `</div>`;
         }
@@ -1302,10 +1309,18 @@ function loadFKTable(element, tablename, customfilter) {
         return;
     }
     if (customfilter) {
-        tmpTable.setFilter(decodeURI(customfilter));
+        const filter = decodeURI(customfilter);
+        console.log("CustomFilter:", filter);
+        tmpTable.setFilter(filter);
     }
     tmpTable.loadRows(rows => {
-        tmpTable.renderHTML(randID);
+        if (rows["count"] == 0) {
+            document.getElementById(randID).innerHTML = `<p class="text-muted" style="margin-top:.4rem;">
+        <span class="mr-3">No Entries found</span>
+        <a class="btn btn-sm btn-success" href="${location.hash + '/' + tmpTable.getTablename() + '/create'}">Create</a></p>`;
+        }
+        else
+            tmpTable.renderHTML(randID);
     });
     tmpTable.SelectionHasChanged.on(function () {
         const selRowID = tmpTable.getSelectedRowID();
