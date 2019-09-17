@@ -782,19 +782,19 @@ class Table extends RawTable {
     // Pre fill with 1 because of selector
     if (t.GUIOptions.showControlColumn) {
       th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
+
       if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
-        th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">'+
-        '<a href="'+ location.hash + '/' + t.getTablename() + '/create"><i class="fa fa-link text-success"></i></a>';
         const cols = [];
         colnames.map(col => {
           if (t.Columns[col].field_type == 'foreignkey')
             cols.push(col);
         })
-        //const colN = cols[0];
         const colM = cols[1];
         const objTable2 = t.Columns[colM].foreignKey.table;
-
-        th += '<a class="ml-2" href="'+ location.hash + '/' + t.getTablename() + '/create/'+ objTable2 +'/create"><i class="fa fa-plus text-success"></i></a></th>';
+        th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
+          <a href="${location.hash+'/'+t.getTablename()+'/create/'+objTable2+'/create'}"><i class="fa fa-plus text-success"></i></a>
+          <a href="${location.hash+'/'+t.getTablename()+'/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
+        </th>`;
       }
       else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
         th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="'+ location.hash + '/' + t.getTablename() + 
@@ -870,7 +870,6 @@ class Table extends RawTable {
         isSelected = (t.selectedRow[pcname] == RowID);
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn) {
-        const path = location.hash;
         data_string = `<td class="controllcoulm align-middle">
           ${ (t.selType == SelectType.Single ? (isSelected ? 
               '<i class="far fa-check-circle"></i>' : '<span class="modRow"><i class="far fa-circle"></i></span>'
@@ -1110,9 +1109,6 @@ class Table extends RawTable {
     return this.onEntriesModified.expose();
   }
 }
-
-
-
 
 //==============================================================
 // Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON) !JQ
@@ -1450,12 +1446,7 @@ class FormGenerator {
   }
 }
 
-
-
-
 //==================================================================== Global Helper Methods
-
-//-------------------------------------------
 //--- Special global functions
 function escapeHtml(string: string): string {
   const entityMap = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'};
@@ -1465,7 +1456,7 @@ function escapeHtml(string: string): string {
 }
 function isObject(item) {
   return (item && typeof item === 'object' && !Array.isArray(item));
-}    
+}
 function mergeDeep(target, ...sources) {
   if (!sources.length) return target;
   const source = sources.shift();
