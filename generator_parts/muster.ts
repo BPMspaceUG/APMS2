@@ -791,6 +791,7 @@ class Table extends RawTable {
         })
         const colM = cols[1];
         const objTable2 = t.Columns[colM].foreignKey.table;
+        
         th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
           <a href="${location.hash+'/'+t.getTablename()+'/create/'+objTable2+'/create'}"><i class="fa fa-plus text-success"></i></a>
           <a href="${location.hash+'/'+t.getTablename()+'/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
