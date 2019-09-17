@@ -60,7 +60,7 @@ export default (props) => {
         //=======================================
         // RELATION
         //=======================================
-        console.log("This is a Relation!");
+        console.log("Relation Table");
         
         // get Free Edges
         const data = {view: "_edges", limit: 10, filter: {}};
