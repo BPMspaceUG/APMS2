@@ -70,9 +70,11 @@ export default (props) => {
 
       if (cnt === 2) {
 
+        const sIDselected = t.Config.stateIdSel;
+
         t.resetLimit();
         // 1. Filter all relevant Edges which are [unselected]
-        t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id","7485,7487,7489,7491,7493,7495,7497,7499,7501,7503,7505,7507,7509"]}');
+        t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id","'+sIDselected+'"]}');
         t.loadRows(resp => {
           const rec = resp.records || [];
           let unselectedObjIDs = [];
@@ -87,7 +89,7 @@ export default (props) => {
           console.log("List of unselected Objects:", unselectedObjIDs);
 
           // 2. For every unselected ObjectID - check if it is selected
-          t.setFilter('{"and":[{"in":["' + colname + '", "' + unselectedObjIDs.join(',') + '"]},{"=":["`'+t.getTablename()+'`.state_id",7485]}]}');
+          t.setFilter('{"and":[{"in":["' + colname + '", "' + unselectedObjIDs.join(',') + '"]},{"=":["`'+t.getTablename()+'`.state_id",'+sIDselected+']}]}');
           t.loadRows(resp => {
             const rec = resp.records || [];
             let selectedObjIDs = [];
@@ -113,7 +115,6 @@ export default (props) => {
               newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
             }
             document.getElementById('formcreate').innerHTML = x();
-
 
           });
 

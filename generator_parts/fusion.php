@@ -204,7 +204,7 @@
         //====================================
         //----------- RELATION
         //====================================        
-        /*
+        
         echo "Create Relation Scripts ($table_type)\n";
         // Load Template
         $templateScript = file_get_contents("./../template_scripts/".$table_type.".php");
@@ -214,7 +214,7 @@
         echo "-----------------------------";
         echo ($res == 0 ? 'OK' : 'Fail');
         echo "\n\n";
-        */
+        
       }
       else {
         //====================================

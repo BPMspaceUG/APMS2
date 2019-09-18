@@ -249,7 +249,7 @@ export default (props) => {
 
 
 return `<div>
-  <h2>${guiFullPath}<span class="ml-2" style="font-size:.75em;" id="actualState">actState</span></h2>
+  <h2>${guiFullPath}<span class="ml-2" style="font-size:.75em;" id="actualState"></span></h2>
   <hr>
   <p id="errorText" class="text-danger"></p>
   <div class="my-3" id="formedit">

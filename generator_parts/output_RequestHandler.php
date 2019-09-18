@@ -496,7 +496,7 @@
       
       //--- Search (Having & all columns)
       if (!is_null($search)) {
-        $search = "'%".$search."%'";
+        $search = "%".$search."%";
         $els = [];
         //-- Search real cols + virtCols + joins
         $cols = array_merge(
@@ -506,9 +506,13 @@
         );
         foreach ($cols as $colname) {
           $els[] = '{"like":["'.$colname.'","'.$search.'"]}';
-        }      
+        }
         $term = '{"or":['. implode(',', $els) .']}';
         $rq->setHaving($term);
+        /*
+        var_dump($rq->getStatement());
+        var_dump($rq->getValues());
+        */
       }
       //--- add Custom Filter
       if (!is_null($filter))
@@ -553,10 +557,16 @@
       $pdo = DB::getInstance()->getConnection();
 
       // Retrieve Number of Entries
+      $count = 0;
       $stmtCnt = $pdo->prepare($rq->getCountStmtWOLimits());
-      $stmtCnt->execute($rq->getValues());
-      $row = $stmtCnt->fetch();
-      $count = (int)$row[0];
+      if ($stmtCnt->execute($rq->getValues(true))) {
+        $row = $stmtCnt->fetch();
+        $count = (int)$row[0];
+      }
+      else {
+        die(fmtError($stmtCnt->errorInfo()[2] .' -> '. $stmtCnt->queryString ));
+      }
+
       // Retrieve Entries
       $stmt = $pdo->prepare($rq->getStatement());
       if ($stmt->execute($rq->getValues())) {
@@ -567,7 +577,7 @@
       }
       else {
         // Error -> Return Error
-      die(fmtError($stmt->errorInfo()[2] /* .' -> '. $stmt->queryString */ ));
+        die(fmtError($stmt->errorInfo()[2] /*.' -> '. $stmt->queryString */ ));
       }
     }
     // Stored Procedure can be Read and Write (GET and POST)

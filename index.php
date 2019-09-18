@@ -281,6 +281,13 @@
 
                         <!-- Normal Table -->
                         <div class="row" ng-hide="tbl.is_virtual">
+                          <!-- Selected-ID -->
+                          <div class="col-1">
+                            <small class="text-muted">StateID[Sel]</small>
+                            <form class="form-inline">
+                              <input type="text" class="form-control form-control-sm w-100" ng-model="tbl.stateIdSel">
+                            </form>
+                          </div>
                           <!-- Std. Filter -->
                           <div class="col">
                             <small class="text-muted">Standard-Filter on Serverside [filterJSON] i.e.: {"nin":["state_id","1,2,3"]}</small>

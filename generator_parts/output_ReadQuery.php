@@ -72,17 +72,20 @@ class ReadQuery {
       " FROM `".$this->table."`".
       $this->getJoins(). // has also be in count because of filter on joined Tables
       $this->getFilter().
-      $this->getHaving().
+      ($forCounting ? '' : $this->getHaving()).
       ($forCounting ? '' : $this->getSorting()).
-      ($forCounting ? '' : $this->getLimit());
+      ($forCounting ? '' : $this->getLimit()).
+      ';';
   }
   public function getCountStmtWOLimits() {
     return $this->getStatement(true);
   }
-  public function getValues() {
-    if (is_null($this->filter)) return [];
+  public function getValues($forCounting = false) {
     $values = [];
-    self::JsonLogicToSQL($this->filter, $values);
+    if (!is_null($this->filter))
+      self::JsonLogicToSQL($this->filter, $values);
+    if (!is_null($this->having) && !$forCounting)
+      self::JsonLogicToSQL($this->having, $values);
     return $values;
   }
   //--- Custom Selects

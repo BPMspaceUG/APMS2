@@ -234,6 +234,7 @@
         "stdsorting" => $sort_col,
         "in_menu" => false,
         "se_active" => $TableHasStateMachine,
+        "stateIdSel" => 0, // Only relevant for Relation Tables
         "columns" => $columns
       ];
       //------------------------------
