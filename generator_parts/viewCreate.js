@@ -57,42 +57,72 @@ export default (props) => {
     // RELATION
     //---------------------------
     let fixedKey = null;
-    const tbl = path[path.length-4];
+
+    const origTbl = path[path.length-4];
+    const origObjID = path[path.length-3];
+
     let cnt = 0;
     for (const colname of Object.keys(t.Columns)) {
       const col = t.Columns[colname];
-      if (col.field_type == 'foreignkey' && col.foreignKey.table == tbl) {
+      if (col.field_type == 'foreignkey' && col.foreignKey.table == origTbl) {
         fixedKey = colname;
       }
 
       if (cnt === 2) {
-        //console.log(colname);
-        // TODO: Find all Relationtypes which are selected
-        const fltr = '{"nin":["`'+t.getTablename()+'`.state_id","7485,7487,7489,7491,7493,7495,7497,7499,7501,7503,7505,7507,7509"]}';
-        t.setFilter(fltr);
+
+        t.resetLimit();
+        // 1. Filter all relevant Edges which are [unselected]
+        t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id","7485,7487,7489,7491,7493,7495,7497,7499,7501,7503,7505,7507,7509"]}');
         t.loadRows(resp => {
-          const freeObj = [];
           const rec = resp.records || [];
+          let unselectedObjIDs = [];
           for (const row of rec) {
             const pkey = Object.keys(row)[2];
             const obj = row[pkey];
             const objkey = Object.keys(obj)[0];
             const objID = obj[objkey];
-            freeObj.push(objID);
+            unselectedObjIDs.push(objID);
           }
-          const pColname = t.Columns[colname].foreignKey.col_id;
-          if (freeObj.length > 0) {
-            newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObj.join(',')+'"]}';
-          } else {
-            newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
-          }
-          document.getElementById('formcreate').innerHTML = x();
+          unselectedObjIDs = Array.from(new Set(unselectedObjIDs))
+          console.log("List of unselected Objects:", unselectedObjIDs);
+
+          // 2. For every unselected ObjectID - check if it is selected
+          t.setFilter('{"and":[{"in":["' + colname + '", "' + unselectedObjIDs.join(',') + '"]},{"=":["`'+t.getTablename()+'`.state_id",7485]}]}');
+          t.loadRows(resp => {
+            const rec = resp.records || [];
+            let selectedObjIDs = [];
+            for (const row of rec) {
+              const pkey = Object.keys(row)[2];
+              const obj = row[pkey];
+              const objkey = Object.keys(obj)[0];
+              const objID = obj[objkey];
+              selectedObjIDs.push(objID);
+            }
+            selectedObjIDs = Array.from(new Set(selectedObjIDs))
+            console.log("List of selected (from the unsel. Obj) Objects:", selectedObjIDs);
+
+            // 3. Now Check difference between Arrays          
+            const freeObjIDs = unselectedObjIDs.filter(x => !selectedObjIDs.includes(x));
+            console.log("List of free Objects", freeObjIDs);
+
+            // 4. Set Filter at Table
+            const pColname = t.Columns[colname].foreignKey.col_id;
+            if (freeObjIDs.length > 0) {
+              newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObjIDs.join(',')+'"]}';
+            } else {
+              newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
+            }
+            document.getElementById('formcreate').innerHTML = x();
+
+
+          });
+
         })
       }
       cnt++;
     }
-    // Fix the origin Object
-    const origObjID = path[path.length-3];
+    
+    // Fix the origin Object    
     newObj[fixedKey].value = origObjID;
     newObj[fixedKey].mode_form = 'ro';
   }

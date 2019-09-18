@@ -346,31 +346,24 @@ class RawTable {
     t.resetFilter();
   }
   public createRow(data: any, callback) {
-    DB.request('create', {table: this.tablename, row: data}, function(r){ callback(r); });
+    DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });
   }
   public updateRow(RowID: number, new_data: any, callback) {
     let data = new_data
     data[this.PriColname] = RowID
-    DB.request('update', {table: this.tablename, row: new_data}, function(response) {
-      callback(response);
-    })
+    DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); })
   }
   public transitRow(RowID: number, TargetStateID: number = null, trans_data: any = {}, callback) {
     let data = trans_data;
     data[this.PriColname] = RowID; // PrimaryColID is the minimum Parameters which have to be set
     if (TargetStateID) data['state_id'] = TargetStateID;
-    DB.request('makeTransition', {table: this.tablename, row: data}, function(response) {
-      callback(response);
-    })
+    DB.request('makeTransition', {table: this.tablename, row: data}, r => { callback(r); })
   }
   public loadRow(RowID: number, callback) {
     let data = {table: this.tablename, limit: 1, filter: {}};
     data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
     // HTTP Request
-    DB.request('read', data, function(response){
-      const row = response.records[0];
-      callback(row);
-    });
+    DB.request('read', data, r => { const row = r.records[0]; callback(row); });
   }
   public loadRows(callback) {
     let me = this;
@@ -380,11 +373,7 @@ class RawTable {
     const offset = me.PageIndex * me.PageLimit;
     if (me.PageLimit && me.PageLimit) data['limit'] =  me.PageLimit + (offset == 0 ? '' : ',' + offset);
     // HTTP Request
-    DB.request('read', data, function(response){
-      me.Rows = response.records; // Cache
-      me.actRowCount = response.count; // Cache
-      callback(response);
-    })
+    DB.request('read', data, r => { me.Rows = r.records; me.actRowCount = r.count; callback(r); })
   }
   //---------------------------
   public getNrOfRows(): number { return this.actRowCount }
