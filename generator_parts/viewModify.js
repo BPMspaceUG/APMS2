@@ -38,14 +38,17 @@ export default (props) => {
 
   // Get Row by ID
   function initForm() {
-    console.log('--- MODIFY ---');
     // 1. Read existing Element (Obj or Rel)
     // Load the whole Row-Data from ID
-    t.loadRow(actRowID, row => {      
+    t.loadRow(actRowID, row => {
+      // Row not found
+      if (!row) {
+        document.getElementById('formedit').innerHTML = `<div><p style="color: red;">Error: Row not found!</p></div>`;
+        return;
+      }
       let diffObject = {};
       let newObj = {};
       let defaultFormObj = t.getDefaultFormObject();
-
       //--- Overwrite and merge the differences from diffObject
       if (t.SM) {
         actStateID = row['state_id'];
@@ -57,46 +60,54 @@ export default (props) => {
         //=======================================
         // RELATION
         //=======================================
-        console.log("Relation Table");
-        
-        // get Free Edges
-        const data = {view: "_edges", filter: {}};
-        //const stateIDselected = 7497;
-        data.filter = '{"=":["EdgeType","'+t.getTablename()+'"]}'; // {"nin":["EdgeStateID","'+ stateIDselected +'"]}
-        DB.request('read', data, resp => {
-          //---- Get all free Edges
-          const freeEdges = resp.records[t.getTablename()];
-          //console.log(freeEdges);
-          const freeObjIDs = [];
-          Object.keys(freeEdges).forEach(feID => {
-            const ObjID = freeEdges[feID][1].ObjectID;
-            freeObjIDs.push(ObjID);
-          });
-          //console.log(freeObjIDs);
-          // Set existing values from Row
-          let count = 0;
-          
-          for (const key of Object.keys(row)) {
-            //console.log(key)
-            newObj[key].value = row[key];
-            if (count === 2) {
-              console.log(newObj[key].foreignKey.col_id)
-              newObj[key].customfilter = '{"in":["'+ newObj[key].foreignKey.col_id +'","'+freeObjIDs.join(',')+'"]}';
+        //console.log("Relation Table");
+        if (t.SM) {
+          // get Free Edges
+          const data = {view: "_edges", filter: {}};
+          //const stateIDselected = 7497;
+          data.filter = '{"=":["EdgeType","'+t.getTablename()+'"]}'; // {"nin":["EdgeStateID","'+ stateIDselected +'"]}
+          DB.request('read', data, resp => {
+            //---- Get all free Edges
+            const freeEdges = resp.records[t.getTablename()];
+            //console.log(freeEdges);
+            const freeObjIDs = [];
+            Object.keys(freeEdges).forEach(feID => {
+              const ObjID = freeEdges[feID][1].ObjectID;
+              freeObjIDs.push(ObjID);
+            });
+            //console.log(freeObjIDs);
+            // Set existing values from Row
+            let count = 0;          
+            for (const key of Object.keys(row)) {
+              //console.log(key)
+              newObj[key].value = row[key];
+              if (count === 2) {
+                //console.log(newObj[key].foreignKey.col_id)
+                newObj[key].customfilter = '{"in":["'+ newObj[key].foreignKey.col_id +'","'+freeObjIDs.join(',')+'"]}';
+              }
+              count++;
             }
-            count++;
-          }
-          //console.log(newObj)
+            //- Generate a Modify-Form
+            newForm = new FormGenerator(t, actRowID, newObj, null);
+            document.getElementById('formedit').innerHTML = newForm.getHTML();
+            x();
+          });
+        }
+        else {
+          // Relation w/o SM
+          for (const key of Object.keys(row))
+            newObj[key].value = row[key];
           //- Generate a Modify-Form
           newForm = new FormGenerator(t, actRowID, newObj, null);
           document.getElementById('formedit').innerHTML = newForm.getHTML();
           x();
-        });
+        }
       }
       else {
         //=======================================
         // OBJECT
         //=======================================
-        console.log("This is an Object!");
+        //console.log("This is an Object!");
         //- Set existing values from Row
         for (const key of Object.keys(row))
           newObj[key].value = row[key];
@@ -209,9 +220,12 @@ export default (props) => {
         const newRowData = newForm.getValues();
         if (!t.SM) {
           t.updateRow(actRowID, newRowData, function(resp){
-            if (resp == "1")
-              document.location.assign('#/' + t.getTablename());
-            else
+            if (resp == "1") {
+              // Jump 1 element outside not to the table itself
+              const path = location.hash.split('/');
+              path.pop(); // Remove last element
+              document.location.assign(path.join('/'));
+            } else
               document.getElementById('errorText').innerText = 'Error while saving!';
           });
         }        
@@ -232,10 +246,18 @@ export default (props) => {
   // Path
   const guiPath = [];
   const count = path.length / 2;
+
   function getPart(table, id) {
     const _t = new Table(table);
-    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableIcon() + ' ' + _t.getTableAlias()}:${id}</a>`;
+    if (_t.getTableType() !== 'obj')
+      return `<span class="${id == 'create' ? 'text-success' : 'text-primary'}">
+        <i class="fa fa-link" title="${_t.getTablename()}" style="font-size:.75em;"></i></span>`;
+    // Object
+    if (id == 'create')
+      return `<span class="text-success">${_t.getTableIcon()+' '+_t.getTableAlias()}</span>`;
+    return `<span class="text-primary" title="${id}">${_t.getTableIcon()+' '+_t.getTableAlias()}</span>`;
   }
+
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));      
   const guiFullPath = guiPath.join('<span class="mx-1">&rarr;</span>');

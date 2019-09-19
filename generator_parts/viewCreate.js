@@ -170,15 +170,88 @@ export default (props) => {
               resM.show();
             }
             // Check if Element was created
-            if (msg.element_id) {
-              // Success?
-              if (msg.element_id > 0) {
+            if (msg.element_id && msg.element_id > 0) {
                 //-------------------------------------------------------->>>>
                 console.info( (t.TableType === 'obj' ? 'Object' : 'Relation') + ' created! ID:', msg.element_id);
-                // Wenn die Tabelle vor mir eine Relationstabelle ist,
-                // dann erzeuge instant eine neue Relation und springe ins erste Obj.
-                // origObj/1234  / tbl(rel)/create / newObj/create
+
                 if (path.length > 2) {
+
+                  // 1. Copy, remove last command (because it was already created) and Reverse path
+                  const reversedPath = path.slice();
+                  reversedPath.pop();
+                  reversedPath.pop()
+                  reversedPath.reverse();
+                  console.log("Reverse this path", reversedPath);
+                  // 2. Collect a list of commands for all tables [o][r][o][r][o]
+                  let objsToCreate = [];
+                  const relsToCreate = [];
+                  let originID = null, originTablename = null;;
+                  for (let i=0; i<reversedPath.length/2; i++) {
+                    const cmd = reversedPath[2*i];
+                    const Tablename = reversedPath[2*i+1];
+                    console.log(cmd, '->', Tablename);
+                    // Until the end of the new path is reached
+                    if (cmd != 'create') {
+                      originID = cmd;
+                      originTablename = Tablename;
+                      break;
+                    }
+                    // Check if relation or object --> correct order
+                    const tmpTable = new Table(Tablename);
+                    if (tmpTable.getTableType() !== 'obj')
+                      relsToCreate.push(Tablename);
+                    else 
+                      objsToCreate.push(Tablename);
+                  }
+
+                  function connectObjects(obj, rels) {
+                    // 5. Create all Relations
+                    for (let j=0; j<obj.length-1; j++) {
+                      //-----> Create Relations
+                      const tmpRelTable = new Table(rels[j]);
+                      const colnames = Object.keys(tmpRelTable.Columns);
+                      const data = {};
+                      data[colnames[2]] = obj[j].id;
+                      data[colnames[1]] = obj[j+1].id;
+                      console.log(rels[j], '-->', data);
+                      DB.request('create', {table: rels[j], row: data}, r => {
+                        rels[j] = {t: rels[j], id: parseInt(r[1].element_id)};
+                        // Last Relation
+                        if (j === rels.length-1) {
+                          console.log("Created Relations", rels);
+                          console.log('Finished!')
+                        }
+                      });
+                    }
+                  }
+
+                  // 3. Create the path
+                  if (objsToCreate.length === 0 && relsToCreate.length > 0) {
+                    objsToCreate = [{t: t.getTablename(), id: parseInt(msg.element_id)}];
+                    objsToCreate.push({t: originTablename, id: parseInt(originID)});
+                    connectObjects(objsToCreate, relsToCreate);
+                  }
+                  else {
+                    for (let i=0; i<objsToCreate.length; i++) {              
+                      //-----> Create Objects
+                      DB.request('create', {table: objsToCreate[i], row: {}}, r => {
+                        objsToCreate[i] = {t: objsToCreate[i], id: parseInt(r[1].element_id)};
+                        // Last Element
+                        if (i === objsToCreate.length-1) {
+                          // Insert already created Object at beginning
+                          objsToCreate = [{t: t.getTablename(), id: parseInt(msg.element_id)}].concat(objsToCreate);
+                          console.log("Created Objects", objsToCreate);
+                          objsToCreate.push({t: originTablename, id: parseInt(originID)});
+                          connectObjects(objsToCreate, relsToCreate);
+                        }
+                      });
+                    }
+                  }
+
+
+                  // 7. Finish and jump to first Object or knot
+                  return
+
                   const relCmd = path[path.length-3];
                   const relTablename = path[path.length-4];
                   const relTable = new Table(relTablename);
@@ -213,7 +286,7 @@ export default (props) => {
                 // Redirect
                 document.location.assign(modifyPathOfNewElement);
                 return;
-              }
+
             }
             else {
               // ElementID is defined but 0 => the transscript aborted
@@ -238,13 +311,24 @@ export default (props) => {
     //---
   }, 10);
 
+// sqms2_syllabus/90034798/sqms2_syllabus_syllabuschapter/create/sqms2_syllabuschapter/create/sqms2_syllabuschapter_question/create/sqms2_question/create/sqms2_question_answer/create/sqms2_answer/create/sqms2_answer_text/create/sqms2_text/create
+
+
   // Path
   const guiPath = [];
   const count = path.length / 2;
+
   function getPart(table, id) {
     const _t = new Table(table);
-    return `<a class="text-decoration-none" href="#/${table}/${id}">${_t.getTableIcon() + ' ' + _t.getTableAlias()}:${id}</a>`;
+    if (_t.getTableType() !== 'obj')
+      return `<span class="${id == 'create' ? 'text-success' : 'text-primary'}">
+        <i class="fa fa-link" title="${_t.getTablename()}" style="font-size:.75em;"></i></span>`;
+    // Object
+    if (id == 'create')
+      return `<span class="text-success">${_t.getTableIcon()+' '+_t.getTableAlias()}</span>`;
+    return `<span class="text-primary" title="${id}">${_t.getTableIcon()+' '+_t.getTableAlias()}</span>`;
   }
+
   for (let i = 0; i < count; i++)
     guiPath.push(getPart(path[2*i], path[2*i+1]));      
   const guiFullPath = guiPath.join('<span class="mx-1">&rarr;</span>');

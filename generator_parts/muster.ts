@@ -30,16 +30,7 @@ class LiteEvent<T> implements ILiteEvent<T> {
 }
 
 //==============================================================
-// Class: GUI (Generates GUID for DOM Handling) !JQ
-//==============================================================
-abstract class GUI {
-  public static getID = function () {
-    function chr4(){ return Math.random().toString(16).slice(-4); }
-    return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
-  };
-}
-//==============================================================
-// Class: Database (Communication via API) !JQ
+// Database (Communication via API) !JQ
 //==============================================================
 abstract class DB {
   private static API_URL: string = 'api.php';
@@ -102,9 +93,13 @@ abstract class DB {
       callback(config);
     });
   }
+  public static getID = function () {
+    function chr4(){ return Math.random().toString(16).slice(-4); }
+    return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
+  };
 }
 //==============================================================
-// TODO: REMOVE!!! Class: Modal (Dynamic Modal Generation and Handling) !JQ
+// Modal (Dynamic Modal Generation and Handling) !JQ
 //==============================================================
 class Modal {
   private DOM_ID: string;
@@ -117,7 +112,7 @@ class Modal {
   }
 
   public constructor(heading: string, content: string, footer: string = '', isBig: boolean = false) {
-    this.DOM_ID = GUI.getID()
+    this.DOM_ID = DB.getID()
     // Set Params
     this.heading = heading;
     this.content = content;
@@ -438,7 +433,7 @@ class Table extends RawTable {
 
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
     super(tablename); // Call parent constructor
-    this.GUID = GUI.getID();
+    this.GUID = DB.getID();
     this.selType = SelType;
     this.selectedRow = undefined;
     this.TableType = this.getConfig().table_type;
@@ -768,7 +763,7 @@ class Table extends RawTable {
     let t = this;
     let th = '';    
     // Pre fill with 1 because of selector
-    if (t.GUIOptions.showControlColumn) {
+    if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
       th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
       if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
         const cols = [];
@@ -777,7 +772,7 @@ class Table extends RawTable {
             cols.push(col);
         })
         const colM = cols[1];
-        const objTable2 = t.Columns[colM].foreignKey.table;        
+        const objTable2 = t.Columns[colM].foreignKey.table;
         th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
           <a href="${location.hash+'/'+t.getTablename()+'/create/'+objTable2+'/create'}"><i class="fa fa-plus text-success"></i></a>
           <a href="${location.hash+'/'+t.getTablename()+'/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
@@ -856,14 +851,16 @@ class Table extends RawTable {
       if (t.selectedRow) 
         isSelected = (t.selectedRow[pcname] == RowID);
       // [Control Column] is set then Add one before each row
-      if (t.GUIOptions.showControlColumn) {
+      if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
+        const path = location.hash.split('/');
+        const loc = (path.length === 2) ? '#' : path.join('/'); // Check if Root-Table
         data_string = `<td class="controllcoulm align-middle">
           ${ (t.selType == SelectType.Single ? (isSelected ? 
               '<i class="far fa-check-circle"></i>' : '<span class="modRow"><i class="far fa-circle"></i></span>'
             )
             : ( t.TableType == TableType.obj ?
-              `<a href="#/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
-              `<a href="#/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`)
+              `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
+              `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`)
             )
           }
         </td>`;
@@ -1104,7 +1101,7 @@ class FormGenerator {
   private editors = {};
 
   constructor(originTable: Table, originRowID: number, rowData: any, GUID: string) {
-    this.GUID = GUID || GUI.getID();
+    this.GUID = GUID || DB.getID();
     // Save data internally
     this.oTable = originTable;
     this.oRowID = originRowID;
@@ -1218,7 +1215,7 @@ class FormGenerator {
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
-      const tmpGUID = GUI.getID();
+      const tmpGUID = DB.getID();
       const extTablename = el.revfk_tablename;
       const extTableColSelf = el.revfk_colname1;
       const extTableColExt = el.revfk_colname2;
@@ -1271,13 +1268,13 @@ class FormGenerator {
     }    
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
-      const newID = GUI.getID();
+      const newID = DB.getID();
       this.editors[key] = {mode: el.mode_form, id: newID, editor: 'quill'}; // reserve key
       result += `<div><div class="htmleditor" id="${newID}"></div></div>`;
     }
     //--- Codemirror
     else if (el.field_type == 'codeeditor') {
-      const newID = GUI.getID();
+      const newID = DB.getID();
       this.editors[key] = {mode: el.mode_form, id: newID, editor: 'codemirror'}; // reserve key
       result += `<textarea class="codeeditor" id="${newID}"></textarea>`;
     }
@@ -1484,35 +1481,32 @@ function recflattenObj(x) {
 }
 //--- Expand foreign key
 function loadFKTable(element, tablename, customfilter): void {
-  const randID = GUI.getID();
   const hiddenInput = element.parentNode.getElementsByClassName('inputFK')[0];
-  element.outerHTML = '<div id="' + randID + '"></div>';
   hiddenInput.value = null;
-  let tmpTable = null;
+  const randID = DB.getID();
+  element.outerHTML = '<p id="'+randID+'">Loading...</p>';
   try {
-    tmpTable = new Table(tablename, SelectType.Single);
-  } catch(e) {
-    document.getElementById(randID).innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
+    const tmpTable = new Table(tablename, SelectType.Single);
+    // Set custom Filter
+    if (customfilter) tmpTable.setFilter(decodeURI(customfilter));
+    // Load
+    tmpTable.loadRows(rows => {
+      if (rows["count"] == 0) {
+        // If no entries, then offer to Create a new one
+        document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
+          <span class="mr-3">No Entries found</span>
+          <a class="btn btn-sm btn-success" href="${location.hash+'/'+tmpTable.getTablename()+'/create'}">Create</a></p>`;
+      } else {
+        tmpTable.renderHTML(randID);
+      }
+    });
+    tmpTable.SelectionHasChanged.on(function(){
+      const selRowID = tmpTable.getSelectedRowID();
+      hiddenInput.value = '' || selRowID;
+    })
+  }
+  catch(e) {
+    element.innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
     return
   }
-  // Set custom Filter
-  if (customfilter) {
-    const filter = decodeURI(customfilter);
-    console.log("CustomFilter:", filter);
-    tmpTable.setFilter(filter);
-  }
-  // Load
-  tmpTable.loadRows(rows => {
-    if (rows["count"] == 0) {
-      // If no entries, then offer to Create a new one
-      document.getElementById(randID).innerHTML = `<p class="text-muted" style="margin-top:.4rem;">
-        <span class="mr-3">No Entries found</span>
-        <a class="btn btn-sm btn-success" href="${location.hash+'/'+tmpTable.getTablename()+'/create'}">Create</a></p>`;
-    } else
-      tmpTable.renderHTML(randID);
-  });
-  tmpTable.SelectionHasChanged.on(function(){
-    const selRowID = tmpTable.getSelectedRowID();
-    hiddenInput.value = '' || selRowID;
-  })
 }
