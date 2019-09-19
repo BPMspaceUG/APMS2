@@ -1,5 +1,5 @@
 <?php
-// (N:1)
+// (1:N)
 $data = $param['row'];
 $allow = true;
 $keys = array_keys($data);
@@ -13,16 +13,16 @@ $fkcol_2nd = $fks[1];
 $myID1 = $data[$fkcol_1st];
 $myID2 = $data[$fkcol_2nd];
 // Read all Rows
-$filter = ['columns'=>[$fkcol_2nd=>$myID2]]; // the N part
+$filter = '{"=":["'.$fkcol_2nd.'",'.$myID2.']}'; // the N part
 $allRows = api(['cmd'=>'read', 'param'=>['table'=>$tablename, 'filter'=>$filter]]);
 $json = json_decode($allRows, true);
 // Unselect all Transitions
-foreach ($json as $row) {
+foreach ($json["records"] as $row) {
     $ID = $row[$primaryColname];
     api(['cmd'=>'makeTransition', 'param'=>['table'=>$tablename, 'row'=>[$primaryColname=>$ID, 'state_id'=>STATE_UNSELECTED]]]);
 }
 // If already exists -> set to selected
-foreach ($json as $row) {
+foreach ($json["records"] as $row) {
     $ID = $row[$primaryColname];
     // Get keys of the foreign keys
     $k1 = array_keys($row[$fkcol_1st])[0];

@@ -68,57 +68,52 @@ export default (props) => {
         fixedKey = colname;
       }
 
-      if (cnt === 2) {
+      if (cnt === 2 && t.TableType === '1_n') {
 
         const sIDselected = t.Config.stateIdSel;
-
-        t.resetLimit();
-        // 1. Filter all relevant Edges which are [unselected]
-        t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id","'+sIDselected+'"]}');
-        t.loadRows(resp => {
-          const rec = resp.records || [];
-          let unselectedObjIDs = [];
-          for (const row of rec) {
-            const pkey = Object.keys(row)[2];
-            const obj = row[pkey];
-            const objkey = Object.keys(obj)[0];
-            const objID = obj[objkey];
-            unselectedObjIDs.push(objID);
-          }
-          unselectedObjIDs = Array.from(new Set(unselectedObjIDs))
-          console.log("List of unselected Objects:", unselectedObjIDs);
-
-          // 2. For every unselected ObjectID - check if it is selected
-          t.setFilter('{"and":[{"in":["' + colname + '", "' + unselectedObjIDs.join(',') + '"]},{"=":["`'+t.getTablename()+'`.state_id",'+sIDselected+']}]}');
+        if (sIDselected != 0) {
+          t.resetLimit();
+          // 1. Filter all relevant Edges which are [unselected]
+          t.setFilter('{"nin":["`'+t.getTablename()+'`.state_id","'+sIDselected+'"]}');
           t.loadRows(resp => {
             const rec = resp.records || [];
-            let selectedObjIDs = [];
+            let unselectedObjIDs = [];
             for (const row of rec) {
               const pkey = Object.keys(row)[2];
               const obj = row[pkey];
-              const objkey = Object.keys(obj)[0];
-              const objID = obj[objkey];
-              selectedObjIDs.push(objID);
+              const objID = obj[Object.keys(obj)[0]];
+              unselectedObjIDs.push(objID);
             }
-            selectedObjIDs = Array.from(new Set(selectedObjIDs))
-            console.log("List of selected (from the unsel. Obj) Objects:", selectedObjIDs);
+            unselectedObjIDs = Array.from(new Set(unselectedObjIDs))
+            console.log("List of unselected Objects:", unselectedObjIDs);
+            // 2. For every unselected ObjectID - check if it is selected
+            t.setFilter('{"and":[{"in":["' + colname + '", "' + unselectedObjIDs.join(',') + '"]},{"=":["`'+t.getTablename()+'`.state_id",'+sIDselected+']}]}');
+            t.loadRows(resp => {
+              const rec = resp.records || [];
+              let selectedObjIDs = [];
+              for (const row of rec) {
+                const pkey = Object.keys(row)[2];
+                const obj = row[pkey];
+                const objID = obj[Object.keys(obj)[0]];
+                selectedObjIDs.push(objID);
+              }
+              selectedObjIDs = Array.from(new Set(selectedObjIDs))
+              console.log("List of selected (from the unsel. Obj) Objects:", selectedObjIDs);
+              // 3. Now Check difference between Arrays          
+              const freeObjIDs = unselectedObjIDs.filter(x => !selectedObjIDs.includes(x));
+              console.log("List of free Objects", freeObjIDs);
+              // 4. Set Filter at Table
+              const pColname = t.Columns[colname].foreignKey.col_id;
+              if (freeObjIDs.length > 0) {
+                newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObjIDs.join(',')+'"]}';
+              } else {
+                newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
+              }
+              document.getElementById('formcreate').innerHTML = x();
+            });          
+          })
+        }
 
-            // 3. Now Check difference between Arrays          
-            const freeObjIDs = unselectedObjIDs.filter(x => !selectedObjIDs.includes(x));
-            console.log("List of free Objects", freeObjIDs);
-
-            // 4. Set Filter at Table
-            const pColname = t.Columns[colname].foreignKey.col_id;
-            if (freeObjIDs.length > 0) {
-              newObj[colname].customfilter = '{"in":["'+pColname+'","'+freeObjIDs.join(',')+'"]}';
-            } else {
-              newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
-            }
-            document.getElementById('formcreate').innerHTML = x();
-
-          });
-
-        })
       }
       cnt++;
     }
