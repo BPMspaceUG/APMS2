@@ -181,7 +181,7 @@ export default (props) => {
                   reversedPath.pop();
                   reversedPath.pop()
                   reversedPath.reverse();
-                  console.log("Reverse this path", reversedPath);
+                  //console.log(reversedPath)
                   // 2. Collect a list of commands for all tables [o][r][o][r][o]
                   let objsToCreate = [];
                   const relsToCreate = [];
@@ -219,7 +219,9 @@ export default (props) => {
                         // Last Relation
                         if (j === rels.length-1) {
                           console.log("Created Relations", rels);
-                          console.log('Finished!')
+                          console.log('Finished!');
+                          // TODO: Jump to last knot
+                          document.location.assign('#/'+originTablename+'/'+originID);
                         }
                       });
                     }
