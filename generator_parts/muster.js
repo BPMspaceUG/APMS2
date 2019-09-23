@@ -48,32 +48,31 @@ class DB {
         let HTTPMethod = 'POST';
         let HTTPBody = undefined;
         let url = me.API_URL;
-        if (params) {
+        if (params)
             data['param'] = params;
-        }
         if (command == 'init') {
             HTTPMethod = 'GET';
         }
         else if (command == 'create') {
             HTTPMethod = 'POST';
+            data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
         else if (command == 'read') {
             HTTPMethod = 'GET';
-            const getString = Object.keys(params).map(function (key) {
+            const getParamStr = Object.keys(params).map(key => {
                 const val = params[key];
                 return key + '=' + (isObject(val) ? JSON.stringify(val) : val);
             }).join('&');
-            url += '?' + getString;
+            url += '?' + getParamStr;
         }
         else if (command == 'update') {
             HTTPMethod = 'PATCH';
+            data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
-        else if (command == 'delete') {
-            HTTPMethod = 'DELETE';
-        }
         else {
+            data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
         fetch(url, {

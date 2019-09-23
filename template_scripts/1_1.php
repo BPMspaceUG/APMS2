@@ -56,8 +56,8 @@ foreach ($json as $row) {
         break;
     }
 }
-$script_result = array(
+$script_result = [
     "allow_transition"=>$allow,
     "show_message"=>false,
-    "message"=>"RelationActivationCompleteCloseTheModal"
-);
+    "message"=>""
+];

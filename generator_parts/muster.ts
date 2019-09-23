@@ -43,33 +43,34 @@ abstract class DB {
     let HTTPBody = undefined;
     let url = me.API_URL;
 
-    if (params) {
+    if (params)
       data['param'] = params; // append to data Object 
-    }
+
     // Set HTTP Method
     if (command == 'init') {
       HTTPMethod = 'GET';
     }
     else if (command == 'create') {
       HTTPMethod = 'POST';
+      data['param']['path'] = location.hash; // Send path within body
       HTTPBody = JSON.stringify(data);
     }
     else if (command == 'read') {
       HTTPMethod = 'GET';
-      const getString = Object.keys(params).map(function(key) { 
+      const getParamStr = Object.keys(params).map(key => { 
         const val = params[key];
-        return key + '=' + ( isObject(val) ? JSON.stringify(val) : val);
+        return key + '=' + (isObject(val) ? JSON.stringify(val) : val);
       }).join('&');
-      url += '?' + getString;
+      url += '?' + getParamStr;
     }
     else if (command == 'update') {
       HTTPMethod = 'PATCH';
+      data['param']['path'] = location.hash; // Send path within body
       HTTPBody = JSON.stringify(data);
     }
-    else if (command == 'delete') {
-      HTTPMethod = 'DELETE';
-    }
     else {
+      // makeTransition
+      data['param']['path'] = location.hash; // Send path within body
       HTTPBody = JSON.stringify(data);
     }
 

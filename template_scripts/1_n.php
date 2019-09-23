@@ -1,39 +1,36 @@
 <?php
 // (1:N)
-$data = $param['row'];
 $allow = true;
-$keys = array_keys($data);
-$primaryColname = Config::getPrimaryColNameByTablename($tablename);
-$isCreateScript = !in_array($primaryColname, $keys); // create-script=>if Primary-Column does not exist in row
-$fks = [];
+$keys = array_keys($param['row']);
+$priColname = Config::getPrimaryColNameByTablename($tablename); // tablename = global
+$isCreateScript = !in_array($priColname, $keys); // create-script=>if Primary-Column does not exist in row
 // Collect all FKs from Relation-Table
-foreach ($keys as $col) { if (Config::hasColumnFK($tablename, $col)) $fks[] = $col; }
-$fkcol_1st = $fks[0];
-$fkcol_2nd = $fks[1];
-$myID1 = $data[$fkcol_1st];
-$myID2 = $data[$fkcol_2nd];
-// Read all Rows
-$filter = '{"=":["'.$fkcol_2nd.'",'.$myID2.']}'; // the N part
-$allRows = api(['cmd'=>'read', 'param'=>['table'=>$tablename, 'filter'=>$filter]]);
-$json = json_decode($allRows, true);
-// Unselect all Transitions
-foreach ($json["records"] as $row) {
-    $ID = $row[$primaryColname];
-    api(['cmd'=>'makeTransition', 'param'=>['table'=>$tablename, 'row'=>[$primaryColname=>$ID, 'state_id'=>STATE_UNSELECTED]]]);
+$fks = [];
+foreach ($keys as $col) {
+    if (Config::hasColumnFK($tablename, $col)) $fks[] = $col;
 }
-// If already exists -> set to selected
-foreach ($json["records"] as $row) {
-    $ID = $row[$primaryColname];
+$fkcol1 = $fks[0];
+$fkcol2 = $fks[1];
+$myID1 = $param['row'][$fkcol1];
+$myID2 = $param['row'][$fkcol2];
+// Read all Rows with same N
+$filter = '{"=":["'.$fkcol2.'",'.$myID2.']}'; // the N part
+$allRows = json_decode(api(['cmd'=>'read', 'param'=>['table'=>$tablename, 'filter'=>$filter]]), true);
+// Loop all Connections
+foreach ($allRows["records"] as $row) {
+    $ID = $row[$priColname];
     // Get keys of the foreign keys
-    $k1 = array_keys($row[$fkcol_1st])[0];
-    $k2 = array_keys($row[$fkcol_2nd])[0];
-    // Check if already exists
-    if ($isCreateScript && $row[$fkcol_1st][$k1] == $myID1 && $row[$fkcol_2nd][$k2] == $myID2) {
+    $k1 = array_keys($row[$fkcol1])[0];
+    $k2 = array_keys($row[$fkcol2])[0];
+    //--- Delselect connection if antoher connection is selected
+    if (!$isCreateScript)
+        api(['cmd'=>'makeTransition', 'param'=>['table'=>$tablename, 'row'=>[$priColname=>$ID, 'state_id'=>STATE_UNSELECTED]]]);
+    //--- Check if create, and already exists => set to select and exit
+    if ($isCreateScript && $row[$fkcol1][$k1] == $myID1 && $row[$fkcol2][$k2] == $myID2) {
         // Set Row to selected
-        api(['cmd'=>'makeTransition', 'param'=>['table'=>$tablename, 'row'=>[$primaryColname=>$ID, 'state_id'=>STATE_SELECTED]]]);
+        api(['cmd'=>'makeTransition', 'param'=>['table'=>$tablename, 'row'=>[$priColname=>$ID, 'state_id'=>STATE_SELECTED]]]);
         $allow = false;
-        break;
     }
 }
 //-----------------------Output
-$script_result = ["allow_transition"=>$allow, "show_message"=>false, "message"=>"RelationActivationCompleteCloseTheModal"];
+$script_result = ["allow_transition"=>$allow, "show_message"=>false, "message"=>""];
