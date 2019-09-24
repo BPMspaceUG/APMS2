@@ -19,7 +19,9 @@ class ReadQuery {
     return $isValid;
   }
   private static function JsonLogicToSQL($arr, &$values = []) {
-    $op = array_keys($arr)[0];
+    $keys = array_keys($arr);
+    if (count($keys) === 0) die(fmtError("No Operator in JSON-Filter!"));
+    $op = $keys[0];
     $opLC = strtolower($op);
     // Compare Operators
     if (in_array($opLC, ['=', '>', '<', '>=', '<=', '<>', '!=', 'in', 'is', 'nin', 'like'])) {
@@ -124,11 +126,15 @@ class ReadQuery {
   }
   //--- Where
   public function setFilter($strFilter) {
-    $this->filter = json_decode($strFilter, true);
+    $json = json_decode($strFilter, true);
+    if (is_null($json)) die(fmtError("Filter contains invalid JSON!"));
+    $this->filter = $json;
   }
   public function addFilter($strFilter) {
     $strNewFilter = '{"and": ['.json_encode($this->filter).', '.$strFilter.']}';
-    $this->filter = json_decode($strNewFilter, true);
+    $json = json_decode($strNewFilter, true);
+    if (is_null($json)) die(fmtError("Filter contains invalid JSON!"));
+    $this->filter = $json;
   }
   private function getFilter() {
     if (is_null($this->filter)) return "";
