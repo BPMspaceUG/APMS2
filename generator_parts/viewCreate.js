@@ -219,9 +219,23 @@ export default (props) => {
                         // Last Relation
                         if (j === rels.length-1) {
                           console.log("Created Relations", rels);
-                          console.log('Finished!');
-                          // TODO: Jump to last knot
-                          document.location.assign('#/'+originTablename+'/'+originID);
+                          console.log('Finished!', originTablename, originID);
+                          // If origin did not exist then set last created Object as origin
+                          if (!originTablename && !originID) {
+                            originTablename = obj[obj.length - 1].t;
+                            originID = obj[obj.length - 1].id;
+                            console.log('origin ->', originTablename, originID);
+                          }
+                          // Jump to last knot
+                          const strOriginalPath = path.join('/');
+                          const strLastKnot = originTablename+'/'+originID;
+                          const indexLastKnotInOgPath = strOriginalPath.lastIndexOf(strLastKnot);                          
+                          if (indexLastKnotInOgPath < 0)
+                            document.location.assign('#/'+strLastKnot); // Not Found (-> only creates)
+                          else {
+                            const jump = '#/'+strOriginalPath.substr(0, indexLastKnotInOgPath + strLastKnot.length);
+                            document.location.assign(jump);
+                          }
                         }
                       });
                     }
@@ -242,8 +256,9 @@ export default (props) => {
                         if (i === objsToCreate.length-1) {
                           // Insert already created Object at beginning
                           objsToCreate = [{t: t.getTablename(), id: parseInt(msg.element_id)}].concat(objsToCreate);
-                          console.log("Created Objects", objsToCreate);
-                          objsToCreate.push({t: originTablename, id: parseInt(originID)});
+                          if (originTablename && originID)
+                            objsToCreate.push({t: originTablename, id: parseInt(originID)});
+                          console.log("Objects:", objsToCreate);
                           connectObjects(objsToCreate, relsToCreate);
                         }
                       });

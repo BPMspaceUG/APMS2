@@ -345,7 +345,10 @@ class RawTable {
         return dir;
     }
     setSort(sortStr) { this.Sort = sortStr; }
-    setFilter(filterStr) { this.Filter = filterStr; }
+    setFilter(filterStr) {
+        if (filterStr && filterStr.trim().length > 0)
+            this.Filter = filterStr;
+    }
     setColumnFilter(columnName, filterText) {
         this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}';
     }

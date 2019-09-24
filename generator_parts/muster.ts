@@ -383,7 +383,10 @@ class RawTable {
     return dir;
   }
   public setSort(sortStr: string) { this.Sort = sortStr; }
-  public setFilter(filterStr: string) {this.Filter = filterStr; }
+  public setFilter(filterStr: string) {
+    if (filterStr && filterStr.trim().length > 0)
+      this.Filter = filterStr;
+  }
   public setColumnFilter(columnName: string, filterText: string) {
     this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
   }
@@ -1182,14 +1185,11 @@ class FormGenerator {
         }
       }
 
-
-
       const getSelection = (cont, isReadOnly, custfilter) => {
         // Replace Patterns
         if (custfilter) {
           const rd = this.data;
           const colnames = Object.keys(rd);
-          //console.log(rd);
           for (const colname of colnames) {
             const pattern = '%'+colname+'%';
             if (custfilter.indexOf(pattern) >= 0) {
