@@ -230,11 +230,13 @@ export default (props) => {
                           const strOriginalPath = path.join('/');
                           const strLastKnot = originTablename+'/'+originID;
                           const indexLastKnotInOgPath = strOriginalPath.lastIndexOf(strLastKnot);                          
-                          if (indexLastKnotInOgPath < 0)
+                          if (indexLastKnotInOgPath < 0) {
                             document.location.assign('#/'+strLastKnot); // Not Found (-> only creates)
-                          else {
+                            return;
+                          } else {
                             const jump = '#/'+strOriginalPath.substr(0, indexLastKnotInOgPath + strLastKnot.length);
                             document.location.assign(jump);
+                            return;
                           }
                         }
                       });
@@ -264,39 +266,11 @@ export default (props) => {
                       });
                     }
                   }
-
-
                   // 7. Finish and jump to first Object or knot
-                  return
-
-                  const relCmd = path[path.length-3];
-                  const relTablename = path[path.length-4];
-                  const relTable = new Table(relTablename);
-                  const origObjID = path[path.length-5];
-                  
-                  if (relCmd === 'create' && relTable.TableType !== 'obj') {
-                    console.log('Relation (N)-----'+relTablename+'-----(M)');
-                    // Create Relation here
-                    const arrColnames = Object.keys(relTable.Columns);
-                    let newRow = {};
-                    newRow[arrColnames[1]] = origObjID; // origin ObjectID
-                    newRow[arrColnames[2]] = msg.element_id; // new ObjectID
-                    // Create Relation
-                    DB.request('create', {table: relTablename, row: newRow}, function(resp2){
-                      // Relation created -> get RelationID
-                      const RelID = (resp2.length === 1 ? resp2[0].element_id : resp2[1].element_id);
-                      // Replace both Creates
-                      path[path.length-1] = msg.element_id;
-                      path[path.length-3] = RelID;
-                      // Path: Remove Relation
-                      path.splice(path.length-4, 2);
-                      const modifyPathOfNewElement = '#/' + path.join('/'); // Go back to first Object
-                      document.location.assign(modifyPathOfNewElement);
-                      return;
-                    });
-                    return;
-                  }
+                  return;
                 }
+
+                //----------------- TODO ==> !
                 // Redirect
                 path[path.length-1] = msg.element_id; // replace last element
                 const modifyPathOfNewElement = '#/' + path.join('/'); // Go back at a Relation

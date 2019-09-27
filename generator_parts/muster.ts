@@ -69,7 +69,7 @@ abstract class DB {
       HTTPBody = JSON.stringify(data);
     }
     else {
-      // makeTransition
+      // makeTransition || call
       data['param']['path'] = location.hash; // Send path within body
       HTTPBody = JSON.stringify(data);
     }

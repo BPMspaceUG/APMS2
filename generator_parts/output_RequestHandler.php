@@ -584,7 +584,7 @@
     public function call($param) {
       // Strcuture: {name: "sp_table", inputs: ["test", 13, 42, "2019-01-01"]}
       //--------------------- Check Params
-      $validParams = ['name', 'inputs'];
+      $validParams = ['name', 'inputs', 'path'];
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       $name = $param["name"];
