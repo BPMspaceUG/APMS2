@@ -186,13 +186,13 @@ export default (props) => {
               //-- SpecialCase: Save Button
               if (actStateID === state.id) {
                 // Save Button
-                btn.setAttribute('class', 'btn btn-primary');
+                btn.setAttribute('class', 'btn btn-primary trans'+actStateID+'-'+state.id);
                 btn.innerText = "Save";
                 document.getElementById('saveBtns').appendChild(btn);
               }
               else {
                 // Other State-Button
-                btn.setAttribute('class', 'btn btnState btnEnabled mr-2 state' + state.id);
+                btn.setAttribute('class', 'btn btnState btnEnabled mr-2 state'+state.id+' trans'+actStateID+'-'+state.id);
                 btn.innerText = state.name;
                 const nextStateContainer = document.getElementById('nextstates');
                 nextStateContainer.appendChild(btn); // add StateBtn

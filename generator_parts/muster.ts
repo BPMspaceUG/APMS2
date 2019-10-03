@@ -729,6 +729,10 @@ class Table extends RawTable {
         value = '';
       return value;
     }
+    else if (t.Columns[col].field_type == 'rawhtml') {
+      //--- Raw.HTML
+      return value;
+    }
     else if (t.Columns[col].field_type == 'number') {
       //--- INTEGER / Number
       const number = parseInt(value);

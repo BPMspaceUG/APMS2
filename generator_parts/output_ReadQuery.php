@@ -18,7 +18,7 @@ class ReadQuery {
     $isValid = (!preg_match('/[^A-Za-z0-9\/_.`]/', $colname));
     return $isValid;
   }
-  private static function JsonLogicToSQL($arr, &$values = []) {
+  private static function JsonLogicToSQL($arr, &$values = [], $paramPrefix = "") {
     $keys = array_keys($arr);
     if (count($keys) === 0) die(fmtError("No Operator in JSON-Filter!"));
     $op = $keys[0];
@@ -48,7 +48,7 @@ class ReadQuery {
           $value = $val;
         }
         else {
-          $pname = ':p' . count($values); // param-name
+          $pname = ':p' . $paramPrefix . count($values); // param-name
           $values[$pname] = $val;
           $value = $pname;
         }
@@ -61,7 +61,7 @@ class ReadQuery {
       $comps = $arr[$op];
       $tmp = [];
       foreach ($comps as $comp) {
-        $tmp[] = self::JsonLogicToSQL($comp, $values);
+        $tmp[] = self::JsonLogicToSQL($comp, $values, $paramPrefix);
       }
       if (!in_array(null, $tmp, true))
         return "(" . implode(" ".strtoupper($op)." ", $tmp) . ")";
@@ -83,11 +83,15 @@ class ReadQuery {
     return $this->getStatement(true);
   }
   public function getValues($forCounting = false) {
-    $values = [];
+    $valsF = [];
+    $valsS = [];
+    // Get Values from Filter
     if (!is_null($this->filter))
-      self::JsonLogicToSQL($this->filter, $values);
+      self::JsonLogicToSQL($this->filter, $valsF, "f");
+    // Get Values from Search
     if (!is_null($this->having) && !$forCounting)
-      self::JsonLogicToSQL($this->having, $values);
+      self::JsonLogicToSQL($this->having, $valsS, "s");  
+    $values = array_merge($valsF, $valsS);
     return $values;
   }
   //--- Custom Selects
@@ -119,9 +123,8 @@ class ReadQuery {
   private function getJoins() {
     if (is_null($this->joins)) return "";
     $strJoin = "";
-    foreach ($this->joins as $element) {
-      $strJoin = $strJoin . $this->getJoin($element);
-    }
+    foreach ($this->joins as $element)
+      $strJoin .= $this->getJoin($element);
     return $strJoin;
   }
   //--- Where
@@ -137,20 +140,18 @@ class ReadQuery {
     $this->filter = $json;
   }
   private function getFilter() {
+    $emptyArr = [];
     if (is_null($this->filter)) return "";
-    return " WHERE ".self::JsonLogicToSQL($this->filter);
+    return " WHERE ".self::JsonLogicToSQL($this->filter, $emptyArr, "f");
   }
   //--- Having
   public function setHaving($strHaving) {
     $this->having = json_decode($strHaving, true);
   }
-  public function addHaving($strHaving) {
-    $strNewHave = '{"and": ['.json_encode($this->having).', '.$strHaving.']}';
-    $this->having = json_decode($strNewHave, true);
-  }
   private function getHaving() {
+    $emptyArr = [];
     if (is_null($this->having)) return "";
-    return " HAVING ".self::JsonLogicToSQL($this->having);
+    return " HAVING ".self::JsonLogicToSQL($this->having, $emptyArr, "s");
   }
   //--- Order
   public function setSorting($column, $direction = "ASC") {

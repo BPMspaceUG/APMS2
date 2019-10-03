@@ -275,9 +275,8 @@
       // Deliver
       if ($tablename != '_nodes' && $tablename != '_edges' && $tablename != '_orphans') {
         $result = [];
-        foreach ($tree as $el) {
+        foreach ($tree as $el)
           $result[] = $el;
-        }
         return $result;
       }
       else
@@ -510,7 +509,7 @@
         $term = '{"or":['. implode(',', $els) .']}';
         $rq->setHaving($term);
         /*
-        var_dump($rq->getStatement());
+        echo $rq->getStatement() . "\n\n";
         var_dump($rq->getValues());
         */
       }
@@ -566,7 +565,10 @@
       else {
         die(fmtError($stmtCnt->errorInfo()[2] .' -> '. $stmtCnt->queryString ));
       }
-
+      /*
+      echo $rq->getStatement() . "\n\n";
+      var_dump($rq->getValues());
+      */
       // Retrieve Entries
       $stmt = $pdo->prepare($rq->getStatement());
       if ($stmt->execute($rq->getValues())) {
