@@ -11,20 +11,25 @@
         <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
         <hr>
         <div class="form-group row p-0 m-0">
-          <label for="sqlServer" class="col-sm-1 mt-1 form-control-label">Hostname</label>
-          <div class="col-sm-3">
-            <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer" value='{{sqlServer}}'>
-          </div>
-          <label for="username" class="col-sm-1 mt-1 form-control-label">Username</label>
-          <div class="col-sm-2">
-              <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" value='{{username}}'>
-          </div>
-          <label for="password" class="col-sm-1 mt-1 form-control-label">Password</label>
-          <div class="col-sm-2">
-            <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw" value='{{pw}}'>
+          <div class="col-sm-4">
+            <label for="sqlServer" class="form-control-label">Hostname</label>
+            <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer">
           </div>
           <div class="col-sm-2">
-            <button type="button" class="btn btn-info" name="_connect" value="true" ng-click="connectToDB()"><i class="fas fa-plug"></i> Connect</button>
+            <label for="sqlPort" class="form-control-label">Port</label>
+            <input type="number" class="form-control" autocomplete="off" name="port" id="sqlPort" ng-model="sqlPort">
+          </div>
+          <div class="col-sm-2">
+            <label for="username" class="form-control-label">Username</label>
+            <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" >
+          </div>
+          <div class="col-sm-2">
+            <label for="sqlPass" class="form-control-label">Password</label>
+            <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw">
+          </div>
+          <div class="col-sm-2">
+            <button type="button" class="btn btn-info mt-3" name="_connect" value="true" ng-click="connectToDB()">
+              <i class="fas fa-plug"></i> Connect</button>
           </div>
         </div>
       </form>
