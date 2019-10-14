@@ -72,5 +72,4 @@
 
   // Handle Command and Rights Management
   $result = api(["cmd" => $command, "param" => $param], $tokendata);
-
   /*[OUTPUT]========>*/ echo $result;

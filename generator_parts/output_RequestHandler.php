@@ -759,11 +759,9 @@
       // Check Parameter
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-      
       // Get Primary Column
       $pcol = Config::getPrimaryColNameByTablename($tablename);
       $ElementID = $param["row"][$pcol];
-
       // Load all data from Element
       $existingData = $this->readRowByPrimaryID($tablename, $ElementID);
       // overide existing data
@@ -771,24 +769,24 @@
         $existingData[$key] = $value;
       }
       $param["row"] = $existingData;
+      $param["token"] = $this->token;
+
 
       // Statemachine
       $SE = new StateMachine(DB::getInstance()->getConnection(), $tablename);
       // get ActStateID by Element ID
       $actstateID = $this->getActualStateByRow($tablename, $param['row']);
-
       // Get the next ID for the next State or if none is used try a Save
       if (array_key_exists('state_id', $param['row'])) {
         $nextStateID = $param["row"]["state_id"];
       } else {        
         $nextStateID = $actstateID; // Try a save transition
       }
-
       // check if transition is allowed
       $transPossible = $SE->checkTransition($actstateID, $nextStateID);
       if ($transPossible) {
         // Execute Scripts
-        $feedbackMsgs = array(); // prepare empty array
+        $feedbackMsgs = []; // prepare empty array
 
         //---[1]- Execute [OUT] Script
         $out_script = $SE->getOUTScript($actstateID); // from source state
