@@ -1372,8 +1372,14 @@ class FormGenerator {
   public getHTML(){
     let html: string = `<form id="${this.GUID}">`;
     const data = this.data;
-    const keys = Object.keys(data);
-    for (const key of keys) {
+    // Order by data[key].orderF
+    const sortedKeys = Object.keys(data).sort(function(x,y){
+      const a = data[x].orderF ? parseInt(data[x].orderF) : 0;
+      const b = data[y].orderF ? parseInt(data[y].orderF) : 0;
+      return a < b ? -1 : (a > b ? 1 : 0);
+    });
+    // Loop Form-Elements
+    for (const key of sortedKeys) {
       html += this.getElement(key, data[key]);
     }
     return html + '</form>';
@@ -1402,7 +1408,7 @@ class FormGenerator {
           fixedGutter: true
         });
         editor.setValue(t.data[key].value || '');
-        editor.setSize(null, 111);
+        //editor.setSize(null, 111);
         t.editors[key]['objCodemirror'] = editor;
       }
       cnt++;

@@ -44,6 +44,7 @@ body {overflow-x: hidden;}
 #formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 .customfooter {width: 100%;}
 .CodeMirror {border: 1px solid #ced4da; font-size: .85em;}
+.modal-title span {font-size: .75em;}
 
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
