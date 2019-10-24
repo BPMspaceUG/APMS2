@@ -52,7 +52,7 @@ export default (props) => {
   //----------------------------
 
   return `<div>
-    <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>
+    <h2 title="${t.getTableType()}">${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>
     <hr>
     <form class="form-inline mb-1">
       <input type="text" id="searchBox" class="form-control d-inline-block w-50 w-lg-25 mr-1" placeholder="Search..."/>

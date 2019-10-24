@@ -359,7 +359,7 @@
       return $result;
     }
     public function executeScript($script, &$param = null, $tablename = null) {
-      $standardResult = array("allow_transition" => true, "show_message" => false, "message" => "");      
+      $standardResult = ["allow_transition" => true, "show_message" => false, "message" => ""];      
       // Check if script is not empty
       if (!empty($script)) {
         // Execute Script (WARNING -> eval = evil)

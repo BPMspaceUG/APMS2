@@ -275,9 +275,8 @@
       // Deliver
       if ($tablename != '_nodes' && $tablename != '_edges' && $tablename != '_orphans') {
         $result = [];
-        foreach ($tree as $el) {
+        foreach ($tree as $el)
           $result[] = $el;
-        }
         return $result;
       }
       else
@@ -510,7 +509,7 @@
         $term = '{"or":['. implode(',', $els) .']}';
         $rq->setHaving($term);
         /*
-        var_dump($rq->getStatement());
+        echo $rq->getStatement() . "\n\n";
         var_dump($rq->getValues());
         */
       }
@@ -566,7 +565,10 @@
       else {
         die(fmtError($stmtCnt->errorInfo()[2] .' -> '. $stmtCnt->queryString ));
       }
-
+      /*
+      echo $rq->getStatement() . "\n\n";
+      var_dump($rq->getValues());
+      */
       // Retrieve Entries
       $stmt = $pdo->prepare($rq->getStatement());
       if ($stmt->execute($rq->getValues())) {
@@ -584,7 +586,7 @@
     public function call($param) {
       // Strcuture: {name: "sp_table", inputs: ["test", 13, 42, "2019-01-01"]}
       //--------------------- Check Params
-      $validParams = ['name', 'inputs'];
+      $validParams = ['name', 'inputs', 'path'];
       $hasValidParams = $this->validateParamStruct($validParams, $param);
       if (!$hasValidParams) die(fmtError('Invalid parameters! (allowed are: '.implode(', ', $validParams).')'));
       $name = $param["name"];
@@ -757,11 +759,9 @@
       // Check Parameter
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
-      
       // Get Primary Column
       $pcol = Config::getPrimaryColNameByTablename($tablename);
       $ElementID = $param["row"][$pcol];
-
       // Load all data from Element
       $existingData = $this->readRowByPrimaryID($tablename, $ElementID);
       // overide existing data
@@ -769,24 +769,24 @@
         $existingData[$key] = $value;
       }
       $param["row"] = $existingData;
+      $param["token"] = $this->token;
+
 
       // Statemachine
       $SE = new StateMachine(DB::getInstance()->getConnection(), $tablename);
       // get ActStateID by Element ID
       $actstateID = $this->getActualStateByRow($tablename, $param['row']);
-
       // Get the next ID for the next State or if none is used try a Save
       if (array_key_exists('state_id', $param['row'])) {
         $nextStateID = $param["row"]["state_id"];
       } else {        
         $nextStateID = $actstateID; // Try a save transition
       }
-
       // check if transition is allowed
       $transPossible = $SE->checkTransition($actstateID, $nextStateID);
       if ($transPossible) {
         // Execute Scripts
-        $feedbackMsgs = array(); // prepare empty array
+        $feedbackMsgs = []; // prepare empty array
 
         //---[1]- Execute [OUT] Script
         $out_script = $SE->getOUTScript($actstateID); // from source state

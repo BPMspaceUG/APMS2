@@ -48,32 +48,31 @@ class DB {
         let HTTPMethod = 'POST';
         let HTTPBody = undefined;
         let url = me.API_URL;
-        if (params) {
+        if (params)
             data['param'] = params;
-        }
         if (command == 'init') {
             HTTPMethod = 'GET';
         }
         else if (command == 'create') {
             HTTPMethod = 'POST';
+            data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
         else if (command == 'read') {
             HTTPMethod = 'GET';
-            const getString = Object.keys(params).map(function (key) {
+            const getParamStr = Object.keys(params).map(key => {
                 const val = params[key];
                 return key + '=' + (isObject(val) ? JSON.stringify(val) : val);
             }).join('&');
-            url += '?' + getString;
+            url += '?' + getParamStr;
         }
         else if (command == 'update') {
             HTTPMethod = 'PATCH';
+            data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
-        else if (command == 'delete') {
-            HTTPMethod = 'DELETE';
-        }
         else {
+            data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
         fetch(url, {
@@ -346,7 +345,10 @@ class RawTable {
         return dir;
     }
     setSort(sortStr) { this.Sort = sortStr; }
-    setFilter(filterStr) { this.Filter = filterStr; }
+    setFilter(filterStr) {
+        if (filterStr && filterStr.trim().length > 0)
+            this.Filter = filterStr;
+    }
     setColumnFilter(columnName, filterText) {
         this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}';
     }
@@ -650,6 +652,9 @@ class Table extends RawTable {
             }
             else
                 value = '';
+            return value;
+        }
+        else if (t.Columns[col].field_type == 'rawhtml') {
             return value;
         }
         else if (t.Columns[col].field_type == 'number') {
@@ -1182,8 +1187,12 @@ class FormGenerator {
     getHTML() {
         let html = `<form id="${this.GUID}">`;
         const data = this.data;
-        const keys = Object.keys(data);
-        for (const key of keys) {
+        const sortedKeys = Object.keys(data).sort(function (x, y) {
+            const a = data[x].orderF ? parseInt(data[x].orderF) : 0;
+            const b = data[y].orderF ? parseInt(data[y].orderF) : 0;
+            return a < b ? -1 : (a > b ? 1 : 0);
+        });
+        for (const key of sortedKeys) {
             html += this.getElement(key, data[key]);
         }
         return html + '</form>';
@@ -1210,7 +1219,6 @@ class FormGenerator {
                     fixedGutter: true
                 });
                 editor.setValue(t.data[key].value || '');
-                editor.setSize(null, 111);
                 t.editors[key]['objCodemirror'] = editor;
             }
             cnt++;

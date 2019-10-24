@@ -16,7 +16,7 @@
   // If all relevant params are available
   if (isset($host) && isset($user) && isset($pwd)) {
     // Connect to DB
-    $con = new mysqli($host, $user, $pwd);
+    $con = new mysqli($host, $user, $pwd, "", $port);
     // Connection Error ?
     if ($con->connect_error) {
       die("\n\nCould not connect: ERROR NO. " . $con->connect_errno . " : " . $con->connect_error);

@@ -131,8 +131,11 @@ APMS.controller('APMScontrol', function ($scope, $http) {
   send fetch database info order for user to ConnectDB.php
   */
   $scope.connectToDB = function(){
-    $scope.isLoading = true
-    $scope.isError = false
+    
+    $scope.isLoading = true;
+    $scope.isError = false;
+    $scope.dbNames = undefined;
+
     console.log('Loading all DBs via '+$scope.path+':')
     // Send Request
     $http({

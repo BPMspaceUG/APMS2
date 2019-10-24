@@ -219,9 +219,25 @@ export default (props) => {
                         // Last Relation
                         if (j === rels.length-1) {
                           console.log("Created Relations", rels);
-                          console.log('Finished!');
-                          // TODO: Jump to last knot
-                          document.location.assign('#/'+originTablename+'/'+originID);
+                          console.log('Finished!', originTablename, originID);
+                          // If origin did not exist then set last created Object as origin
+                          if (!originTablename && !originID) {
+                            originTablename = obj[obj.length - 1].t;
+                            originID = obj[obj.length - 1].id;
+                            console.log('origin ->', originTablename, originID);
+                          }
+                          // Jump to last knot
+                          const strOriginalPath = path.join('/');
+                          const strLastKnot = originTablename+'/'+originID;
+                          const indexLastKnotInOgPath = strOriginalPath.lastIndexOf(strLastKnot);                          
+                          if (indexLastKnotInOgPath < 0) {
+                            document.location.assign('#/'+strLastKnot); // Not Found (-> only creates)
+                            return;
+                          } else {
+                            const jump = '#/'+strOriginalPath.substr(0, indexLastKnotInOgPath + strLastKnot.length);
+                            document.location.assign(jump);
+                            return;
+                          }
                         }
                       });
                     }
@@ -242,46 +258,19 @@ export default (props) => {
                         if (i === objsToCreate.length-1) {
                           // Insert already created Object at beginning
                           objsToCreate = [{t: t.getTablename(), id: parseInt(msg.element_id)}].concat(objsToCreate);
-                          console.log("Created Objects", objsToCreate);
-                          objsToCreate.push({t: originTablename, id: parseInt(originID)});
+                          if (originTablename && originID)
+                            objsToCreate.push({t: originTablename, id: parseInt(originID)});
+                          console.log("Objects:", objsToCreate);
                           connectObjects(objsToCreate, relsToCreate);
                         }
                       });
                     }
                   }
-
-
                   // 7. Finish and jump to first Object or knot
-                  return
-
-                  const relCmd = path[path.length-3];
-                  const relTablename = path[path.length-4];
-                  const relTable = new Table(relTablename);
-                  const origObjID = path[path.length-5];
-                  
-                  if (relCmd === 'create' && relTable.TableType !== 'obj') {
-                    console.log('Relation (N)-----'+relTablename+'-----(M)');
-                    // Create Relation here
-                    const arrColnames = Object.keys(relTable.Columns);
-                    let newRow = {};
-                    newRow[arrColnames[1]] = origObjID; // origin ObjectID
-                    newRow[arrColnames[2]] = msg.element_id; // new ObjectID
-                    // Create Relation
-                    DB.request('create', {table: relTablename, row: newRow}, function(resp2){
-                      // Relation created -> get RelationID
-                      const RelID = (resp2.length === 1 ? resp2[0].element_id : resp2[1].element_id);
-                      // Replace both Creates
-                      path[path.length-1] = msg.element_id;
-                      path[path.length-3] = RelID;
-                      // Path: Remove Relation
-                      path.splice(path.length-4, 2);
-                      const modifyPathOfNewElement = '#/' + path.join('/'); // Go back to first Object
-                      document.location.assign(modifyPathOfNewElement);
-                      return;
-                    });
-                    return;
-                  }
+                  return;
                 }
+
+                //----------------- TODO ==> !
                 // Redirect
                 path[path.length-1] = msg.element_id; // replace last element
                 const modifyPathOfNewElement = '#/' + path.join('/'); // Go back at a Relation
