@@ -12,5 +12,5 @@ GIT_COMMIT=$(echo "$GIT_COMMIT" | tr '[:upper:]' '[:lower:]')
 # Tag and push image for each additional tag
 for tag in {$GIT_COMMIT,$SOURCE_COMMIT}; do
     docker tag $IMAGE_NAME ${repoName}:${tag}
-    docker push ${repoName}:${tag} 
+    docker push ${repoName}:${tag}
 done
