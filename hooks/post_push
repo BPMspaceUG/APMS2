@@ -7,7 +7,7 @@ set -e
 # Parse image name for repo name
 tagStart=$(expr index "$IMAGE_NAME" :)
 repoName=${IMAGE_NAME:0:tagStart-1}
-GIT_COMMIT=$(git log -1 --format=%h)
+GIT_COMMIT=git-$(git log -1 --format=%h)
 tag=$(echo "$GIT_COMMIT" | tr '[:upper:]' '[:lower:]')
 # Tag and push image for each additional tag
 docker tag $IMAGE_NAME ${repoName}:${tag}
