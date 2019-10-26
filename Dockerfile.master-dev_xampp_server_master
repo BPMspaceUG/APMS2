@@ -1,4 +1,4 @@
-FROM bpmspace/docker_bpmspace_base:development_server_master
+FROM bpmspace/docker_bpmspace_base:dev_xampp_server_master
 RUN mkdir -p /var/www/html/APMS2
 RUN mkdir -p /var/www/html/APMS_test
 RUN mkdir -p /var/www/html/wwwsqldesigner
