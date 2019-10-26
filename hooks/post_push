@@ -1,8 +1,7 @@
 #!/bin/bash
 # for docker hub to add multiple tags to docker repo 
 # https://windsock.io/automated-docker-image-builds-with-multiple-tags/
-
-set -e
+set -euo pipefail
 
 # Parse image name for repo name
 tagStart=$(expr index "$IMAGE_NAME" :)
