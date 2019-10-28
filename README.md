@@ -6,15 +6,31 @@
 # Setup a new project
 ## Requirements
 * valid https://github.com Account
-* valid https://cloud.docker.com/ Account
+* valid https://cloud.docker.com Account
 * docker and docker-compose installed on a machine
 * Project Name
 ## Preperation 
-* create git Repo https://github.com/Account/ProjectName
-   * create branch "dev", "test", "stage" beside the "master" branch
-      * https://gist.github.com/jedmao/5053440
-      * https://medium.com/@patrickporto/4-branching-workflows-for-git-30d0aaee7bf
-
+* create git Repo from template with URL https://github.com/Account/ProjectName
+<br> Template Repo is https://github.com/BPMspaceUG/APMS2_project_template.git
+<br><hr> 
+  > INFO 
+  > * https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template
+  > * https://developer.github.com/v4/mutation/clonetemplaterepository/
+  <hr><br>
+  * create branch "dev", "test", "stage" beside the "master" branch
+  <br><hr> 
+  > INFO 
+  > * https://gist.github.com/jedmao/5053440
+  > * https://medium.com/@patrickporto/4-branching-workflows-for-git-30d0aaee7bf
+  <hr><br>
+* create docker Repo with URL https://cloud.docker.com/repository/docker/Account/ProjectName
+* setup automatic build
+  SourceType | Source | DockerTag | DockerfileLocation
+  ---------- | ---------- | ---------- | ----------
+  branch | master | ProjectName.master | Dockerfile.master
+  branch | stage | ProjectName.stage | Dockerfile.stage
+  branch | test | ProjectName.test | Dockerfile.test
+  branch | dev | ProjectName.master | Dockerfile.dev
 # Design Database
 # Database Design Principles
 - Tables must have only ONE Primary Column (no split primarykeys allowed)
