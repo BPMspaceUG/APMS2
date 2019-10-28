@@ -1,6 +1,6 @@
 # APMS2
 
-**APMS** stands for **A**gile **P**rocess **M**anagement **S**ystem Version **2**
+**APMS2** stands for **A**gile **P**rocess **M**anagement **S**ystem Version **2**
 ![APMS Logo](http://www.bpmspace.com/assets/img/BPMspace_APMS.png)
 
 # Setup a new project
@@ -10,7 +10,7 @@
 * docker and docker-compose installed on a machine
 * Project Name
 ## Preperation 
-* create git Repo from template with URL https://github.com/Account/ProjectName
+* create git Repo from template with URL https://github.com/[Account]/[ProjectName]
 <br> Template Repo is https://github.com/BPMspaceUG/APMS2_project_template.git
 <br><hr> 
   > INFO 
@@ -23,8 +23,8 @@
   > * https://gist.github.com/jedmao/5053440
   > * https://medium.com/@patrickporto/4-branching-workflows-for-git-30d0aaee7bf
   <hr><br>
-* create docker Repo with URL https://cloud.docker.com/repository/docker/Account/ProjectName
-* setup automatic build with "Enable for Base Image ON"<br>
+* create docker Repo with URL https://cloud.docker.com/repository/docker/[Account]/[ProjectName]
+* setup automatic build with "Enable for Base Image" ON<br>
   * SourceType | Source | DockerTag | DockerfileLocation<br>
   * branch | master | ProjectName.master | Dockerfile.master<br>
   * branch | stage | ProjectName.stage | Dockerfile.stage<br>
