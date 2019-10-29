@@ -28,8 +28,8 @@
 * setup automatic build with "Enable for Base Image" ON<br>
   * SourceType&emsp;&emsp;|&emsp;Source&emsp;&emsp;| DockerTag &emsp;&emsp;&emsp;| DockerfileLocation<br>
   * branch&emsp;&emsp;&emsp;&emsp;|&emsp;master&emsp;&emsp;| ProjectName.master&emsp;&emsp;| Dockerfile.master<br>
-  * branch&emsp;&emsp;&emsp;&emsp;|&emsp;stage&emsp;&emsp;| ProjectName.stage&emsp;&emsp;| Dockerfile.stage<br>
-  * branch&emsp;&emsp;&emsp;&emsp;|&emsp;test&emsp;&emsp;emsp;&emsp;| ProjectName.test&emsp;| Dockerfile.test<br>
+  * branch&emsp;&emsp;&emsp;&emsp;|&emsp;stage&emsp;&emsp;&emsp;| ProjectName.stage&emsp;&emsp;| Dockerfile.stage<br>
+  * branch&emsp;&emsp;&emsp;&emsp;|&emsp;test&emsp;&emsp;&emsp;| ProjectName.test&emsp;| Dockerfile.test<br>
   * branch&emsp;&emsp;&emsp;&emsp;|&emsp;dev&emsp;&emsp;| ProjectName.master&emsp;| Dockerfile.dev<br>
   <br>
 # Design Database
