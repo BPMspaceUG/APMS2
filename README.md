@@ -16,6 +16,7 @@
   > INFO 
   > * https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template
   > * https://developer.github.com/v4/mutation/clonetemplaterepository/
+  > * https://stackoverflow.com/questions/56577184/github-pull-changes-from-a-template-repository
   <hr><br>
 * create branch "dev", "test", "stage" beside the "master" branch
   <br><hr> 
@@ -25,11 +26,11 @@
   <hr><br>
 * create docker Repo with URL https://cloud.docker.com/repository/docker/[Account]/[ProjectName]
 * setup automatic build with "Enable for Base Image" ON<br>
-  * SourceType | Source | DockerTag | DockerfileLocation<br>
-  * branch | master | ProjectName.master | Dockerfile.master<br>
-  * branch | stage | ProjectName.stage | Dockerfile.stage<br>
-  * branch | test | ProjectName.test | Dockerfile.test<br>
-  * branch | dev | ProjectName.master | Dockerfile.dev<br>
+  * SourceType  | Source  | DockerTag           | DockerfileLocation<br>
+  * branch      | master  | ProjectName.master  | Dockerfile.master<br>
+  * branch      | stage   | ProjectName.stage   | Dockerfile.stage<br>
+  * branch      | test    | ProjectName.test    | Dockerfile.test<br>
+  * branch      | dev     | ProjectName.master  | Dockerfile.dev<br>
   <br>
 # Design Database
 # Database Design Principles
