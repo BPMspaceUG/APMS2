@@ -140,13 +140,13 @@
 		  // TODO: Foreign Key for [state <-> state_machines]
     }
     private function createNewState($statename, $isEP) {
-      $result = -1;
+      $newStateID = -1;
       $query = "INSERT INTO state (name, form_data, statemachine_id, entrypoint) VALUES (?,?,?,?)";
       $stmt = $this->db->prepare($query);
-      $stmt->execute(array($statename, '', $this->ID, $isEP));  
-      $result = $this->db->lastInsertId();
+      $stmt->execute(array($statename, '', $this->ID, $isEP));
+      $newStateID = $this->db->lastInsertId();
       $this->log($query);
-      return $result;
+      return $newStateID;
     }
     private function createTransition($from, $to) {
       $result = -1;
