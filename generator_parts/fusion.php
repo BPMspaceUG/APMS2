@@ -245,15 +245,13 @@
         //----------- RELATION
         //====================================        
         
-        echo "Create Relation Scripts ($table_type)\n";
+        echo "Create Relation Scripts ($table_type) -> ";
         // Load Template
         $templateScript = file_get_contents("./../template_scripts/".$table_type.".php");
         $templateScript = str_replace("<?php", '', $templateScript); // Remove first chars ('<?php')
         $templateScript = substr($templateScript, 2); // Remove newline char
         $res = $SM->createRelationScripts($templateScript);
-        echo "-----------------------------";
-        echo ($res == 0 ? 'OK' : 'Fail');
-        echo "\n\n";
+        echo ($res == 0 ? 'OK' : 'Fail') . "\n";
         
       }
       else {
