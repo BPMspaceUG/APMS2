@@ -6,10 +6,12 @@
     private $ID = -1;
     private $table = "";
     private $query_log = "";
+    private $projectDir = "";
 
-    public function __construct($PDO_Connection, $tablename = "") {
+    public function __construct($PDO_Connection, $tablename = "", $projectDir = __DIR__.'/..') {
       $this->db = $PDO_Connection;
       $this->table = $tablename;
+      $this->projectDir = $projectDir;
       if ($this->table != "")
       	$this->ID = $this->getSMIDByTablename($tablename);
     }
@@ -134,7 +136,7 @@
     }
     private function createNewState($statename, $isEP) {
       $newStateID = -1;
-      $query = "INSERT INTO state (name, statemachine_id, entrypoint) VALUES (?,?,?,?)";
+      $query = "INSERT INTO state (name, statemachine_id, entrypoint) VALUES (?,?,?)";
       $stmt = $this->db->prepare($query);
       $stmt->execute(array($statename, $this->ID, $isEP));
       $newStateID = $this->db->lastInsertId();
@@ -150,7 +152,7 @@
       $this->log($query);
       return $result;
     }
-    public function createRelationScripts($script) {
+    public function getCustomRelationScript($script) {
       $ID = $this->ID;
       if ($ID <= 0) return -1; // SM already exists => exit
       $StateID_selected = -1;
@@ -164,16 +166,7 @@
       // Replace IDs in Script
       $script = str_replace("STATE_SELECTED", $StateID_selected, $script);
       $script = str_replace("STATE_UNSELECTED", $StateID_unselected, $script);
-      // OutScript [unselected]
-      $query = "UPDATE state SET script_OUT = ? WHERE state_id = ? AND NULLIF(script_OUT, '') IS NULL";
-      $stmt = $this->db->prepare($query);
-      $stmt->execute(array($script, $StateID_unselected));
-      // TransitionScript of Statemachine
-      $query = "UPDATE state_machines SET transition_script = ? WHERE id = ? AND NULLIF(transition_script, '') IS NULL";
-      $stmt = $this->db->prepare($query);
-      $stmt->execute(array($script, $ID));
-      // Return
-      return 0;
+      return $script;
     }
     public function createBasicStateMachine($tablename, $table_type) {
       // check if a statemachine already exists for this table
@@ -224,7 +217,7 @@
     } 
     public function getFormDataByStateID($stateID) {
       if (!($this->ID > 0)) return "";
-      $fname = __DIR__."/../_state/$stateID/form.json";
+      $fname = $this->projectDir."/_state/$stateID/form.json";
       return file_exists($fname) ? file_get_contents($fname) : null;
     }
     public function getCreateFormByTablename() {
@@ -360,7 +353,7 @@
           return $result;
         }
         // This parameter comes from the script itself
-        // check if there where echos or var_dumps etc.
+        // check if there where echos or vardum etc.
         if (!empty($resultTxtShouldbeEmpty)) {
           $result = $standardResult;
           $result['show_message'] = true;
@@ -375,7 +368,7 @@
           return $result;
         }
         else {
-          // No ECHOS, Var_dumps, etc.
+          // No ECHOS, Vardumps, etc.
           // check results, if no result => standard result
           if (empty($script_result)) {
             return $standardResult;
@@ -409,9 +402,7 @@
       return $stmt->execute(array($script, $stateID)); // Returns True/False
     }
     public function setFormDataByStateID($stateID, $formData) {
-      $fname = __DIR__."/../_state/$stateID/form.json";
-      // TODO: Really?
-      if (file_exists($fname))
-        file_put_contents($fname, $formData);
+      $fname = $this->projectDir."/_state/$stateID/form.json";
+      file_put_contents($fname, $formData);
     }
   }
