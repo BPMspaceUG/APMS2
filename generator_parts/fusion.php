@@ -72,23 +72,6 @@
   // Sort Tables - from Data-Array by subkey values
   uasort($data, "cmp");
 
-  //--------------------------------------
-  // check if LIAM is present and create a Directory if not exists  
-  /*
-  $content = @file_get_contents("../../.git/config");
-  echo "Looking for LIAM...\n";
-  if (!empty($content) && strpos($content,"https://github.com/BPMspaceUG/LIAM.git")) {
-    echo "LIAM found. Looking for APMS_test Directory...\n";
-    if (!is_dir('../../APMS_test')) {
-      mkdir('../../APMS_test', 0750, true);
-      echo "APMS_test Directory created!\n";
-    }
-    else
-      echo "APMS_test Directory found.\n";
-  }
-  echo "\n";
-  */
-
   // ---------------------- Get actual Version of APMS
   echo "Generator-Version: ".$actAPMSvers."\n";
 
@@ -216,16 +199,45 @@
       // _state/$newStateID/in.php
       // _state/$newStateID/out.php
       // _state/$newStateID/form.json
+      //echo "--create--> ". $Path_APMS_test . "\n";
 
-      echo "--create--> ". $Path_APMS_test . "\n";
-
-      // _state_machines
+      // M A C H I N E S
       createSubDirIfNotExists($project_dir."/_state_machines/$SM_ID");
-      $scriptPath = $project_dir."/_state_machines/$SM_ID/create_script.php";
-      if (!file_exists($scriptPath))
-        file_put_contents($scriptPath, "<?php\n\techo \"Create\";");
-      
+      $scriptPath = $project_dir."/_state_machines/$SM_ID/";
+      if (!file_exists($scriptPath.'create.php')) file_put_contents($scriptPath.'create.php', "<?php\n\techo \"--CREATE-->\";");
+      if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', "{}");
+      // If Create-Script is empty, then link to Filesystem
+      if (empty($SM->getTransitionScriptCreate()))
+        $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
 
+
+      // T R A N S I T I O N S
+      // loop transitions
+      foreach ($SM->getTransitions() as $trans) {
+        $transID = $trans["state_rules_id"];
+        createSubDirIfNotExists($project_dir."/_state_rules");
+        $scriptPath = $project_dir."/_state_rules/";
+        if (!file_exists($scriptPath.$transID.'.php')) file_put_contents($scriptPath.$transID.'.php', "<?php\n\techo \"--TRANSITION ($transID)-->\";");
+        // If Script is empty, then link to Filesystem
+        if (empty($trans["transition_script"]))
+          $SM->setTransitionScript($transID, "include_once(__DIR__.'/../_state_rules/$transID.php');");
+      }
+      // S T A T E S
+      // loop states
+      foreach ($SM->getStates() as $state) {
+        // Create Scripts: in / out / form
+        $stateID = $state["id"];
+        createSubDirIfNotExists($project_dir."/_state/$stateID");
+        $scriptPath = $project_dir."/_state/$stateID/";
+
+        if (!file_exists($scriptPath.'in.php')) file_put_contents($scriptPath.'in.php', "<?php\n\techo \"IN\";");
+        if (!file_exists($scriptPath.'out.php')) file_put_contents($scriptPath.'out.php', "<?php\n\techo \"OUT\";");
+        if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', "{}");
+        // If Script is empty, then link to Filesystem
+        if (empty($SM->getINScript($stateID))) $SM->setINScript($stateID, "include_once(__DIR__.'/../_state/$stateID/in.php');");
+        if (empty($SM->getOUTScript($stateID))) $SM->setOUTScript($stateID, "include_once(__DIR__.'/../_state/$stateID/out.php');");
+      }
+      //-------------------
 
 
       if ($table_type != 'obj') {
@@ -260,9 +272,10 @@
         }
         // Update the inactive state with readonly
         $formDataRO = json_encode($rights_ro);
-        $allstates = $SM->getStates();
-        // loop states -> if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
-        foreach ($allstates as $state) {
+        
+        // if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
+        foreach ($SM->getStates() as $state) {
+          // Create Formdata
           $formData = $SM->getFormDataByStateID($state["id"]);
           if (strlen($formData) == 0) {
             // check if statename contains the phrase "active"
@@ -270,6 +283,7 @@
               $SM->setFormDataByStateID($state["id"], $formDataRO);
           }
         }
+
       }
       // Exclude the following Columns:
       $excludeKeys = $primKey;

@@ -276,14 +276,23 @@
     }
     public function getLinks() {
       $result = array();
-      $stmt = $this->db->prepare(
-        "SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
-        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?)
-        ORDER BY state_id_TO");
+      $stmt = $this->db->prepare("SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
+        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?) ORDER BY state_id_TO");
       $stmt->execute(array($this->ID));
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $result[] = ['from' => (int)$row['from'], 'to' => (int)$row['to']];
+        $result[] = [
+          'from' => (int)$row['from'],
+          'to' => (int)$row['to']
+        ];
       }
+      return $result;
+    }
+    public function getTransitions() {
+      $result = [];
+      $stmt = $this->db->prepare("SELECT * FROM state_rules WHERE state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?)");
+      $stmt->execute(array($this->ID));
+      while($row = $stmt->fetch(PDO::FETCH_ASSOC))
+        $result[] = $row;
       return $result;
     }
     public function getEntryPoint() {
@@ -344,18 +353,16 @@
       if (!($this->ID > 0)) return ""; // check for valid state machine
       $stmt = $this->db->prepare("SELECT script_IN FROM state WHERE state_id = ?");
       $stmt->execute(array($StateID));
-      while($row = $stmt->fetch()) {
-        $result = $row['script_IN'];
-      }
+      $row = $stmt->fetch();
+      $result = $row['script_IN'];
       return $result;
     }
     public function getOUTScript($StateID) {
       if (!($this->ID > 0)) return ""; // check for valid state machine
       $stmt = $this->db->prepare("SELECT script_OUT FROM state WHERE state_id = ?");
       $stmt->execute(array($StateID));
-      while($row = $stmt->fetch()) {
-        $result = $row['script_OUT'];
-      }
+      $row = $stmt->fetch();
+      $result = $row['script_OUT'];
       return $result;
     }
     public function executeScript($script, &$param = null, $tablename = null) {
@@ -402,5 +409,26 @@
         }
       }
       return $standardResult;
+    }
+    // Set Functions
+    public function setTransitionScript($transID, $script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state_rules SET transition_script = ? WHERE state_rules_id = ?');
+      return $stmt->execute(array($script, $transID)); // Returns True/False
+    }
+    public function setCreateScript($script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state_machines SET transition_script = ? WHERE id = ?');
+      return $stmt->execute(array($script, $this->ID)); // Returns True/False
+    }
+    public function setINScript($stateID, $script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state SET script_IN = ? WHERE state_id = ?');
+      return $stmt->execute(array($script, $stateID)); // Returns True/False
+    }
+    public function setOUTScript($stateID, $script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state SET script_OUT = ? WHERE state_id = ?');
+      return $stmt->execute(array($script, $stateID)); // Returns True/False
     }
   }
