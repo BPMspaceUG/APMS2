@@ -6,10 +6,12 @@
     private $ID = -1;
     private $table = "";
     private $query_log = "";
+    private $projectDir = "";
 
-    public function __construct($PDO_Connection, $tablename = "") {
+    public function __construct($PDO_Connection, $tablename = "", $projectDir = __DIR__.'/..') {
       $this->db = $PDO_Connection;
       $this->table = $tablename;
+      $this->projectDir = $projectDir;
       if ($this->table != "")
       	$this->ID = $this->getSMIDByTablename($tablename);
     }
@@ -51,19 +53,13 @@
 		  $this->db->query($query);
       $this->log($query); 
 
-      // Add Form_data column to state_machines if not exists
+      // Add column to state_machines if not exists
       $query = "SHOW COLUMNS FROM `state_machines`;";
       $rows = $this->db->query($query);
       // Build one string with all columnnames
       $columnstr = "";
       foreach ($rows as $row) $columnstr .= $row["Field"];
-      // Column [form_data] does not yet exist
-      if (strpos($columnstr, "form_data") === FALSE) {
-        $query = "ALTER TABLE `state_machines` ADD COLUMN `form_data` LONGTEXT NULL AFTER `tablename`;";
-        $this->db->query($query);
-        $this->log($query);
-      }
-      // Column [form_data] does not yet exist
+      // Column does not yet exist
       if (strpos($columnstr, "transition_script") === FALSE) {
         $query = "ALTER TABLE `state_machines` ADD COLUMN `transition_script` LONGTEXT NULL AFTER `tablename`;";
         $this->db->query($query);
@@ -74,7 +70,6 @@
 		  $query = "CREATE TABLE IF NOT EXISTS `state` (
 			  `state_id` bigint(20) NOT NULL AUTO_INCREMENT,
 			  `name` varchar(45) DEFAULT NULL,
-			  `form_data` longtext,
 			  `entrypoint` tinyint(1) NOT NULL DEFAULT '0',
 			  `statemachine_id` bigint(20) NOT NULL DEFAULT '1',
         `script_IN` longtext,
@@ -140,13 +135,13 @@
 		  // TODO: Foreign Key for [state <-> state_machines]
     }
     private function createNewState($statename, $isEP) {
-      $result = -1;
-      $query = "INSERT INTO state (name, form_data, statemachine_id, entrypoint) VALUES (?,?,?,?)";
+      $newStateID = -1;
+      $query = "INSERT INTO state (name, statemachine_id, entrypoint) VALUES (?,?,?)";
       $stmt = $this->db->prepare($query);
-      $stmt->execute(array($statename, '', $this->ID, $isEP));  
-      $result = $this->db->lastInsertId();
+      $stmt->execute(array($statename, $this->ID, $isEP));
+      $newStateID = $this->db->lastInsertId();
       $this->log($query);
-      return $result;
+      return $newStateID;
     }
     private function createTransition($from, $to) {
       $result = -1;
@@ -157,7 +152,7 @@
       $this->log($query);
       return $result;
     }
-    public function createRelationScripts($script) {
+    public function getCustomRelationScript($script) {
       $ID = $this->ID;
       if ($ID <= 0) return -1; // SM already exists => exit
       $StateID_selected = -1;
@@ -171,16 +166,7 @@
       // Replace IDs in Script
       $script = str_replace("STATE_SELECTED", $StateID_selected, $script);
       $script = str_replace("STATE_UNSELECTED", $StateID_unselected, $script);
-      // OutScript [unselected]
-      $query = "UPDATE state SET script_OUT = ? WHERE state_id = ? AND NULLIF(script_OUT, '') IS NULL";
-      $stmt = $this->db->prepare($query);
-      $stmt->execute(array($script, $StateID_unselected));
-      // TransitionScript of Statemachine
-      $query = "UPDATE state_machines SET transition_script = ? WHERE id = ? AND NULLIF(transition_script, '') IS NULL";
-      $stmt = $this->db->prepare($query);
-      $stmt->execute(array($script, $ID));
-      // Return
-      return 0;
+      return $script;
     }
     public function createBasicStateMachine($tablename, $table_type) {
       // check if a statemachine already exists for this table
@@ -229,61 +215,53 @@
       $this->log("-- [END] StateMachine created for Table '$tablename'");
       return $ID;
     } 
-    public function getFormDataByStateID($StateID) {
+    public function getFormDataByStateID($stateID) {
       if (!($this->ID > 0)) return "";
-      $result = '';
-      $sql = 'SELECT form_data AS fd FROM state WHERE state_id = ?';
-      $stmt = $this->db->prepare($sql);
-      $stmt->execute(array($StateID));
-      while($row = $stmt->fetch()) {
-        $result = $row['fd'];
-      }
-      return $result;
-    }
-    public function setFormDataByStateID($StateID, $formData) {
-      if (!($this->ID > 0)) return "";
-      $sql = 'UPDATE state SET form_data = ? WHERE state_id = ?';
-      $stmt = $this->db->prepare($sql);
-      return $stmt->execute(array($formData, $StateID)); // Returns True/False
+      $fname = $this->projectDir."/_state/$stateID/form.json";
+      return file_exists($fname) ? file_get_contents($fname) : null;
     }
     public function getCreateFormByTablename() {
       if (!($this->ID > 0)) return "";
-      $result = '';
-      $sql = 'SELECT form_data AS fd FROM state_machines WHERE id = ?';
-      $stmt = $this->db->prepare($sql);
-      $stmt->execute(array($this->ID));
-      while($row = $stmt->fetch()) {
-        $result = $row['fd'];
-      }
-      return $result;
+      $fname = __DIR__."/../_state_machines/".$this->ID."/form.json";
+      return file_exists($fname) ? file_get_contents($fname) : null;
     }
     public function getID() {
     	return $this->ID;
     }
     public function getStates() {
       $result = array();
-      $stmt = $this->db->prepare("SELECT state_id AS id, name, entrypoint, form_data FROM state WHERE statemachine_id = ? ORDER BY state_id");
+      $stmt = $this->db->prepare("SELECT state_id AS id, name, entrypoint FROM state WHERE statemachine_id = ? ORDER BY state_id");
       $stmt->execute(array($this->ID));
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $stateID = (int)$row['id'];
         $result[] = [
-          'id' => (int)$row['id'],
+          'id' => $stateID,
           'name' => $row['name'],
           'entrypoint' => (int)$row['entrypoint'],
-          'form_data' => $row['form_data']
+          'formdata' => $this->getFormDataByStateID($stateID)
         ];
       }
       return $result;
     }
     public function getLinks() {
       $result = array();
-      $stmt = $this->db->prepare(
-        "SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
-        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?)
-        ORDER BY state_id_TO");
+      $stmt = $this->db->prepare("SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
+        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?) ORDER BY state_id_TO");
       $stmt->execute(array($this->ID));
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $result[] = ['from' => (int)$row['from'], 'to' => (int)$row['to']];
+        $result[] = [
+          'from' => (int)$row['from'],
+          'to' => (int)$row['to']
+        ];
       }
+      return $result;
+    }
+    public function getTransitions() {
+      $result = [];
+      $stmt = $this->db->prepare("SELECT * FROM state_rules WHERE state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?)");
+      $stmt->execute(array($this->ID));
+      while($row = $stmt->fetch(PDO::FETCH_ASSOC))
+        $result[] = $row;
       return $result;
     }
     public function getEntryPoint() {
@@ -344,18 +322,16 @@
       if (!($this->ID > 0)) return ""; // check for valid state machine
       $stmt = $this->db->prepare("SELECT script_IN FROM state WHERE state_id = ?");
       $stmt->execute(array($StateID));
-      while($row = $stmt->fetch()) {
-        $result = $row['script_IN'];
-      }
+      $row = $stmt->fetch();
+      $result = $row['script_IN'];
       return $result;
     }
     public function getOUTScript($StateID) {
       if (!($this->ID > 0)) return ""; // check for valid state machine
       $stmt = $this->db->prepare("SELECT script_OUT FROM state WHERE state_id = ?");
       $stmt->execute(array($StateID));
-      while($row = $stmt->fetch()) {
-        $result = $row['script_OUT'];
-      }
+      $row = $stmt->fetch();
+      $result = $row['script_OUT'];
       return $result;
     }
     public function executeScript($script, &$param = null, $tablename = null) {
@@ -377,7 +353,7 @@
           return $result;
         }
         // This parameter comes from the script itself
-        // check if there where echos or var_dumps etc.
+        // check if there where echos or vardum etc.
         if (!empty($resultTxtShouldbeEmpty)) {
           $result = $standardResult;
           $result['show_message'] = true;
@@ -392,7 +368,7 @@
           return $result;
         }
         else {
-          // No ECHOS, Var_dumps, etc.
+          // No ECHOS, Vardumps, etc.
           // check results, if no result => standard result
           if (empty($script_result)) {
             return $standardResult;
@@ -402,5 +378,31 @@
         }
       }
       return $standardResult;
+    }
+
+    // Set Functions
+    public function setTransitionScript($transID, $script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state_rules SET transition_script = ? WHERE state_rules_id = ?');
+      return $stmt->execute(array($script, $transID)); // Returns True/False
+    }
+    public function setCreateScript($script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state_machines SET transition_script = ? WHERE id = ?');
+      return $stmt->execute(array($script, $this->ID)); // Returns True/False
+    }
+    public function setINScript($stateID, $script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state SET script_IN = ? WHERE state_id = ?');
+      return $stmt->execute(array($script, $stateID)); // Returns True/False
+    }
+    public function setOUTScript($stateID, $script) {
+      if (!($this->ID > 0)) return "";
+      $stmt = $this->db->prepare('UPDATE state SET script_OUT = ? WHERE state_id = ?');
+      return $stmt->execute(array($script, $stateID)); // Returns True/False
+    }
+    public function setFormDataByStateID($stateID, $formData) {
+      $fname = $this->projectDir."/_state/$stateID/form.json";
+      file_put_contents($fname, $formData);
     }
   }

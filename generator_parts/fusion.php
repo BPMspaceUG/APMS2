@@ -1,36 +1,40 @@
 <?php
+
+  //========================== FUNCTIONS
+
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
   function generateConfig($user = "", $pass = "", $host = "", $name = "", $urlLogin = "", $secretKey = "") {
-    global $act_version_link;
-    $data = "<?php\n";
-    // Dont change every time
-    if (!(empty($user) && empty($pass) && empty($host) && empty($name) && empty($urlLogin) && empty($secretKey)))
-      $data .= "
-      // APMS Generated Project (".date("Y-m-d H:i:s").")
-      // Version: $act_version_link
-      // ==================================================";
-    $data .= "//-- Database
+    global $act_version_link; // TODO: Remove!
+    $data = "<?php
+    // APMS Generated Project (".date("Y-m-d H:i:s").")
+    // Version: $act_version_link
+    // ==================================================
+    //-- Database
     define('DB_USER', '$user');
     define('DB_PASS', '$pass');
     define('DB_HOST', '$host');
     define('DB_NAME', '$name');
     //-- Authentication + API
     define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service -> returns a JWT-Token
-    define('AUTH_KEY', '$secretKey'); // Shared AuthKey which has to be known by the Authentication-Service
-    ";
+    define('AUTH_KEY', '$secretKey'); // Shared AuthKey which has to be known by the Authentication-Service";
     return $data;
   }
   function createSubDirIfNotExists($dirname) {
-    if (!is_dir($dirname))
-      mkdir($dirname, 0750, true);
+    if (!is_dir($dirname)) mkdir($dirname, 0750, true);
+  }
+  function cmp($a, $b) {
+    return ((int)$a['order']) - ((int)$b['order']);
   }
 
-  // Global Variables
+  //========================== DEFINITIONS
+
   $queries = '';
   $content = "";
-	// Load data from Angular
+  $content_css_statecolors = '';
+
+  // Load data from Angular
   if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
     $_REQUEST = json_decode(file_get_contents('php://input'), true);
 
@@ -39,52 +43,43 @@
   $db_user = $_REQUEST['user'];
   $db_pass = $_REQUEST['pwd'];
   $db_name = $_REQUEST['db_name'];
-
   $data = $_REQUEST['data'];
   $createRoleManagement = $_REQUEST['create_RoleManagement'];
   $createHistoryTable = $_REQUEST['create_HistoryTable'];
   $redirectToLoginURL = $_REQUEST['redirectToLogin'];
   $loginURL = $_REQUEST['login_URL'];
-  $secretKey = $_REQUEST['secret_KEY'];
-  //--------------------------------------
-  // Sort Tables - from Data-Array by subkey values
-  function cmp($a, $b) { return ((int)$a['order']) - ((int)$b['order']); }
-  uasort($data, "cmp");
-  //--------------------------------------
-  // check if LIAM is present and create a Directory if not exists  
-  $content = @file_get_contents("../../.git/config");
-  echo "Looking for LIAM...\n";
-  if (!empty($content) && strpos($content,"https://github.com/BPMspaceUG/LIAM.git")) {
-    echo "LIAM found. Looking for APMS_test Directory...\n";
-    if (!is_dir('../../APMS_test')) {
-      mkdir('../../APMS_test', 0750, true);
-      echo "APMS_test Directory created!\n";
-    }
-    else
-      echo "APMS_test Directory found.\n";
-  }
-  echo "\n";
-  // ---------------------- Get actual Version of APMS
-  $filepath = __DIR__."/../.git/refs/heads/master";
-  $act_version = trim(@file_get_contents($filepath));
-  $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/".$act_version;
-
-  echo "Generator-Version: ".$act_version."\n";
+  $secretKey = $_REQUEST['secret_KEY']; 
 
   define('DB_HOST', $db_server);
   define('DB_NAME', $db_name);
   define('DB_USER', $db_user);
   define('DB_PASS', $db_pass);
 
+  // Define ProjectPath
+  $Path_APMS_test = __DIR__ . "/../../APMS_test";
+  $APMS_gitPath = __DIR__."/../.git/refs/heads/master";
+  $actAPMSvers = trim(@file_get_contents($APMS_gitPath));
+  $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/".$actAPMSvers;
+  $project_dir = $Path_APMS_test.'/'.$db_name;
+
+  // Reqired files
   require_once("output_DatabaseHandler.php");
   require_once("output_StateEngine.php");
   require_once("output_RequestHandler.php");
   require_once("output_AuthHandler.php");
 
+  //--------------------------------------
+  // Sort Tables - from Data-Array by subkey values
+  uasort($data, "cmp");
+
+  // ---------------------- Get actual Version of APMS
+  echo "Generator-Version: ".$actAPMSvers."\n";
+
   /* ------------------------------------- Statemachine ------------------------------------- */
   // Loop each Table with StateMachine checked create a StateMachine Column
+
   // -------------------- FormData --------------------
-  $content_css_statecolors = '';  
+  
   // Database Connection
   $con = DB::getInstance()->getConnection();
   //--------------------------------- create RoleManagement
@@ -146,7 +141,8 @@
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
     $queries .= $sql;
     $con->exec($sql);
-  }  
+  }
+
   //---------------------------------
   $sqlCreateViewEdges = "CREATE OR REPLACE VIEW `_edges` AS ";
   $sqlCreateViewEdgesStmts = [];
@@ -159,8 +155,6 @@
     $table_type = $table["table_type"];
     $cols = $table["columns"];
     $primKey = Config::getPrimaryColsByTablename($tablename, $data);
-
-    // TODO: Check if the "table" is no view
 
     //-------- View _nodes, _edges
     if (count($primKey) > 0)
@@ -197,33 +191,84 @@
     //--- Create StateMachine
     if ($se_active) {
       // ------- StateMachine Creation
-      $SM = new StateMachine($con);
+      $SM = new StateMachine($con, "", $project_dir);
+
       $SM->createDatabaseStructure();
-      $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);      
-      if ($table_type != 'obj') {
-        //====================================
-        //----------- RELATION
-        //====================================        
-        
-        echo "Create Relation Scripts ($table_type)\n";
-        // Load Template
-        $templateScript = file_get_contents("./../template_scripts/".$table_type.".php");
-        $templateScript = str_replace("<?php", '', $templateScript); // Remove first chars ('<?php')
-        $templateScript = substr($templateScript, 2); // Remove newline char
-        $res = $SM->createRelationScripts($templateScript);
-        echo "-----------------------------";
-        echo ($res == 0 ? 'OK' : 'Fail');
-        echo "\n\n";
-        
+      $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
+
+      // TODO: Create a Folder-Structure with Template-Scripts
+      // _state/$newStateID/in.php
+      // _state/$newStateID/out.php
+      // _state/$newStateID/form.json
+      //echo "--create--> ". $Path_APMS_test . "\n";
+
+      $default_CREATE = "<?php\n\techo \"---CREATE--->\";";
+      $default_TRANSITION = "<?php\n\techo \"---TRANSITION--->\";";
+      $default_FORM = "";
+
+
+      // M A C H I N E S
+      $scriptPath = $project_dir."/_state_machines/$SM_ID/";
+      createSubDirIfNotExists($project_dir."/_state_machines/$SM_ID");
+      if (!file_exists($scriptPath.'create.php')) file_put_contents($scriptPath.'create.php', $default_CREATE);
+      if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', $default_FORM);
+      // If Create-Script is empty, then link to Filesystem
+      if (empty($SM->getTransitionScriptCreate()))
+        $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
+
+
+      // T R A N S I T I O N S
+      $count = 0;
+      $scriptPath = $project_dir."/_state_rules/";
+      createSubDirIfNotExists($project_dir."/_state_rules");
+      foreach ($SM->getTransitions() as $trans) {
+        $transID = $trans["state_rules_id"];
+        // If Script is empty, then link to Filesystem
+        if (empty($trans["transition_script"]))
+          $SM->setTransitionScript($transID, "include_once(__DIR__.'/../_state_rules/$transID.php');");
+
+        //---Special Relation Scripts
+        if ($table_type != 'obj') {
+          echo "RELATION [$table_type]\n";
+          $customRelationScript = $SM->getCustomRelationScript(file_get_contents("./../template_scripts/".$table_type.".php"));
+          // Overwrite Create-Script
+          file_put_contents($project_dir."/_state_machines/$SM_ID/create.php", $customRelationScript);
+          // Only the Transaction from [UNSELECTED -> SELECTED]
+          if ($count == 0) {
+            if (!file_exists($scriptPath.$transID.'.php'))
+              file_put_contents($scriptPath.$transID.'.php', $customRelationScript);
+          }
+          $count++;
+        }
+
+        //--- Create the default Transition-Script
+        if (!file_exists($scriptPath.$transID.'.php'))
+          file_put_contents($scriptPath.$transID.'.php', $default_TRANSITION);
       }
-      else {
-        //====================================
-        //----------- OBJECT
-        //====================================
-        // Create Basic form and set RO, RW
-        $rights_ro = [];
-        // for all columns and virtual-columns
-        foreach ($cols as $colname => $col) {
+
+
+      // S T A T E S
+      foreach ($SM->getStates() as $state) {
+        // Create Scripts: in / out / form
+        $stateID = $state["id"];
+        $scriptPath = $project_dir."/_state/$stateID/";
+        createSubDirIfNotExists($project_dir."/_state/$stateID");
+        if (!file_exists($scriptPath.'in.php')) file_put_contents($scriptPath.'in.php', ""); // TODO: REMOVE!!
+        if (!file_exists($scriptPath.'out.php')) file_put_contents($scriptPath.'out.php', ""); // TODO: REMOVE!!
+        if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', $default_FORM);
+        // If Script is empty, then link to Filesystem
+        if (empty($SM->getINScript($stateID))) $SM->setINScript($stateID, "include_once(__DIR__.'/../_state/$stateID/in.php');");
+        if (empty($SM->getOUTScript($stateID))) $SM->setOUTScript($stateID, "include_once(__DIR__.'/../_state/$stateID/out.php');");
+      }
+
+
+
+      //====================================
+      //----------- OBJECT
+      //====================================
+      if ($table_type === 'obj') {        
+        $rights_ro = []; // Create Basic form and set RO, RW
+        foreach ($cols as $colname => $col) { // for all columns and virtual-columns
           $confMode = $cols[$colname]["mode_form"];
           if (!($col['is_primary'] || $colname == 'state_id' || $confMode == 'hi')) {
             // Set the form data
@@ -232,17 +277,19 @@
         }
         // Update the inactive state with readonly
         $formDataRO = json_encode($rights_ro);
-        $allstates = $SM->getStates();
-        // loop states -> if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
-        foreach ($allstates as $state) {
-          $formData = $SM->getFormDataByStateID($state["id"]);
-          if (strlen($formData) == 0) {
+        // if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
+        foreach ($SM->getStates() as $state) {
+          // Create Formdata if none is there
+          $currentFormData = $SM->getFormDataByStateID($state["id"]);
+          if (strlen($currentFormData) === 0 || $currentFormData == '{}') {
             // check if statename contains the phrase "active"
             if (strpos($state["name"], "active") !== FALSE)
               $SM->setFormDataByStateID($state["id"], $formDataRO);
           }
         }
       }
+
+
       // Exclude the following Columns:
       $excludeKeys = $primKey;
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData
@@ -302,48 +349,33 @@
   $tmpURL = explode('/', $LOGIN_url);
   array_pop($tmpURL);
   $LOGIN_url2 = implode('/', $tmpURL);
-  
-  //------------------- Load complete Project
-  $class_StateEngine = file_get_contents("./output_StateEngine.php");
-  $output_RequestHandler = file_get_contents("./output_RequestHandler.php");  
-  $output_DBHandler = file_get_contents("./output_DatabaseHandler.php");
-  $output_AuthHandler = file_get_contents("./output_AuthHandler.php");
-  $output_ReadQuery = file_get_contents("./output_ReadQuery.php");
-  $output_API = file_get_contents("./output_API.php");
-  $output_css = file_get_contents("./muster.css");
-  $output_JS = file_get_contents("./muster.js");
-  $output_header = file_get_contents("./output_header.html");
-  $output_content = file_get_contents("./output_content.html");
-  $output_footer = file_get_contents("./output_footer.html");
-  $output_index = file_get_contents("./output_index.php");
 
-  //------------------- Insert Code into Templates
-  $output_header = str_replace('replaceDBName', $db_name, $output_header); // For Title
-  $output_footer = str_replace('replaceDBName', $db_name, $output_footer); // For Footer
-  $output_content = str_replace('replaceDBName', $db_name, $output_content); // Project Name
-  $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, $output_css); // CSS State Colors
-  //===> Compose Main HTML-File
-  $output_all = $output_header.$output_content.$output_footer;
+  //------------------- CUSTOM Parts
+  $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, file_get_contents("./muster.css")); // CSS State Colors
+  $output_content = str_replace('replaceDBName', $db_name, file_get_contents("./output_content.html")); // Projectname
+  // ---> ENCODE Data as JSON
+  $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
   //----------------------------------------------
   // ===> Write Project to FileSystem
   //----------------------------------------------
-  // ---> ENCODE Data as JSON
-  $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-  // Define ProjectPath
-  $Path_APMS_test = __DIR__ . "/../../APMS_test";
 
 	// check if APMS test exists
   if (is_dir($Path_APMS_test)) {
-  	// Path for Project
-    $project_dir = $Path_APMS_test.'/'.$db_name;
-    // Create Project directory
+
+    // Create Project directories
     createSubDirIfNotExists($project_dir);
     createSubDirIfNotExists($project_dir."/css");
     createSubDirIfNotExists($project_dir."/js");
     createSubDirIfNotExists($project_dir."/src");
+    //createSubDirIfNotExists($project_dir."/businesslogic");
+    createSubDirIfNotExists($project_dir."/_state");
+    createSubDirIfNotExists($project_dir."/_state_machines");
+    createSubDirIfNotExists($project_dir."/_state_rules");
+
     //---- Put Files
+    //========================= FRONTEND
     // JavaScript
-    file_put_contents($project_dir."/js/main.js", $output_JS);    
+    file_put_contents($project_dir."/js/main.js", file_get_contents("./muster.js"));    
     file_put_contents($project_dir."/js/app.js", file_get_contents("./app.js"));
     // Router
     createSubDirIfNotExists($project_dir."/js/router/");
@@ -359,16 +391,17 @@
     file_put_contents($project_dir."/css/main.css", $output_css);
     if (!file_exists($project_dir."/css/custom.css"))
       file_put_contents($project_dir."/css/custom.css", "/* Custom Styles */\n");
+    //========================= BACKEND
     // Serverside-Scripts
-    file_put_contents($project_dir."/src/RequestHandler.inc.php", $output_RequestHandler);
-    file_put_contents($project_dir."/src/StateMachine.inc.php", $class_StateEngine);
-    file_put_contents($project_dir."/src/DatabaseHandler.inc.php", $output_DBHandler);
-    file_put_contents($project_dir."/src/AuthHandler.inc.php", $output_AuthHandler);
-    file_put_contents($project_dir."/src/ReadQuery.inc.php", $output_ReadQuery);
+    file_put_contents($project_dir."/src/RequestHandler.inc.php", file_get_contents("./output_RequestHandler.php"));
+    file_put_contents($project_dir."/src/StateMachine.inc.php", file_get_contents("./output_StateEngine.php"));
+    file_put_contents($project_dir."/src/DatabaseHandler.inc.php", file_get_contents("./output_DatabaseHandler.php"));
+    file_put_contents($project_dir."/src/AuthHandler.inc.php", file_get_contents("./output_AuthHandler.php"));
+    file_put_contents($project_dir."/src/ReadQuery.inc.php", file_get_contents("./output_ReadQuery.php"));
     // Main Directory
-    file_put_contents($project_dir."/api.php", $output_API);
-    file_put_contents($project_dir."/content.inc.html", $output_all);
-    file_put_contents($project_dir."/index.php", $output_index);
+    file_put_contents($project_dir."/api.php", file_get_contents("./output_API.php"));
+    file_put_contents($project_dir."/index.php", file_get_contents("./output_index.php"));
+    file_put_contents($project_dir."/content.inc.html", $output_content);
     // Configuration
     file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
     file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
@@ -376,7 +409,6 @@
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
-
     //------> Output information
     echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
     echo $queries;
