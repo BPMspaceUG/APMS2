@@ -1,11 +1,11 @@
 <?php
-  // Check if Request Method is POST
-  if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST)) {
-    // Convert the input stream into PHP variables from Angular
-    $_POST = json_decode(file_get_contents('php://input'), true);
-  }
-  $params = $_POST;
-  //============================ Parse by Content
+	// Check if Request Method is POST
+	if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST)) {
+		// Convert the input stream into PHP variables from Angular
+		$_POST = json_decode(file_get_contents('php://input'), true);
+	}
+	$params = $_POST;
+	//============================ Parse by Content
 	// Param
 	$data = @htmlspecialchars($params['config_data']);
 	$data = trim($data);
@@ -13,7 +13,12 @@
 	// check
 	if ($data != "") {
 		eval('?>' . $data . '<?php ');
-		echo json_encode(array("DBName" => DB_NAME, "login_url" => API_URL_LIAM, "secret_key" => AUTH_KEY, "data" => $config_tables_json));
+		echo json_encode([
+			"DBName"=>DB_NAME,
+			"login_url"=>API_URL_LIAM,
+			"secret_key"=>AUTH_KEY,
+			"data"=>$config_tables_json
+		]);
 		exit();
 	}
 	//============================ Parse by Filename

@@ -12,6 +12,8 @@
     $param = $data["param"];
     if ($cmd != "") {
       $RH = new RequestHandler($token);
+      if (!method_exists($RH, $cmd))
+        die(fmtError("Command not available!"));
       if (!is_null($param)) // are there parameters?
         $result = $RH->$cmd($param); // execute with params
       else

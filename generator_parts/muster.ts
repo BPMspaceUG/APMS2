@@ -86,7 +86,7 @@ abstract class DB {
       // Check for Error
       if (res.error) {
         //alert(res.error.msg);
-        console.log(res.error.msg);
+        //console.log(res.error.msg);
         // Goto URL
         if (res.error.url)
           document.location.assign(res.error.url);
@@ -1510,3 +1510,8 @@ function loadFKTable(element, tablename, customfilter): void {
     return
   }
 }
+
+// PING
+setInterval(function(){
+  DB.request('ping', {}, ()=>{});
+}, 10000);

@@ -84,7 +84,6 @@ class DB {
             return response.json();
         }).then(res => {
             if (res.error) {
-                console.log(res.error.msg);
                 if (res.error.url)
                     document.location.assign(res.error.url);
             }
@@ -1311,3 +1310,6 @@ function loadFKTable(element, tablename, customfilter) {
         return;
     }
 }
+setInterval(function () {
+    DB.request('ping', {}, () => { });
+}, 10000);
