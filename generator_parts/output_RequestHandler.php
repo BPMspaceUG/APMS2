@@ -20,7 +20,18 @@
       return $result;
     }
   }
-  function fmtError($errormessage) { return json_encode(['error' => ['msg' => $errormessage]]); }
+  function fmtError($errormessage) {
+    return json_encode(['error' => ['msg' => $errormessage]]);
+  }
+  function getLoginURL() {
+    // Get origin
+    $thisHost = (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] === "on" ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
+    $thisPath = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
+    if (substr($thisPath, -1) !== '/')
+      $thisPath = dirname($thisPath) . '/';
+    $actual_link = $thisHost . $thisPath;
+    return Config::getLoginSystemURL()."?origin=".$actual_link;
+  }
 
   //-------------------------------------------------------
   class Config {

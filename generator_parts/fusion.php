@@ -1,7 +1,5 @@
 <?php
-
   //========================== FUNCTIONS
-
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
@@ -17,8 +15,9 @@
     define('DB_HOST', '$host');
     define('DB_NAME', '$name');
     //-- Authentication + API
-    define('API_URL_LIAM', '$urlLogin'); // URL from Authentication-Service -> returns a JWT-Token
-    define('AUTH_KEY', '$secretKey'); // Shared AuthKey which has to be known by the Authentication-Service";
+    define('API_URL_LIAM', '$urlLogin'); // Authentication-Service
+    define('AUTH_KEY', '$secretKey'); // Secret of Auth-Service
+    define('TOKEN_EXP_TIME', 60); // Expiry Time of an Access-Token [sec]";
     return $data;
   }
   function createSubDirIfNotExists($dirname) {
@@ -29,7 +28,6 @@
   }
 
   //========================== DEFINITIONS
-
   $queries = '';
   $content = "";
   $content_css_statecolors = '';
@@ -62,7 +60,7 @@
   $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/".$actAPMSvers;
   $project_dir = $Path_APMS_test.'/'.$db_name;
 
-  // Reqired files
+  // Required files
   require_once("output_DatabaseHandler.php");
   require_once("output_StateEngine.php");
   require_once("output_RequestHandler.php");
@@ -72,16 +70,9 @@
   // Sort Tables - from Data-Array by subkey values
   uasort($data, "cmp");
 
-  // ---------------------- Get actual Version of APMS
-  echo "Generator-Version: ".$actAPMSvers."\n";
-
-  /* ------------------------------------- Statemachine ------------------------------------- */
-  // Loop each Table with StateMachine checked create a StateMachine Column
-
-  // -------------------- FormData --------------------
-  
-  // Database Connection
+  echo "Generator-Version: ".$actAPMSvers."\n";  
   $con = DB::getInstance()->getConnection();
+
   //--------------------------------- create RoleManagement
   if ($createRoleManagement) {
     $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); //Error Handling
@@ -192,20 +183,12 @@
     if ($se_active) {
       // ------- StateMachine Creation
       $SM = new StateMachine($con, "", $project_dir);
-
       $SM->createDatabaseStructure();
       $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
-
-      // TODO: Create a Folder-Structure with Template-Scripts
-      // _state/$newStateID/in.php
-      // _state/$newStateID/out.php
-      // _state/$newStateID/form.json
-      //echo "--create--> ". $Path_APMS_test . "\n";
 
       $default_CREATE = "<?php\n\techo \"---CREATE--->\";";
       $default_TRANSITION = "<?php\n\techo \"---TRANSITION--->\";";
       $default_FORM = "";
-
 
       // M A C H I N E S
       $scriptPath = $project_dir."/_state_machines/$SM_ID/";
@@ -216,7 +199,6 @@
       if (empty($SM->getTransitionScriptCreate()))
         $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
 
-
       // T R A N S I T I O N S
       $count = 0;
       $scriptPath = $project_dir."/_state_rules/";
@@ -226,7 +208,6 @@
         // If Script is empty, then link to Filesystem
         if (empty($trans["transition_script"]))
           $SM->setTransitionScript($transID, "include_once(__DIR__.'/../_state_rules/$transID.php');");
-
         //---Special Relation Scripts
         if ($table_type != 'obj') {
           echo "RELATION [$table_type]\n";
@@ -240,12 +221,10 @@
           }
           $count++;
         }
-
         //--- Create the default Transition-Script
         if (!file_exists($scriptPath.$transID.'.php'))
           file_put_contents($scriptPath.$transID.'.php', $default_TRANSITION);
       }
-
 
       // S T A T E S
       foreach ($SM->getStates() as $state) {
@@ -260,8 +239,6 @@
         if (empty($SM->getINScript($stateID))) $SM->setINScript($stateID, "include_once(__DIR__.'/../_state/$stateID/in.php');");
         if (empty($SM->getOUTScript($stateID))) $SM->setOUTScript($stateID, "include_once(__DIR__.'/../_state/$stateID/out.php');");
       }
-
-
 
       //====================================
       //----------- OBJECT
@@ -362,12 +339,13 @@
 	// check if APMS test exists
   if (is_dir($Path_APMS_test)) {
 
+    // TODO: Copy the complete structure from template
+
     // Create Project directories
     createSubDirIfNotExists($project_dir);
     createSubDirIfNotExists($project_dir."/css");
     createSubDirIfNotExists($project_dir."/js");
     createSubDirIfNotExists($project_dir."/src");
-    //createSubDirIfNotExists($project_dir."/businesslogic");
     createSubDirIfNotExists($project_dir."/_state");
     createSubDirIfNotExists($project_dir."/_state_machines");
     createSubDirIfNotExists($project_dir."/_state_rules");
@@ -409,6 +387,7 @@
     // GitIgnore for Secret Files
     if (!file_exists($project_dir."/.gitignore"))
       file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
+      
     //------> Output information
     echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
     echo $queries;

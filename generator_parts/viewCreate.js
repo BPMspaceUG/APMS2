@@ -85,7 +85,7 @@ export default (props) => {
               unselectedObjIDs.push(objID);
             }
             unselectedObjIDs = Array.from(new Set(unselectedObjIDs))
-            console.log("List of unselected Objects:", unselectedObjIDs);
+            //console.log("List of unselected Objects:", unselectedObjIDs);
             // 2. For every unselected ObjectID - check if it is selected
             t.setFilter('{"and":[{"in":["' + colname + '", "' + unselectedObjIDs.join(',') + '"]},{"=":["`'+t.getTablename()+'`.state_id",'+sIDselected+']}]}');
             t.loadRows(resp => {
@@ -98,10 +98,10 @@ export default (props) => {
                 selectedObjIDs.push(objID);
               }
               selectedObjIDs = Array.from(new Set(selectedObjIDs))
-              console.log("List of selected (from the unsel. Obj) Objects:", selectedObjIDs);
+              //console.log("List of selected (from the unsel. Obj) Objects:", selectedObjIDs);
               // 3. Now Check difference between Arrays          
               const freeObjIDs = unselectedObjIDs.filter(x => !selectedObjIDs.includes(x));
-              console.log("List of free Objects", freeObjIDs);
+              //console.log("List of free Objects", freeObjIDs);
               // 4. Set Filter at Table
               const pColname = t.Columns[colname].foreignKey.col_id;
               if (freeObjIDs.length > 0) {
@@ -172,7 +172,7 @@ export default (props) => {
             // Check if Element was created
             if (msg.element_id && msg.element_id > 0) {
                 //-------------------------------------------------------->>>>
-                console.info( (t.TableType === 'obj' ? 'Object' : 'Relation') + ' created! ID:', msg.element_id);
+                //console.info( (t.TableType === 'obj' ? 'Object' : 'Relation') + ' created! ID:', msg.element_id);
 
                 if (path.length > 2) {
 
@@ -189,7 +189,7 @@ export default (props) => {
                   for (let i=0; i<reversedPath.length/2; i++) {
                     const cmd = reversedPath[2*i];
                     const Tablename = reversedPath[2*i+1];
-                    console.log(cmd, '->', Tablename);
+                    //console.log(cmd, '->', Tablename);
                     // Until the end of the new path is reached
                     if (cmd != 'create') {
                       originID = cmd;
@@ -213,18 +213,18 @@ export default (props) => {
                       const data = {};
                       data[colnames[2]] = obj[j].id;
                       data[colnames[1]] = obj[j+1].id;
-                      console.log(rels[j], '-->', data);
+                      //console.log(rels[j], '-->', data);
                       DB.request('create', {table: rels[j], row: data}, r => {
                         rels[j] = {t: rels[j], id: parseInt(r[1].element_id)};
                         // Last Relation
                         if (j === rels.length-1) {
-                          console.log("Created Relations", rels);
-                          console.log('Finished!', originTablename, originID);
+                          //console.log("Created Relations", rels);
+                          //console.log('Finished!', originTablename, originID);
                           // If origin did not exist then set last created Object as origin
                           if (!originTablename && !originID) {
                             originTablename = obj[obj.length - 1].t;
                             originID = obj[obj.length - 1].id;
-                            console.log('origin ->', originTablename, originID);
+                            //console.log('origin ->', originTablename, originID);
                           }
                           // Jump to last knot
                           const strOriginalPath = path.join('/');
@@ -260,7 +260,7 @@ export default (props) => {
                           objsToCreate = [{t: t.getTablename(), id: parseInt(msg.element_id)}].concat(objsToCreate);
                           if (originTablename && originID)
                             objsToCreate.push({t: originTablename, id: parseInt(originID)});
-                          console.log("Objects:", objsToCreate);
+                          //console.log("Objects:", objsToCreate);
                           connectObjects(objsToCreate, relsToCreate);
                         }
                       });
@@ -281,8 +281,9 @@ export default (props) => {
             }
             else {
               // ElementID is defined but 0 => the transscript aborted
-              if (msg.element_id == 0) 
-                alert(msg.errormsg);
+              if (msg.element_id == 0) {
+                console.error(msg.errormsg);
+              }
             }
             // Special Case for Relations (reactivate them)
             if (counter == 0 && !msg.show_message && msg.message == 'RelationActivationCompleteCloseTheModal') {

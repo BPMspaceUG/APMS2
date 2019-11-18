@@ -145,8 +145,7 @@ export default (props) => {
                 //------------------------------------
                 t.transitRow(actRowID, state.id, newRowData, resp => {
                   if (resp.error) {
-                    console.log('ERROR', resp.error.msg);
-                    alert(resp.error.msg);
+                    console.error(resp.error.msg);
                     return;
                   }
                   t.onEntriesModified.trigger(); // TODO: Remove, => put inside Class

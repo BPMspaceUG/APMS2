@@ -1,5 +1,5 @@
 // Plugins (only declared to remove TS Errors)
-declare var vis: any, Quill: any, CodeMirror: any; // Plugins
+declare var vis: any, Quill: any; // Plugins
 
 // Enums
 enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
@@ -78,15 +78,22 @@ abstract class DB {
     fetch(url, {
       method: HTTPMethod,
       body: HTTPBody,
+      headers: {'Authorization': 'Bearer '+token},
       credentials: 'same-origin'
-    }).then(
-      response => {
-        return response.json();
-      }).then(
-      res => {
-        callback(res);
+    }).then(response => {
+      return response.json();
+    }).then(res => {
+      // Check for Error
+      if (res.error) {
+        //alert(res.error.msg);
+        console.log(res.error.msg);
+        // Goto URL
+        if (res.error.url)
+          document.location.assign(res.error.url);
       }
-    );
+      else
+        callback(res);
+    });
   }
   public static loadConfig(callback) {
     DB.request('init', {}, config => {
@@ -1214,7 +1221,6 @@ class FormGenerator {
       }
       // Put together Result
       result += `<div><input type="hidden" name="${key}" value="${ (ID && ID != 0) ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
-      console.log(v);
       result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter) );
       result += `</div>`;
     }
@@ -1401,16 +1407,6 @@ class FormGenerator {
         t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '<p></p>';
         if (cnt === 0) t.editors[key]['objQuill'].focus();
       }
-      //--- Codemirror
-      else if (options.editor === 'codemirror') {
-        const editor = CodeMirror.fromTextArea(document.getElementById(options.id), {
-          lineNumbers: true,
-          fixedGutter: true
-        });
-        editor.setValue(t.data[key].value || '');
-        //editor.setSize(null, 111);
-        t.editors[key]['objCodemirror'] = editor;
-      }
       cnt++;
     }
     //--- Live-Validate Number Inputs
@@ -1442,13 +1438,6 @@ class FormGenerator {
       el.addEventListener('keydown', function(e: KeyboardEvent){
         if (e.which == 13) e.preventDefault(); // Prevent Page Reload
       });
-    }
-  }
-  public refreshEditors() {
-    let editors = this.editors;
-    for (const key of Object.keys(editors)) {
-      const edi = editors[key];
-      if (edi['objCodemirror']) edi['objCodemirror'].refresh();
     }
   }
 }

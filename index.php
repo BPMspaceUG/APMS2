@@ -216,8 +216,7 @@
                             <option value="enum">Enum</option>
                             <option value="foreignkey">ForeignKey</option>
                             <option value="reversefk">Virtual-Table</option>
-                            <option value="htmleditor">Editor (HTML)</option>
-                            <option value="codeeditor">Editor (Code)</option>
+                            <option value="htmleditor">HTML-Editor</option>
                             <option value="rawhtml">Raw HTML</option>
                           </optgroup>
                         </select>

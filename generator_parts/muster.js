@@ -78,11 +78,18 @@ class DB {
         fetch(url, {
             method: HTTPMethod,
             body: HTTPBody,
+            headers: { 'Authorization': 'Bearer ' + token },
             credentials: 'same-origin'
         }).then(response => {
             return response.json();
         }).then(res => {
-            callback(res);
+            if (res.error) {
+                console.log(res.error.msg);
+                if (res.error.url)
+                    document.location.assign(res.error.url);
+            }
+            else
+                callback(res);
         });
     }
     static loadConfig(callback) {
@@ -1058,7 +1065,6 @@ class FormGenerator {
           href="javascript:void(0);">${cont}</a>`;
             };
             result += `<div><input type="hidden" name="${key}" value="${(ID && ID != 0) ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
-            console.log(v);
             result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter));
             result += `</div>`;
         }
@@ -1213,14 +1219,6 @@ class FormGenerator {
                 if (cnt === 0)
                     t.editors[key]['objQuill'].focus();
             }
-            else if (options.editor === 'codemirror') {
-                const editor = CodeMirror.fromTextArea(document.getElementById(options.id), {
-                    lineNumbers: true,
-                    fixedGutter: true
-                });
-                editor.setValue(t.data[key].value || '');
-                t.editors[key]['objCodemirror'] = editor;
-            }
             cnt++;
         }
         let elements = document.querySelectorAll('input[type=number]');
@@ -1244,14 +1242,6 @@ class FormGenerator {
                 if (e.which == 13)
                     e.preventDefault();
             });
-        }
-    }
-    refreshEditors() {
-        let editors = this.editors;
-        for (const key of Object.keys(editors)) {
-            const edi = editors[key];
-            if (edi['objCodemirror'])
-                edi['objCodemirror'].refresh();
         }
     }
 }

@@ -25,15 +25,18 @@
     catch (Exception $e) {
       // Invalid Token!
       http_response_code(401);
-      die(json_encode(['error' => ['msg' => "Please use a Token for authentication."]]));
+      die(json_encode(['error' => [
+        'msg' => 'Please use a Token for authentication.',
+        'url' => getLoginURL()
+      ]]));
     }
     // Token is valid but expired?
-    // TODO: Only set iss timestamp in Token!!!
-    if (property_exists($tokendata, "exp")) {
-      if (($tokendata->exp - time()) <= 0) {
-        http_response_code(401);
-        die(json_encode(['error' => ['msg' => "This Token has expired. Please renew your Token."]]));
-      }
+    if ((time() - $tokendata->iat) >= TOKEN_EXP_TIME) {
+      http_response_code(401);
+      die(json_encode(['error' => [
+        'msg' => 'This Token has expired. Please renew your Token.',
+        'url' => getLoginURL()
+      ]]));
     }
   }
   //========================================= Parameter & Handling
