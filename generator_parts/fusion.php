@@ -17,7 +17,7 @@
     //-- Authentication + API
     define('API_URL_LIAM', '$urlLogin'); // Authentication-Service
     define('AUTH_KEY', '$secretKey'); // Secret of Auth-Service
-    define('TOKEN_EXP_TIME', 60 * 60 * 3); // Expiry Time of an Access-Token [sec]";
+    define('TOKEN_EXP_TIME', 60); // Expiry Time of an Access-Token [sec]";
     return $data;
   }
   function createSubDirIfNotExists($dirname) {

@@ -837,4 +837,7 @@
       else 
         return fmtError("Transition not possible!");
     }
+    public function ping(){
+      return json_encode(['pong']);
+    }
   }

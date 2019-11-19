@@ -1,14 +1,11 @@
 <?php
-  // Includes
   require_once(__DIR__."/src/AuthHandler.inc.php");
-  include_once(__DIR__."/src/RequestHandler.inc.php");
-
-
-  
+  require_once(__DIR__."/src/RequestHandler.inc.php");
 
 
 
   if (isset($_GET['logout'])) {
+    setcookie("token", "", time()-3600); // Delete cookies
     header('Location: '.getLoginURL());
     exit();
   }
@@ -22,6 +19,8 @@
   }
   
   // TODO: Nothing should be Done here! => Auth should only function via API and client not Serverside!
+  // The Best solution would be, to make a html login form in every sub-system and get the tokens (access and refresh) via ajax request
+  // The access token is then stored in memory and the refresh token is stored as a httpOnly cookie with a certain refresh path (scope)
 
   //========================================= Authentification
 
@@ -32,6 +31,7 @@
 
   // No token is set
   if ($rawtoken == "") {
+    setcookie("token", "", time()-3600); // Delete cookies
     header('Location: '.getLoginURL());
     exit();
   }
@@ -41,17 +41,21 @@
   }
   catch (Exception $e) {
     // Invalid Token!
+    setcookie("token", "", time()-3600); // Delete cookies
     header('Location: '.getLoginURL());
     exit();
   }
   // Token is valid but expired?
   if ((time() - $token->iat) >= TOKEN_EXP_TIME) {
-    header('Content-Type: application/json; charset=utf-8');
-    http_response_code(401);
-    die(json_encode(['error' => ['msg' => "This Token has expired. Please renew your Token."]]));
+    setcookie("token", "", time()-3600); // Delete cookies
+    header('Location: '.getLoginURL());
+    exit();
   }
-
+  if (is_null(JWT::getBearerToken())) {
+    // Store Access Token on client
+    setcookie("token", $rawtoken, time()+ 3600 * 24 * 10, "", "", false, true);
+    header("Location: index.php");
+    exit();
+  }
   // Success
-  $content = file_get_contents(__DIR__.'/content.inc.html');
-  $content = str_replace("____tokendata_____", $rawtoken, $content);
-  echo $content;
+  require_once(__DIR__.'/content.inc.html');

@@ -72,20 +72,22 @@ class DB {
             HTTPBody = JSON.stringify(data);
         }
         else {
-            data['param']['path'] = location.hash;
+            if (command == 'makeTransition' || command == 'call')
+                data['param']['path'] = location.hash;
             HTTPBody = JSON.stringify(data);
         }
         fetch(url, {
             method: HTTPMethod,
             body: HTTPBody,
-            headers: { 'Authorization': 'Bearer ' + token },
             credentials: 'same-origin'
         }).then(response => {
             return response.json();
         }).then(res => {
             if (res.error) {
-                if (res.error.url)
-                    document.location.assign(res.error.url);
+                console.error(res.error.msg);
+                if (res.error.url) {
+                    document.location.assign('?logout');
+                }
             }
             else
                 callback(res);

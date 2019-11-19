@@ -70,7 +70,8 @@ abstract class DB {
     }
     else {
       // makeTransition || call
-      data['param']['path'] = location.hash; // Send path within body
+      if (command == 'makeTransition' || command == 'call')
+        data['param']['path'] = location.hash; // Send path within body
       HTTPBody = JSON.stringify(data);
     }
 
@@ -78,7 +79,7 @@ abstract class DB {
     fetch(url, {
       method: HTTPMethod,
       body: HTTPBody,
-      headers: {'Authorization': 'Bearer '+token},
+      //headers: {'Authorization': 'Bearer '+token},
       credentials: 'same-origin'
     }).then(response => {
       return response.json();
@@ -86,10 +87,12 @@ abstract class DB {
       // Check for Error
       if (res.error) {
         //alert(res.error.msg);
-        //console.log(res.error.msg);
-        // Goto URL
-        if (res.error.url)
-          document.location.assign(res.error.url);
+        console.error(res.error.msg);
+        // Goto URL (Login)
+        if (res.error.url) {
+          //document.location.assign(res.error.url);
+          document.location.assign('?logout');
+        }
       }
       else
         callback(res);
