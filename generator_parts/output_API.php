@@ -12,7 +12,7 @@
   header('Content-Type: application/json; charset=utf-8');
   // Includes
   require_once(__DIR__.'/src/AuthHandler.inc.php');
-  include_once(__DIR__."/src/RequestHandler.inc.php");
+  require_once(__DIR__."/src/RequestHandler.inc.php");
 
   //========================================= Authentification
   // Check if authenticated via Token
@@ -74,5 +74,5 @@
   //========================= Handle the Requests
 
   // Handle Command and Rights Management
-  $result = api(["cmd" => $command, "param" => $param], $tokendata);
-  /*[OUTPUT]========>*/ echo $result;
+  $result = api(["cmd"=>$command, "param"=>$param], $tokendata);
+  echo $result;

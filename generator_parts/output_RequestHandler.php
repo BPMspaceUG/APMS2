@@ -66,6 +66,15 @@
       }
       return $result;
     }
+    public static function getColnamesWriteOnlyAndHidden($tablename) {
+      $cols = self::getColsByTablename($tablename);
+      $result = [];
+      foreach ($cols as $colname => $col) {
+        if ($col['mode_form'] == "wo" || $col['mode_form'] == "hi")
+          $result[] = $colname;
+      }
+      return $result;
+    }
     public static function getPrimaryColsByTablename($tablename, $data = null) {
       $res = array();
       $cols = Config::getColsByTablename($tablename, $data);
@@ -210,6 +219,7 @@
 
   class RequestHandler {
     private $token = null;
+    private static $writeOnlyColNames = [];
 
     public function __construct($tokendata = null) {
       $this->token = $tokendata;
@@ -252,11 +262,15 @@
         }
         self::path2tree($tree[$first], $path, $value); // go deeper
       }
-      else
-        $tree[$path] = $value;
+      else {
+        // LEAF
+        if (!in_array($path, self::$writeOnlyColNames))
+          $tree[$path] = $value;
+      }
     }
     private static function parseResultData($tablename, $stmt) {
       $tree = [];
+      self::$writeOnlyColNames = Config::getColnamesWriteOnlyAndHidden($tablename);
       //-------- Loop Row
       while($singleRow = $stmt->fetch(PDO::FETCH_NUM)) {
         //-----------------------------------

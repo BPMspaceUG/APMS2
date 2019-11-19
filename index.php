@@ -230,6 +230,7 @@
                         <select class="custom-select custom-select-sm" ng-model="col.mode_form" ng-if="!col.is_primary && colname != 'state_id'">
                           <option value="rw">RW</option>
                           <option value="ro">RO</option>
+                          <option value="wo">WO</option>
                           <option value="hi">HI</option>
                         </select>
                         <label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_grid">Grid</label>

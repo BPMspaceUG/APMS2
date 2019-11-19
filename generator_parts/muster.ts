@@ -1128,8 +1128,13 @@ class FormGenerator {
   private getElement(key: string, el): string {
     let result: string = '';
     let v: string = el.value || '';
+
+    // Exceptions
     if (el.mode_form == 'hi') return '';
-    const form_label: string = el.column_alias ? `<label class="col-sm-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
+    if (el.field_type == 'state') return '';
+    if (el.mode_form == 'ro' && el.is_primary) return '';
+
+    const form_label: string = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
 
     //--- Textarea
     if (el.field_type == 'textarea') {
@@ -1286,12 +1291,6 @@ class FormGenerator {
       this.editors[key] = {mode: el.mode_form, id: newID, editor: 'quill'}; // reserve key
       result += `<div><div class="htmleditor" id="${newID}"></div></div>`;
     }
-    //--- Codemirror
-    else if (el.field_type == 'codeeditor') {
-      const newID = DB.getID();
-      this.editors[key] = {mode: el.mode_form, id: newID, editor: 'codemirror'}; // reserve key
-      result += `<textarea class="codeeditor" id="${newID}"></textarea>`;
-    }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
       result += '<div class="pt-2">' + el.value + '</div>';
@@ -1322,7 +1321,7 @@ class FormGenerator {
     }
     // ===> HTML Output
     return `<div class="form-group row">${form_label}
-      <div class="col-sm-10 align-middle">
+      <div class="col-md-9 col-lg-10 align-middle">
         ${result}
       </div>
     </div>`;

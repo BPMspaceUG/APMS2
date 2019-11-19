@@ -152,15 +152,15 @@
             $fieldtype = 'state';
             $TableHasStateMachine = true;
           }
-          $additional_info = array(
+          $additional_info = [
             "column_alias" => $alias,
             "is_primary" => $col_isPrimary,
             "is_virtual" => false,
             "show_in_grid" => true,
             "col_order" => (int)$column_counter,
-            "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'hi' : 'rw',
+            "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'ro' : 'rw',
             "field_type" => $fieldtype,
-          );
+          ];
           // Append FK-Settings
           if ($fk["table"] != '') {
             $additional_info["foreignKey"] = $fk;
@@ -229,7 +229,7 @@
         "table_alias" => $table_alias,
         "table_type" => ($table == 'state_rules' ? 'n_m' : 'obj'), // Default = Object
         "order" => (int)$table_counter,
-        "mode" => "rw", // TODO -> maybe hidden
+        "mode" => "rw",
         "stdfilter" => "",
         "stdsorting" => $sort_col,
         "in_menu" => false,
