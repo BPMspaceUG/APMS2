@@ -26,6 +26,10 @@
   function cmp($a, $b) {
     return ((int)$a['order']) - ((int)$b['order']);
   }
+  function writeFileIfNotExist($filename, $content) {
+    if (!file_exists($filename))
+      file_put_contents($filename, $content);
+  }
 
   //========================== DEFINITIONS
   $queries = '';
@@ -190,16 +194,18 @@
       $default_TRANSITION = "<?php\n\techo \"---TRANSITION--->\";";
       $default_FORM = "";
 
-      // M A C H I N E S
+
+      //--- M A C H I N E S (needs form and functions)
       $scriptPath = $project_dir."/_state_machines/$SM_ID/";
       createSubDirIfNotExists($project_dir."/_state_machines/$SM_ID");
-      if (!file_exists($scriptPath.'create.php')) file_put_contents($scriptPath.'create.php', $default_CREATE);
-      if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', $default_FORM);
+      writeFileIfNotExist($scriptPath.'create.php', $default_CREATE);
+      writeFileIfNotExist($scriptPath.'form.json', $default_FORM);
       // If Create-Script is empty, then link to Filesystem
       if (empty($SM->getTransitionScriptCreate()))
         $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
 
-      // T R A N S I T I O N S
+
+      //--- T R A N S I T I O N S (only need functions)
       $count = 0;
       $scriptPath = $project_dir."/_state_rules/";
       createSubDirIfNotExists($project_dir."/_state_rules");
@@ -208,60 +214,53 @@
         // If Script is empty, then link to Filesystem
         if (empty($trans["transition_script"]))
           $SM->setTransitionScript($transID, "include_once(__DIR__.'/../_state_rules/$transID.php');");
-        //---Special Relation Scripts
+        //--- [Relation]
         if ($table_type != 'obj') {
-          echo "RELATION [$table_type]\n";
           $customRelationScript = $SM->getCustomRelationScript(file_get_contents("./../template_scripts/".$table_type.".php"));
-          // Overwrite Create-Script
-          file_put_contents($project_dir."/_state_machines/$SM_ID/create.php", $customRelationScript);
-          // Only the Transaction from [UNSELECTED -> SELECTED]
-          if ($count == 0) {
-            if (!file_exists($scriptPath.$transID.'.php'))
-              file_put_contents($scriptPath.$transID.'.php', $customRelationScript);
-          }
+          writeFileIfNotExist($project_dir."/_state_machines/$SM_ID/create.php", $customRelationScript);          
+          if ($count == 0) // Only Transaction [UNSELECTED -> SELECTED]
+            writeFileIfNotExist($scriptPath.$transID.'.php', $customRelationScript);
           $count++;
         }
-        //--- Create the default Transition-Script
-        if (!file_exists($scriptPath.$transID.'.php'))
-          file_put_contents($scriptPath.$transID.'.php', $default_TRANSITION);
+        else {
+          //--- Create the default Transition-Script
+          writeFileIfNotExist($scriptPath.$transID.'.php', $default_TRANSITION);
+        }
       }
 
-      // S T A T E S
+
+      // S T A T E S (only need Forms)
+      $scriptPath = $project_dir."/_state/";
+      createSubDirIfNotExists($project_dir."/_state");
       foreach ($SM->getStates() as $state) {
-        // Create Scripts: in / out / form
         $stateID = $state["id"];
-        $scriptPath = $project_dir."/_state/$stateID/";
-        createSubDirIfNotExists($project_dir."/_state/$stateID");
-        if (!file_exists($scriptPath.'in.php')) file_put_contents($scriptPath.'in.php', ""); // TODO: REMOVE!!
-        if (!file_exists($scriptPath.'out.php')) file_put_contents($scriptPath.'out.php', ""); // TODO: REMOVE!!
-        if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', $default_FORM);
-        // If Script is empty, then link to Filesystem
-        if (empty($SM->getINScript($stateID))) $SM->setINScript($stateID, "include_once(__DIR__.'/../_state/$stateID/in.php');");
-        if (empty($SM->getOUTScript($stateID))) $SM->setOUTScript($stateID, "include_once(__DIR__.'/../_state/$stateID/out.php');");
+        writeFileIfNotExist($scriptPath . $stateID . '.json', $default_FORM);
       }
 
       //====================================
       //----------- OBJECT
       //====================================
-      if ($table_type === 'obj') {        
-        $rights_ro = []; // Create Basic form and set RO, RW
+      if ($table_type === 'obj') {   
+        
+        //--- Set ReadOnly Permission when [active] or [inactive]
+        $rights_ro = [];
         foreach ($cols as $colname => $col) { // for all columns and virtual-columns
-          $confMode = $cols[$colname]["mode_form"];
-          if (!($col['is_primary'] || $colname == 'state_id' || $confMode == 'hi')) {
-            // Set the form data
-            $rights_ro[$colname] = ["mode_form" => "ro"];
-          }
+          $permisson = $cols[$colname]["mode_form"];
+          if (!($col['is_primary'] || $colname == 'state_id' || $permisson == 'hi'))             
+            $rights_ro[$colname] = ["mode_form" => "ro"]; // Set permissions readOnly
         }
-        // Update the inactive state with readonly
         $formDataRO = json_encode($rights_ro);
+
+
         // if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
         foreach ($SM->getStates() as $state) {
-          // Create Formdata if none is there
+          // Create Formdata if NONE or EMPTY
           $currentFormData = $SM->getFormDataByStateID($state["id"]);
           if (strlen($currentFormData) === 0 || $currentFormData == '{}') {
             // check if statename contains the phrase "active"
-            if (strpos($state["name"], "active") !== FALSE)
+            if (strpos($state["name"], "active") !== FALSE) {
               $SM->setFormDataByStateID($state["id"], $formDataRO);
+            }
           }
         }
       }
@@ -339,13 +338,12 @@
 	// check if APMS test exists
   if (is_dir($Path_APMS_test)) {
 
-    // TODO: Copy the complete structure from template
-
     // Create Project directories
     createSubDirIfNotExists($project_dir);
     createSubDirIfNotExists($project_dir."/css");
     createSubDirIfNotExists($project_dir."/js");
     createSubDirIfNotExists($project_dir."/src");
+    // Statemachines
     createSubDirIfNotExists($project_dir."/_state");
     createSubDirIfNotExists($project_dir."/_state_machines");
     createSubDirIfNotExists($project_dir."/_state_rules");

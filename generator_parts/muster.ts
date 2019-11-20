@@ -595,7 +595,17 @@ class Table extends RawTable {
           break;
         }
       }
-      document.getElementById(t.GUID).parentElement.innerHTML = `<span class="d-block text-muted" style="margin-top:.4rem;">${t.getTablename() + ' &rarr; ' + id}</span>`;
+
+      // Flatten selected Row
+      const row = Object.assign({}, t.selectedRow); // copy
+      const firstkey = Object.keys(row)[0];
+      delete row[firstkey];
+      const vals = recflattenObj(row);
+      let v = vals.join(' | ');
+      v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+      const cont = `<span class="d-block text-muted" style="margin-top:.4rem;">${v}</span>`;
+      document.getElementById(t.GUID).parentElement.innerHTML = cont;
+
       t.onSelectionChanged.trigger();
       return
     }
@@ -1130,8 +1140,9 @@ class FormGenerator {
     let v: string = el.value || '';
 
     // Exceptions
-    if (el.mode_form == 'hi') return '';
     if (el.field_type == 'state') return '';
+    if (!el.show_in_form) return '';
+    if (el.mode_form == 'hi') return '';
     if (el.mode_form == 'ro' && el.is_primary) return '';
 
     const form_label: string = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
@@ -1227,6 +1238,7 @@ class FormGenerator {
           onclick="loadFKTable(this, '${el.fk_table}', '${custfilter ? encodeURI(custfilter) : ''} ')"
           href="javascript:void(0);">${cont}</a>`;
       }
+
       // Put together Result
       result += `<div><input type="hidden" name="${key}" value="${ (ID && ID != 0) ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
       result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter) );
@@ -1320,7 +1332,8 @@ class FormGenerator {
       </div>`;
     }
     // ===> HTML Output
-    return `<div class="form-group row">${form_label}
+    return `<div class="form-group row">
+      ${form_label}
       <div class="col-md-9 col-lg-10 align-middle">
         ${result}
       </div>
@@ -1444,12 +1457,9 @@ class FormGenerator {
   }
 }
 //==================================================================== Global Helper Methods
-//--- Special global functions
 function escapeHtml(string: string): string {
-  const entityMap = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'};
-  return String(string).replace(/[&<>"'`=\/]/g, function (s) {
-    return entityMap[s];
-  });
+  const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
+  return String(string).replace(/[&<>"'`=\/]/g, s => entityMap[s]);
 }
 function isObject(item) {
   return (item && typeof item === 'object' && !Array.isArray(item));
@@ -1481,7 +1491,6 @@ function recflattenObj(x) {
     return res;
   }
 }
-//--- Expand foreign key
 function loadFKTable(element, tablename, customfilter): void {
   const hiddenInput = element.parentNode.getElementsByClassName('inputFK')[0];
   hiddenInput.value = null;

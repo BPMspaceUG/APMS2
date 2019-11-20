@@ -157,6 +157,7 @@
             "is_primary" => $col_isPrimary,
             "is_virtual" => false,
             "show_in_grid" => true,
+            "show_in_form" => true,
             "col_order" => (int)$column_counter,
             "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'ro' : 'rw',
             "field_type" => $fieldtype,

@@ -540,7 +540,14 @@ class Table extends RawTable {
                     break;
                 }
             }
-            document.getElementById(t.GUID).parentElement.innerHTML = `<span class="d-block text-muted" style="margin-top:.4rem;">${t.getTablename() + ' &rarr; ' + id}</span>`;
+            const row = Object.assign({}, t.selectedRow);
+            const firstkey = Object.keys(row)[0];
+            delete row[firstkey];
+            const vals = recflattenObj(row);
+            let v = vals.join(' | ');
+            v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+            const cont = `<span class="d-block text-muted" style="margin-top:.4rem;">${v}</span>`;
+            document.getElementById(t.GUID).parentElement.innerHTML = cont;
             t.onSelectionChanged.trigger();
             return;
         }
@@ -989,9 +996,11 @@ class FormGenerator {
     getElement(key, el) {
         let result = '';
         let v = el.value || '';
-        if (el.mode_form == 'hi')
-            return '';
         if (el.field_type == 'state')
+            return '';
+        if (!el.show_in_form)
+            return '';
+        if (el.mode_form == 'hi')
             return '';
         if (el.mode_form == 'ro' && el.is_primary)
             return '';
@@ -1143,7 +1152,8 @@ class FormGenerator {
         <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
       </div>`;
         }
-        return `<div class="form-group row">${form_label}
+        return `<div class="form-group row">
+      ${form_label}
       <div class="col-md-9 col-lg-10 align-middle">
         ${result}
       </div>
@@ -1247,9 +1257,7 @@ class FormGenerator {
 }
 function escapeHtml(string) {
     const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
-    return String(string).replace(/[&<>"'`=\/]/g, function (s) {
-        return entityMap[s];
-    });
+    return String(string).replace(/[&<>"'`=\/]/g, s => entityMap[s]);
 }
 function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));

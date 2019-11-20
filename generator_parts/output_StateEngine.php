@@ -217,7 +217,7 @@
     } 
     public function getFormDataByStateID($stateID) {
       if (!($this->ID > 0)) return "";
-      $fname = $this->projectDir."/_state/$stateID/form.json";
+      $fname = $this->projectDir."/_state/$stateID.json";
       return file_exists($fname) ? file_get_contents($fname) : null;
     }
     public function getCreateFormByTablename() {
@@ -402,7 +402,7 @@
       return $stmt->execute(array($script, $stateID)); // Returns True/False
     }
     public function setFormDataByStateID($stateID, $formData) {
-      $fname = $this->projectDir."/_state/$stateID/form.json";
+      $fname = $this->projectDir."/_state/$stateID.json";
       file_put_contents($fname, $formData);
     }
   }

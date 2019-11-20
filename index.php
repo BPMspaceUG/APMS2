@@ -102,11 +102,11 @@
                     <tr>
                       <th width="200px"><span class="text-muted">Order</span></th>
                       <th width="250px">Options</th>
-                      <th width="15%">Tablename</th>
-                      <th width="20%">Alias</th>
-                      <th width="5%">API-Mode</th>
-                      <th width="5%">InMenu</th>
-                      <th class="table-danger" width="5%">SM</th>
+                      <th width="10%">Tablename</th>
+                      <th width="25%">Alias</th>
+                      <th class="text-center" width="5%">API</th>
+                      <th class="text-center" width="6%">Show</th>
+                      <th class="text-center table-danger" width="5%">SM</th>
                       <th width="30%" colspan="2">Icon</th>
                     </tr>
                   </thead>
@@ -117,11 +117,15 @@
 
                     <tr ng-class="{'table-primary' : tbl.table_type == 'obj', 'table-info' : tbl.table_type != 'obj', 'table-secondary text-muted': tbl.mode == 'hi'}">
                       <!-- Order Tabs -->
-                      <td>
-                        <div style="white-space:nowrap;overflow:hidden;">
-                          <input type="text" class="form-control-plaintext d-inline" style="width: 30px" ng-model="tbl.order">
-                          <a ng-click="changeSortOrderTable(tbl, 1)"><i class="fa fa-angle-down p-1 pl-2"></i></a>
-                          <a ng-click="changeSortOrderTable(tbl, -1)"><i class="fa fa-angle-up p-1"></i></a>
+                      <td class="align-middle m-0 p-0" style="background-color: #cccccc66;">
+                        <div class="row no-gutters">
+                          <div class="col-8">
+                            <input type="text" class="form-control-plaintext m-0 p-0 mt-2 ml-1" ng-model="tbl.order">
+                          </div>
+                          <div class="col-4">
+                            <a href="javascript:void(0);" ng-click="changeSortOrderTable(tbl, -1)"><i class="fa fa-angle-up"></i></a><br>
+                            <a href="javascript:void(0);" ng-click="changeSortOrderTable(tbl, 1)"><i class="fa fa-angle-down"></i></a>
+                          </div>
                         </div>
                       </td>
                       <!-- Expand / Collapse -->
@@ -133,7 +137,7 @@
                           </a>
                           <button class="btn btn-sm btn-success" ng-click="add_virtCol(tbl, name)">+VCol</button>
                           <select class="custom-select" ng-model="tbl.table_type" style="width: 80px;">
-                            <option value="obj">Obj</option>
+                            <option value="obj">O</option>
                             <option value="1_1">1:1</option>
                             <option value="1_n">1:N</option>
                             <option value="n_1">N:1</option>
@@ -142,21 +146,23 @@
                         </div>
                       </td>
                       <!-- Tablename -->
-                      <td class="align-middle">{{name}}</td>
+                      <td class="align-middle">
+                        <small>{{name}}</small>
+                      </td>
                       <!--Table-Alias -->
                       <td><input type="text" class="form-control" ng-model="tbl.table_alias"/></td>
                       <!-- Mode (HI, RO, RW) -->
                       <td>
                         <select class="custom-select" ng-model="tbl.mode" style="width: 80px;">
-                          <option value="hi">HI</option>
-                          <option value="ro">RO</option>
                           <option value="rw">RW</option>
+                          <option value="ro">RO</option>
+                          <option value="hi">HI</option>
                         </select>
                       </td>
-                      <!-- In Menu? -->
-                      <td>
-                        <input type="checkbox" class="form-control" ng-model="tbl.in_menu" ng-disabled="tbl.mode == 'hi'">
-                      </td>                    
+                      <!-- Show -->
+                      <td class="align-middle">
+                        <input type="checkbox" class="form-control" ng-model="tbl.in_menu" ng-disabled="tbl.mode == 'hi'"/>
+                      </td>
                       <!-- Has Statemachine? -->
                       <td style="background-color: #f5c6cb66;">
                         <input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="name == 'state' || name == 'state_rules'">
@@ -178,18 +184,22 @@
                     
                     <tr ng-repeat="(colname, col) in tbl.columns" ng-show="tbl.showKids" ng-class="{'bg-warning' : col.is_virtual}" style="font-size: .8em;">
                       <!-- Order -->
-                      <td class="align-middle" style="background-color: #cccccc66;">
-                        <div style="white-space:nowrap;overflow:hidden;">
-                          <input type="text" class="form-control-plaintext d-inline float-left" style="width: 30px" ng-model="col.col_order">
-                          <div class="float-left">
-                            <a style="width:20px;" href="#" ng-click="changeSortOrder(col, -1)"><i class="fa fa-angle-up p-1"></i></a><br>
-                            <a style="width:20px;" href="#" ng-click="changeSortOrder(col, 1)"><i class="fa fa-angle-down p-1"></i></a>
+                      <td class="align-middle m-0 p-0" style="background-color: #cccccc33;">
+                        <div class="row no-gutters">
+                          <div class="col-8">
+                            <input type="text" class="form-control-plaintext m-0 p-0 mt-2 ml-1" ng-model="col.col_order">
+                          </div>
+                          <div class="col-4">
+                            <a href="javascript:void(0);" ng-click="changeSortOrder(col, -1)"><i class="fa fa-angle-up"></i></a><br>
+                            <a href="javascript:void(0);" ng-click="changeSortOrder(col, 1)"><i class="fa fa-angle-down"></i></a>
                           </div>
                         </div>
                       </td>
+
+
                       <!-- Name -->
                       <td class="align-middle">
-                        <div>{{colname}}</div>
+                        <div style="font-size: .9em;">{{colname}}</div>
                       </td>
                       <!-- Type -->
                       <td class="align-middle">
@@ -233,10 +243,14 @@
                           <option value="wo">WO</option>
                           <option value="hi">HI</option>
                         </select>
+                      </td>
+                      <!-- Show -->
+                      <td class="align-middle">
                         <label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_grid">Grid</label>
+                        <label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_form">Form</label>
                       </td>
                       <!-- Show FK Menu if it is no Primary column -->
-                      <td class="align-middle" colspan="3" ng-if="!col.is_primary && !col.is_virtual">
+                      <td class="align-middle" colspan="2" ng-if="!col.is_primary && !col.is_virtual">
                         <!-- FK -->
                         <div ng-if="col.field_type == 'foreignkey'">
                           <select class="custom-select custom-select-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.table">
