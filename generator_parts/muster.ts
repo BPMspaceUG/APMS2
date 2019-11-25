@@ -418,7 +418,7 @@ class Table extends RawTable {
   private SM: StateMachine = null;
   private isExpanded: boolean = true;
   private selType: SelectType = SelectType.NoSelect;
-  private selectedRow: any;
+  public selectedRow: any;
   private customFormCreateOptions: any = {};
   private diffFormCreateObject: any = {};
   private TableType: TableType = TableType.obj;
@@ -595,16 +595,6 @@ class Table extends RawTable {
           break;
         }
       }
-
-      // Flatten selected Row
-      const row = Object.assign({}, t.selectedRow); // copy
-      const firstkey = Object.keys(row)[0];
-      delete row[firstkey];
-      const vals = recflattenObj(row);
-      let v = vals.join(' | ');
-      v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
-      const cont = `<span class="d-block text-muted" style="margin-top:.4rem;">${v}</span>`;
-      document.getElementById(t.GUID).parentElement.innerHTML = cont;
 
       t.onSelectionChanged.trigger();
       return
@@ -884,7 +874,7 @@ class Table extends RawTable {
         const loc = (path.length === 2) ? '#' : path.join('/'); // Check if Root-Table
         data_string = `<td class="controllcoulm align-middle">
           ${ (t.selType == SelectType.Single ? (isSelected ? 
-              '<i class="far fa-check-circle"></i>' : '<span class="modRow"><i class="far fa-circle"></i></span>'
+              '<i class="fa fa-check-square text-success"></i>' : '<span class="modRow"><i class="far fa-square text-secondary"></i></span>'
             )
             : ( t.TableType == TableType.obj ?
               `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
@@ -1137,7 +1127,8 @@ class FormGenerator {
   }
   private getElement(key: string, el): string {
     let result: string = '';
-    let v: string = el.value || '';
+    let v = el.value || '';
+
 
     // Exceptions
     if (el.field_type == 'state') return '';
@@ -1193,56 +1184,69 @@ class FormGenerator {
     }
     //--- Foreignkey
     else if (el.field_type == 'foreignkey') {
-      // rwInput ====> Special case!
-      // Concat value if is object
-      let ID = 0;
+      // Variables
+      const tablename = el.fk_table;
+      const tmpTable = new Table(tablename, SelectType.Single);
+      const randID = DB.getID();
 
-      // TODO: Optimize this!! 
-
-      const x = el.value;
-      if (x){
-        ID = x
-        if (isObject(x)) {
-          ID = x[Object.keys(x)[0]];
-          const vals = recflattenObj(x);
-          // Check if every value is null?
-          if (vals.join().replace(/,/g,'').length === 0)
-            v = null;
-          else {
-            v = vals.join(' | ');
-            v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+      //--- Replace Patterns
+      if (el.customfilter) {        
+        const rd = this.data;
+        const colnames = Object.keys(rd);
+        for (const colname of colnames) {
+          const pattern = '%'+colname+'%';
+          if (el.customfilter.indexOf(pattern) >= 0) {
+            const firstCol = Object.keys(rd[colname].value)[0];
+            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
           }
         }
+        el.customfilter = decodeURI(el.customfilter);
+        tmpTable.setFilter(el.customfilter);
       }
+      //--- Create SearchBar
+      const searchBar = document.createElement('input');
+      searchBar.setAttribute('type', 'text');
+      searchBar.setAttribute('class', 'form-control');
+      const searchFunc = () => {
+        tmpTable.setSearch(searchBar.value); // Set Filter
+        tmpTable.loadRows(() => tmpTable.renderHTML(randID));
+      }
+      searchBar.addEventListener('input', searchFunc);
 
-      const getSelection = (cont, isReadOnly, custfilter) => {
-        // Replace Patterns
-        if (custfilter) {
-          const rd = this.data;
-          const colnames = Object.keys(rd);
-          for (const colname of colnames) {
-            const pattern = '%'+colname+'%';
-            if (custfilter.indexOf(pattern) >= 0) {
-              const firstCol = Object.keys(rd[colname].value)[0];
-              custfilter = custfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
-            }
-          }
+      //--- Load Rows
+      tmpTable.loadRows(rows => {
+        if (rows["count"] == 0) {
+          // If no entries, then offer to Create a new one
+          document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
+            <span class="mr-3">No Entries found</span>
+            <a class="btn btn-sm btn-success" href="${location.hash+'/'+tmpTable.getTablename()+'/create'}">Create</a></p>`;
+        } else {
+          tmpTable.renderHTML(randID);
         }
-        // Replace all html tags
-        cont = cont.replace(/<[^>]*>?/gm, '');
-        // ReadOnly?
-        if (isReadOnly)
-          return `<span class="d-block text-muted" style="margin-top: .4rem;">${cont}</span>`;
-        else
-          return `<a class="d-block text-decoration-none" style="margin-top:.4rem;"
-          onclick="loadFKTable(this, '${el.fk_table}', '${custfilter ? encodeURI(custfilter) : ''} ')"
-          href="javascript:void(0);">${cont}</a>`;
-      }
+      });
 
-      // Put together Result
-      result += `<div><input type="hidden" name="${key}" value="${ (ID && ID != 0) ? ID : ''}" class="inputFK${el.mode_form != 'hi' ? ' rwInput' : ''}">`;
-      result += (v ? getSelection(v, (el.mode_form === 'ro'), el.customfilter) : getSelection('Nothing selected', (el.mode_form === 'ro'), el.customfilter) );
-      result += `</div>`;
+      tmpTable.SelectionHasChanged.on(() => {
+        // Flatten selected Row
+        const row = Object.assign({}, tmpTable.selectedRow); // copy
+        const firstkey = Object.keys(row)[0];
+        const RowID = row[firstkey];
+        delete row[firstkey];
+        const vals = recflattenObj(row);
+        let v = vals.join(' | ');
+        v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
+        document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', RowID);
+        tmpTable.renderHTML(randID);
+      });
+
+      console.log(el);
+      if (isObject(v) && v[Object.keys(v)[0]]) v = v[Object.keys(v)[0]]; // First Key ID
+      //Check if FK has value yes/no
+      result += `<div><input type="hidden" class="rwInput" name="${key}" value="${v}">`;
+      if ((v && !isNaN(v)) || (v && v != "")) {
+        result += "Already selected";
+      } else
+        result += `<div id="${randID}">Loading...</div>`;
+      result += '</div>';
     }
     //--- Reverse Foreign Key
     else if (el.field_type == 'reversefk') {
@@ -1456,6 +1460,9 @@ class FormGenerator {
     }
   }
 }
+
+
+
 //==================================================================== Global Helper Methods
 function escapeHtml(string: string): string {
   const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
@@ -1491,36 +1498,7 @@ function recflattenObj(x) {
     return res;
   }
 }
-function loadFKTable(element, tablename, customfilter): void {
-  const hiddenInput = element.parentNode.getElementsByClassName('inputFK')[0];
-  hiddenInput.value = null;
-  const randID = DB.getID();
-  element.outerHTML = '<p id="'+randID+'">Loading...</p>';
-  try {
-    const tmpTable = new Table(tablename, SelectType.Single);
-    // Set custom Filter
-    if (customfilter) tmpTable.setFilter(decodeURI(customfilter));
-    // Load
-    tmpTable.loadRows(rows => {
-      if (rows["count"] == 0) {
-        // If no entries, then offer to Create a new one
-        document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
-          <span class="mr-3">No Entries found</span>
-          <a class="btn btn-sm btn-success" href="${location.hash+'/'+tmpTable.getTablename()+'/create'}">Create</a></p>`;
-      } else {
-        tmpTable.renderHTML(randID);
-      }
-    });
-    tmpTable.SelectionHasChanged.on(function(){
-      const selRowID = tmpTable.getSelectedRowID();
-      hiddenInput.value = '' || selRowID;
-    })
-  }
-  catch(e) {
-    element.innerHTML = '<p class="text-muted mt-2">No Access to this Table!</p>';
-    return
-  }
-}
+
 
 // PING
 setInterval(function(){

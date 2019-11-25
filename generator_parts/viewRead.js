@@ -4,13 +4,8 @@ export default (props) => {
   function debounced(delay, fn) {
     let timerId;
     return function (...args) {
-      if (timerId) {
-        clearTimeout(timerId);
-      }
-      timerId = setTimeout(() => {
-        fn(...args);
-        timerId = null;
-      }, delay);
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(() => { fn(...args); timerId = null; }, delay);
     }
   }
 
@@ -42,7 +37,6 @@ export default (props) => {
   setTimeout(() => {
     // Bind Events to Searchbox for Realtime Search
     const searchBox = document.getElementById('searchBox');
-    // Real-Time Search   
     const dHandler = debounced(200, () => {
       t.setSearch(searchBox.value); // Set Filter
       t.loadRows(() => t.renderHTML('tablecontent'));

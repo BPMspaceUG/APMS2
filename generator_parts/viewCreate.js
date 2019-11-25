@@ -303,9 +303,7 @@ export default (props) => {
     //---
   }, 10);
 
-// sqms2_syllabus/90034798/sqms2_syllabus_syllabuschapter/create/sqms2_syllabuschapter/create/sqms2_syllabuschapter_question/create/sqms2_question/create/sqms2_question_answer/create/sqms2_answer/create/sqms2_answer_text/create/sqms2_text/create
-
-
+  
   // Path
   const guiPath = [];
   const count = path.length / 2;
