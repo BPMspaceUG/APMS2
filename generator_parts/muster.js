@@ -712,8 +712,17 @@ class Table extends RawTable {
         </th>`;
             }
             else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
-                th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="' + location.hash + '/' + t.getTablename() +
-                    '/create"><i class="fa fa-plus text-success"></i></a></th>';
+                if (t.selectedRow && !t.isExpanded) {
+                    th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
+            <a href="javascript:void(0);" class="resetTableFilter">
+              <i class="fas fa-chevron-down"></i>
+            </a>
+          </th>`;
+                }
+                else {
+                    th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="' + location.hash + '/' + t.getTablename() +
+                        '/create"><i class="fa fa-plus text-success"></i></a></th>';
+                }
             }
         }
         for (const colname of colnames) {
@@ -756,8 +765,6 @@ class Table extends RawTable {
         let t = this;
         let tds = '';
         const pcname = t.getPrimaryColname();
-        if (!t.isExpanded)
-            return '';
         function compare(a, b) {
             a = parseInt(t.Columns[a].col_order);
             b = parseInt(t.Columns[b].col_order);
@@ -788,7 +795,7 @@ class Table extends RawTable {
                 }
             });
             if (t.GUIOptions.showControlColumn) {
-                tds += `<tr class="${(isSelected ? ' table-info' : '')}" data-rowid="${t.getTablename() + ':' + row[pcname]}">${data_string}</tr>`;
+                tds += `<tr class="${(isSelected ? ' table-info' : (row['gridclass'] ? row['gridclass'] : 'gridrow'))}" data-rowid="${t.getTablename() + ':' + row[pcname]}">${data_string}</tr>`;
             }
             else {
                 if (t.ReadOnly) {
@@ -799,7 +806,7 @@ class Table extends RawTable {
                 }
             }
         });
-        return `<div class="tbl_content ${((t.selType == SelectType.Single && !t.isExpanded) ? ' collapse' : '')}" id="${t.GUID}">
+        return `<div class="tbl_content" id="${t.GUID}">
       ${(t.Rows && t.Rows.length > 0) ?
             `<div class="tablewrapper border table-responsive-md">
         <table class="table table-striped table-hover m-0 table-sm datatbl">
@@ -866,6 +873,20 @@ class Table extends RawTable {
                         e.preventDefault();
                         const colname = el.getAttribute('data-colname');
                         t.toggleSort(colname);
+                    });
+                }
+            }
+            els = tableEl.getElementsByClassName('resetTableFilter');
+            if (els) {
+                for (const el of els) {
+                    el.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        t.isExpanded = true;
+                        t.resetFilter();
+                        t.loadRows(() => {
+                            t.renderContent();
+                            t.renderFooter();
+                        });
                     });
                 }
             }
@@ -1011,7 +1032,7 @@ class FormGenerator {
         else if (el.field_type == 'float') {
             if (el.value)
                 el.value = parseFloat(el.value).toLocaleString('de-DE');
-            result += `<input name="${key}" type="text" id="inp_${key}" class="form-control inpFloat${el.mode_form == 'rw' ? ' rwInput' : ''}"
+            result += `<input name="${key}" type="text" id="inp_${key}" class="inpFloat${el.mode_form == 'rw' ? ' form-control rwInput' : ' form-control-plaintext'}"
       value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
         }
         else if (el.field_type == 'time') {
@@ -1036,7 +1057,9 @@ class FormGenerator {
         }
         else if (el.field_type == 'foreignkey') {
             const tablename = el.fk_table;
+            console.log("FKTable", tablename, el.mode_form, el);
             const tmpTable = new Table(tablename, SelectType.Single);
+            tmpTable.ReadOnly = (el.mode_form == 'ro');
             const randID = DB.getID();
             if (el.customfilter) {
                 const rd = this.data;
@@ -1059,6 +1082,29 @@ class FormGenerator {
                 tmpTable.loadRows(() => tmpTable.renderHTML(randID));
             };
             searchBar.addEventListener('input', searchFunc);
+            tmpTable.SelectionHasChanged.on(() => {
+                const row = Object.assign({}, tmpTable.selectedRow);
+                const firstkey = Object.keys(row)[0];
+                const RowID = row[firstkey];
+                delete row[firstkey];
+                document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', RowID);
+                tmpTable.renderHTML(randID);
+            });
+            const fkIsSet = !Object.values(v).every(o => o === null);
+            console.log('-->', fkIsSet);
+            if (fkIsSet) {
+                if (isObject(v)) {
+                    const key = Object.keys(v)[0];
+                    tmpTable.selectedRow = v;
+                    tmpTable.isExpanded = false;
+                    v = v[key];
+                    tmpTable.setFilter('{"=":["' + key + '",' + v + ']}');
+                }
+                else {
+                }
+            }
+            else
+                v = "";
             tmpTable.loadRows(rows => {
                 if (rows["count"] == 0) {
                     document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
@@ -1069,26 +1115,8 @@ class FormGenerator {
                     tmpTable.renderHTML(randID);
                 }
             });
-            tmpTable.SelectionHasChanged.on(() => {
-                const row = Object.assign({}, tmpTable.selectedRow);
-                const firstkey = Object.keys(row)[0];
-                const RowID = row[firstkey];
-                delete row[firstkey];
-                const vals = recflattenObj(row);
-                let v = vals.join(' | ');
-                v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
-                document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', RowID);
-                tmpTable.renderHTML(randID);
-            });
-            console.log(el);
-            if (isObject(v) && v[Object.keys(v)[0]])
-                v = v[Object.keys(v)[0]];
             result += `<div><input type="hidden" class="rwInput" name="${key}" value="${v}">`;
-            if ((v && !isNaN(v)) || (v && v != "")) {
-                result += "Already selected";
-            }
-            else
-                result += `<div id="${randID}">Loading...</div>`;
+            result += `<div id="${randID}">Loading...</div>`;
             result += '</div>';
         }
         else if (el.field_type == 'reversefk') {

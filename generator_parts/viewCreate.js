@@ -57,6 +57,7 @@ export default (props) => {
     // RELATION
     //---------------------------
     let fixedKey = null;
+    let fixedPColname = null;
 
     const origTbl = path[path.length-4];
     const origObjID = path[path.length-3];
@@ -66,6 +67,7 @@ export default (props) => {
       const col = t.Columns[colname];
       if (col.field_type == 'foreignkey' && col.foreignKey.table == origTbl) {
         fixedKey = colname;
+        fixedPColname = col.foreignKey.col_id;
       }
 
       if (cnt === 2 && t.TableType === '1_n') {
@@ -118,9 +120,12 @@ export default (props) => {
       cnt++;
     }
     
-    // Fix the origin Object    
-    newObj[fixedKey].value = origObjID;
+    // Fix the origin ID
+    const val = {};
+    val[fixedPColname] = origObjID;
+    newObj[fixedKey].value = val;
     newObj[fixedKey].mode_form = 'ro';
+    //newObj[fixedKey].show_in_form = false;
   }
 
   function x() {
