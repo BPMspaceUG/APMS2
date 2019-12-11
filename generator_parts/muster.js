@@ -1,11 +1,3 @@
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var SortOrder;
 (function (SortOrder) {
     SortOrder["ASC"] = "ASC";
@@ -426,22 +418,18 @@ class Table extends RawTable {
         this.setSort(ColumnName + ',' + SortDir);
         this.loadRows(() => { t.renderContent(); });
     }
-    setPageIndex(targetIndex) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let me = this;
-            var newIndex = targetIndex;
-            var lastPageIndex = this.getNrOfPages() - 1;
-            if (targetIndex < 0)
-                newIndex = 0;
-            if (targetIndex > lastPageIndex)
-                newIndex = lastPageIndex;
-            this.PageIndex = newIndex;
-            this.loadRows(function () {
-                return __awaiter(this, void 0, void 0, function* () {
-                    yield me.renderContent();
-                    yield me.renderFooter();
-                });
-            });
+    async setPageIndex(targetIndex) {
+        let me = this;
+        var newIndex = targetIndex;
+        var lastPageIndex = this.getNrOfPages() - 1;
+        if (targetIndex < 0)
+            newIndex = 0;
+        if (targetIndex > lastPageIndex)
+            newIndex = lastPageIndex;
+        this.PageIndex = newIndex;
+        this.loadRows(async function () {
+            await me.renderContent();
+            await me.renderFooter();
         });
     }
     getNrOfPages() {
@@ -859,114 +847,112 @@ class Table extends RawTable {
       </div>
     </div>`;
     }
-    renderContent() {
-        return __awaiter(this, void 0, void 0, function* () {
-            let t = this;
-            const output = yield t.getContent();
-            const tableEl = document.getElementById(t.GUID);
-            tableEl.innerHTML = output;
-            let els = null;
-            els = tableEl.getElementsByClassName('datatbl_header');
-            if (els) {
-                for (const el of els) {
-                    el.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        const colname = el.getAttribute('data-colname');
-                        t.toggleSort(colname);
-                    });
-                }
+    async renderContent() {
+        let t = this;
+        const output = await t.getContent();
+        const tableEl = document.getElementById(t.GUID);
+        tableEl.innerHTML = output;
+        let els = null;
+        els = tableEl.getElementsByClassName('datatbl_header');
+        if (els) {
+            for (const el of els) {
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const colname = el.getAttribute('data-colname');
+                    t.toggleSort(colname);
+                });
             }
-            els = tableEl.getElementsByClassName('resetTableFilter');
-            if (els) {
-                for (const el of els) {
-                    el.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        t.isExpanded = true;
-                        t.resetFilter();
-                        t.loadRows(() => {
-                            t.renderContent();
-                            t.renderFooter();
+        }
+        els = tableEl.getElementsByClassName('resetTableFilter');
+        if (els) {
+            for (const el of els) {
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    t.isExpanded = true;
+                    t.resetFilter();
+                    t.loadRows(() => {
+                        t.renderContent();
+                        t.renderFooter();
+                    });
+                });
+            }
+        }
+        els = tableEl.getElementsByClassName('modRow');
+        if (els) {
+            for (const el of els) {
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
+                    const Tablename = RowData[0];
+                    const ID = RowData[1];
+                    if (t.getTablename() !== Tablename) {
+                        const tmpTable = new Table(Tablename);
+                        tmpTable.loadRow(ID, function (Row) {
+                            tmpTable.setRows([Row]);
+                            tmpTable.modifyRow(ID);
                         });
-                    });
-                }
+                    }
+                    else
+                        t.modifyRow(ID);
+                });
             }
-            els = tableEl.getElementsByClassName('modRow');
-            if (els) {
-                for (const el of els) {
-                    el.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
-                        const Tablename = RowData[0];
-                        const ID = RowData[1];
-                        if (t.getTablename() !== Tablename) {
-                            const tmpTable = new Table(Tablename);
-                            tmpTable.loadRow(ID, function (Row) {
-                                tmpTable.setRows([Row]);
-                                tmpTable.modifyRow(ID);
+        }
+        els = tableEl.getElementsByClassName('loadStates');
+        if (els) {
+            for (const el of els) {
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const DropDownMenu = el.parentNode.querySelectorAll('.dropdown-menu')[0];
+                    const StateID = el.getAttribute('data-stateid');
+                    const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');
+                    const Tablename = RowData[0];
+                    const ID = RowData[1];
+                    if (DropDownMenu.classList.contains("show"))
+                        return;
+                    if (Tablename === t.getTablename()) {
+                        const nextstates = t.SM.getNextStates(StateID);
+                        if (nextstates.length > 0) {
+                            DropDownMenu.innerHTML = '';
+                            nextstates.map(state => {
+                                const btn = document.createElement('a');
+                                btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
+                                btn.setAttribute('href', 'javascript:void(0)');
+                                btn.innerText = state.name;
+                                btn.addEventListener("click", function (e) {
+                                    e.preventDefault();
+                                    t.setState({}, ID, state.id, function () {
+                                        t.loadRows(function () { t.renderContent(); });
+                                    });
+                                });
+                                DropDownMenu.appendChild(btn);
                             });
                         }
-                        else
-                            t.modifyRow(ID);
-                    });
-                }
-            }
-            els = tableEl.getElementsByClassName('loadStates');
-            if (els) {
-                for (const el of els) {
-                    el.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        const DropDownMenu = el.parentNode.querySelectorAll('.dropdown-menu')[0];
-                        const StateID = el.getAttribute('data-stateid');
-                        const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');
-                        const Tablename = RowData[0];
-                        const ID = RowData[1];
-                        if (DropDownMenu.classList.contains("show"))
-                            return;
-                        if (Tablename === t.getTablename()) {
-                            const nextstates = t.SM.getNextStates(StateID);
+                    }
+                    else {
+                        const tmpTable = new Table(Tablename);
+                        tmpTable.loadRow(ID, function (Row) {
+                            tmpTable.setRows([Row]);
+                            const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
                             if (nextstates.length > 0) {
                                 DropDownMenu.innerHTML = '';
                                 nextstates.map(state => {
                                     const btn = document.createElement('a');
                                     btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
                                     btn.setAttribute('href', 'javascript:void(0)');
-                                    btn.innerText = state.name;
-                                    btn.addEventListener("click", function (e) {
-                                        e.preventDefault();
-                                        t.setState({}, ID, state.id, function () {
+                                    btn.text = state.name;
+                                    btn.addEventListener("click", function () {
+                                        tmpTable.setState({}, ID, state.id, function () {
                                             t.loadRows(function () { t.renderContent(); });
                                         });
                                     });
                                     DropDownMenu.appendChild(btn);
                                 });
                             }
-                        }
-                        else {
-                            const tmpTable = new Table(Tablename);
-                            tmpTable.loadRow(ID, function (Row) {
-                                tmpTable.setRows([Row]);
-                                const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
-                                if (nextstates.length > 0) {
-                                    DropDownMenu.innerHTML = '';
-                                    nextstates.map(state => {
-                                        const btn = document.createElement('a');
-                                        btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
-                                        btn.setAttribute('href', 'javascript:void(0)');
-                                        btn.text = state.name;
-                                        btn.addEventListener("click", function () {
-                                            tmpTable.setState({}, ID, state.id, function () {
-                                                t.loadRows(function () { t.renderContent(); });
-                                            });
-                                        });
-                                        DropDownMenu.appendChild(btn);
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
+                        });
+                    }
+                });
             }
-        });
+        }
     }
     renderFooter() {
         let t = this;
@@ -980,16 +966,14 @@ class Table extends RawTable {
             });
         }
     }
-    renderHTML(DOM_ID) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const content = (yield this.getContent()) + this.getFooter();
-            const el = document.getElementById(DOM_ID);
-            if (el) {
-                el.innerHTML = content;
-                yield this.renderContent();
-                yield this.renderFooter();
-            }
-        });
+    async renderHTML(DOM_ID) {
+        const content = await this.getContent() + this.getFooter();
+        const el = document.getElementById(DOM_ID);
+        if (el) {
+            el.innerHTML = content;
+            await this.renderContent();
+            await this.renderFooter();
+        }
     }
     get SelectionHasChanged() {
         return this.onSelectionChanged.expose();
@@ -1057,7 +1041,6 @@ class FormGenerator {
         }
         else if (el.field_type == 'foreignkey') {
             const tablename = el.fk_table;
-            console.log("FKTable", tablename, el.mode_form, el);
             const tmpTable = new Table(tablename, SelectType.Single);
             tmpTable.ReadOnly = (el.mode_form == 'ro');
             const randID = DB.getID();
@@ -1091,7 +1074,6 @@ class FormGenerator {
                 tmpTable.renderHTML(randID);
             });
             const fkIsSet = !Object.values(v).every(o => o === null);
-            console.log('-->', fkIsSet);
             if (fkIsSet) {
                 if (isObject(v)) {
                     const key = Object.keys(v)[0];

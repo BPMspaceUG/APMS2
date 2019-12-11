@@ -1217,7 +1217,7 @@ class FormGenerator {
     else if (el.field_type == 'foreignkey') {
       // Variables
       const tablename = el.fk_table;
-      console.log("FKTable", tablename, el.mode_form, el);
+      //console.log("FKTable", tablename, el.mode_form, el);
       const tmpTable = new Table(tablename, SelectType.Single);
       tmpTable.ReadOnly = (el.mode_form == 'ro');
       const randID = DB.getID();
@@ -1259,7 +1259,7 @@ class FormGenerator {
 
       //Check if FK has value yes/no
       const fkIsSet = !Object.values(v).every(o => o === null);
-      console.log('-->', fkIsSet);
+      //console.log('-->', fkIsSet);
       if (fkIsSet) {
         if (isObject(v)) {
           const key = Object.keys(v)[0];

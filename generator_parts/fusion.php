@@ -190,10 +190,10 @@
       $SM->createDatabaseStructure();
       $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
 
-      $default_CREATE = "<?php\n\techo \"---CREATE--->\";";
-      $default_TRANSITION = "<?php\n\techo \"---TRANSITION--->\";";
+      // Templates (Default Scripts)
+      $default_CREATE = ""; // "<?php\n\techo \"---CREATE--->\";";
+      $default_TRANSITION = ""; //"<?php\n\techo \"---TRANSITION--->\";";
       $default_FORM = "";
-
 
       //--- M A C H I N E S (needs form and functions)
       $scriptPath = $project_dir."/_state_machines/$SM_ID/";
