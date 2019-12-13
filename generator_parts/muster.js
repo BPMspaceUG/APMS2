@@ -7,6 +7,7 @@ var SelectType;
 (function (SelectType) {
     SelectType[SelectType["NoSelect"] = 0] = "NoSelect";
     SelectType[SelectType["Single"] = 1] = "Single";
+    SelectType[SelectType["Multi"] = 2] = "Multi";
 })(SelectType || (SelectType = {}));
 var TableType;
 (function (TableType) {
@@ -366,11 +367,9 @@ class Table extends RawTable {
     constructor(tablename, SelType = SelectType.NoSelect) {
         super(tablename);
         this.SM = null;
-        this.isExpanded = true;
         this.selType = SelectType.NoSelect;
-        this.customFormCreateOptions = {};
-        this.diffFormCreateObject = {};
         this.TableType = TableType.obj;
+        this.selectedRows = [];
         this.GUIOptions = {
             maxCellLength: 50,
             showControlColumn: true,
@@ -388,20 +387,18 @@ class Table extends RawTable {
             modalButtonTextModifyClose: 'Close',
             filterPlaceholderText: 'Search...',
             statusBarTextNoEntries: 'No Entries',
-            statusBarTextEntries: 'Showing Entries {lim_from} - {lim_to} of {count} Entries'
+            statusBarTextEntries: 'Entries {lim_from}-{lim_to} of {count}'
         };
+        this.isExpanded = true;
         this.onSelectionChanged = new LiteEvent();
         this.onEntriesModified = new LiteEvent();
         this.GUID = DB.getID();
         this.selType = SelType;
-        this.selectedRow = undefined;
         this.TableType = this.getConfig().table_type;
         this.setSort(this.getConfig().stdsorting);
         this.ReadOnly = (this.getConfig().mode == 'ro');
         if (this.getConfig().se_active)
             this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
-        if (!this.ReadOnly)
-            this.diffFormCreateObject = JSON.parse(this.getConfig().formcreate);
     }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
@@ -409,8 +406,8 @@ class Table extends RawTable {
     getTableType() {
         return this.TableType;
     }
-    setCustomFormCreateOptions(customData) {
-        this.customFormCreateOptions = customData;
+    getDiffFormCreate() {
+        return JSON.parse(this.getConfig().formcreate);
     }
     toggleSort(ColumnName) {
         let t = this;
@@ -468,8 +465,13 @@ class Table extends RawTable {
             newObj[key].value = Row[key];
         }
     }
-    getSelectedRowID() {
-        return this.selectedRow[this.getPrimaryColname()];
+    getSelectedIDs() {
+        const pcname = this.getPrimaryColname();
+        const IDs = this.selectedRows.map(el => { return el[pcname]; });
+        return IDs;
+    }
+    setSelectedRows(selRowData) {
+        this.selectedRows = selRowData;
     }
     setState(data, RowID, targetStateID, callback) {
         let t = this;
@@ -520,13 +522,16 @@ class Table extends RawTable {
     modifyRow(id) {
         let t = this;
         const pcname = t.getPrimaryColname();
-        if (t.selType == SelectType.Single) {
-            t.selectedRow = t.Rows[id];
-            for (const row of t.Rows) {
-                if (row[pcname] == id) {
-                    t.selectedRow = row;
-                    break;
-                }
+        if (t.selType !== SelectType.NoSelect) {
+            const selRow = t.Rows.filter(el => { return el[pcname] == id; })[0];
+            const isAlreadySeletecd = t.selectedRows.filter(el => { return el[pcname] == id; }).length > 0;
+            if (isAlreadySeletecd) {
+                t.selectedRows = t.selectedRows.filter(el => { return el[pcname] != id; });
+            }
+            else {
+                if (t.selType === SelectType.Single)
+                    t.selectedRows = [];
+                t.selectedRows.push(selRow);
             }
             t.onSelectionChanged.trigger();
             return;
@@ -686,7 +691,7 @@ class Table extends RawTable {
         let th = '';
         if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
             th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
-            if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
+            if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
                 const cols = [];
                 colnames.map(col => {
                     if (t.Columns[col].field_type == 'foreignkey')
@@ -699,8 +704,8 @@ class Table extends RawTable {
           <a href="${location.hash + '/' + t.getTablename() + '/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
         </th>`;
             }
-            else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
-                if (t.selectedRow && !t.isExpanded) {
+            else if (t.TableType === TableType.obj && t.selType !== SelectType.NoSelect) {
+                if (t.selectedRows.length > 0 && !t.isExpanded) {
                     th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
             <a href="javascript:void(0);" class="resetTableFilter">
               <i class="fas fa-chevron-down"></i>
@@ -764,14 +769,16 @@ class Table extends RawTable {
             const RowID = row[pcname];
             let data_string = '';
             let isSelected = false;
-            if (t.selectedRow)
-                isSelected = (t.selectedRow[pcname] == RowID);
+            if (t.selectedRows.length > 0) {
+                isSelected = t.selectedRows.filter(el => { return el[pcname] == RowID; }).length > 0;
+            }
             if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
                 const path = location.hash.split('/');
                 const loc = (path.length === 2) ? '#' : path.join('/');
                 data_string = `<td class="controllcoulm align-middle">
-          ${(t.selType == SelectType.Single ? (isSelected ?
-                    '<i class="fa fa-check-square text-success"></i>' : '<span class="modRow"><i class="far fa-square text-secondary"></i></span>')
+          ${(t.selType !== SelectType.NoSelect ? (isSelected ?
+                    '<i class="modRow fa fa-check-square text-success"></i>' :
+                    '<i class="modRow far fa-square text-secondary"></i>')
                     : (t.TableType == TableType.obj ?
                         `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
                         `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
@@ -824,7 +831,7 @@ class Table extends RawTable {
                 }
             });
         }
-        if (t.selType == SelectType.Single && !t.isExpanded)
+        if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
             return `<div class="tbl_footer"></div>`;
         if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
             return `<div class="tbl_footer"></div>`;
@@ -1040,44 +1047,41 @@ class FormGenerator {
       </div>`;
         }
         else if (el.field_type == 'foreignkey') {
-            const tablename = el.fk_table;
-            const tmpTable = new Table(tablename, SelectType.Single);
-            tmpTable.ReadOnly = (el.mode_form == 'ro');
+            const selType = parseInt(el.seltype) || SelectType.Single;
+            const tmpTable = new Table(el.fk_table, selType);
             const randID = DB.getID();
+            tmpTable.ReadOnly = (el.mode_form == 'ro');
             if (el.customfilter) {
                 const rd = this.data;
                 const colnames = Object.keys(rd);
                 for (const colname of colnames) {
                     const pattern = '%' + colname + '%';
                     if (el.customfilter.indexOf(pattern) >= 0) {
-                        const firstCol = Object.keys(rd[colname].value)[0];
-                        el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+                        const dyn_val = rd[colname].value;
+                        el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), dyn_val);
                     }
                 }
                 el.customfilter = decodeURI(el.customfilter);
                 tmpTable.setFilter(el.customfilter);
             }
-            const searchBar = document.createElement('input');
-            searchBar.setAttribute('type', 'text');
-            searchBar.setAttribute('class', 'form-control');
-            const searchFunc = () => {
-                tmpTable.setSearch(searchBar.value);
-                tmpTable.loadRows(() => tmpTable.renderHTML(randID));
-            };
-            searchBar.addEventListener('input', searchFunc);
             tmpTable.SelectionHasChanged.on(() => {
-                const row = Object.assign({}, tmpTable.selectedRow);
-                const firstkey = Object.keys(row)[0];
-                const RowID = row[firstkey];
-                delete row[firstkey];
-                document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', RowID);
+                let value = "";
+                if (selType === SelectType.Single) {
+                    value = tmpTable.getSelectedIDs()[0];
+                }
+                else if (selType === SelectType.Multi) {
+                    value = JSON.stringify(tmpTable.getSelectedIDs());
+                }
+                if (!value)
+                    value = "";
+                document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
                 tmpTable.renderHTML(randID);
             });
             const fkIsSet = !Object.values(v).every(o => o === null);
             if (fkIsSet) {
                 if (isObject(v)) {
                     const key = Object.keys(v)[0];
-                    tmpTable.selectedRow = v;
+                    tmpTable.setSelectedRows([v]);
                     tmpTable.isExpanded = false;
                     v = v[key];
                     tmpTable.setFilter('{"=":["' + key + '",' + v + ']}');
@@ -1105,32 +1109,21 @@ class FormGenerator {
             const tmpGUID = DB.getID();
             const extTablename = el.revfk_tablename;
             const extTableColSelf = el.revfk_colname1;
-            const extTableColExt = el.revfk_colname2;
-            const extTableColExtFilter = el.revfk_col2filter;
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             const extTable = new Table(extTablename);
-            let custFormCreate = {};
             const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table;
             extTable.ReadOnly = (el.mode_form == 'ro');
             if (extTable.isRelationTable()) {
                 extTable.Columns[extTableColSelf].show_in_grid = false;
                 extTable.setColumnFilter(hideCol, this.oRowID.toString());
-                custFormCreate[extTableColSelf] = {};
-                custFormCreate[extTableColSelf]['value'] = this.oRowID;
-                custFormCreate[extTableColSelf]['mode_form'] = 'ro';
-                if (extTableColExtFilter) {
-                    custFormCreate[extTableColExt] = {};
-                    custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
-                }
-                extTable.setCustomFormCreateOptions(custFormCreate);
             }
             extTable.loadRows(rows => {
                 if (!extTable.ReadOnly && rows['count'] == 0) {
+                    const pathOrigin = location.hash + '/' + extTable.getTablename();
                     document.getElementById(tmpGUID).innerHTML =
-                        `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename() + '/create/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>`
-                            +
-                                `<span class="mx-3">or</span>` +
-                            `<a class="btn btn-default text-success" href="${location.hash + '/' + extTable.getTablename()}/create"><i class="fa fa-link"></i> Relate</a>`;
+                        `<a class="btn btn-default text-success" href="${pathOrigin + '/create/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>
+            <span class="mx-3">or</span>
+            <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> Relate</a>`;
                 }
                 else if (extTable.ReadOnly && rows['count'] == 0) {
                     document.getElementById(tmpGUID).innerHTML = '<p class="text-muted mt-2">No Entries</p>';
@@ -1197,11 +1190,11 @@ class FormGenerator {
                 if (key in result)
                     value = result[key] + ' ' + inp.value;
             }
-            else if (type == 'hidden' && inp.classList.contains('inputFK')) {
-                let tmpVal = inp.value;
-                if (tmpVal == '')
-                    tmpVal = null;
-                value = tmpVal;
+            else if (type == 'hidden') {
+                let res = null;
+                if (inp.value != '')
+                    res = inp.value;
+                value = res;
             }
             else {
                 value = inp.value;
@@ -1214,8 +1207,6 @@ class FormGenerator {
             const edi = editors[key];
             if (edi['objQuill'])
                 result[key] = edi['objQuill'].root.innerHTML;
-            else if (edi['objCodemirror'])
-                result[key] = edi['objCodemirror'].getValue();
         }
         return result;
     }

@@ -34,7 +34,7 @@ export default (props) => {
   //===================================================================
   // Overwrite and merge the differences from diffForm
   const defaultForm = t.getDefaultFormObject();
-  const diffForm = t.diffFormCreateObject;
+  const diffForm = t.getDiffFormCreate();
   const newObj = mergeDeep({}, defaultForm, diffForm);
 
   //--------------------------------------------------------

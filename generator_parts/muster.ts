@@ -3,7 +3,7 @@ declare var vis: any, Quill: any; // Plugins
 
 // Enums
 enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
-enum SelectType {NoSelect = 0, Single = 1}
+enum SelectType {NoSelect = 0, Single = 1, Multi = 2}
 enum TableType {obj = 'obj', t1_1 = '1_1', t1_n = '1_n', tn_1 = 'n_1', tn_m = 'n_m'}
 
 // Events
@@ -416,12 +416,9 @@ class RawTable {
 class Table extends RawTable {
   private GUID: string;
   private SM: StateMachine = null;
-  public isExpanded: boolean = true;
   private selType: SelectType = SelectType.NoSelect;
-  public selectedRow: any;
-  private customFormCreateOptions: any = {};
-  private diffFormCreateObject: any = {};
   private TableType: TableType = TableType.obj;
+  private selectedRows = [];
   private GUIOptions = {
     maxCellLength: 50,
     showControlColumn: true,
@@ -439,8 +436,9 @@ class Table extends RawTable {
     modalButtonTextModifyClose: 'Close',
     filterPlaceholderText: 'Search...',
     statusBarTextNoEntries: 'No Entries',
-    statusBarTextEntries: 'Showing Entries {lim_from} - {lim_to} of {count} Entries'
+    statusBarTextEntries: 'Entries {lim_from}-{lim_to} of {count}'
   }
+  public isExpanded: boolean = true;
   // Events
   private readonly onSelectionChanged = new LiteEvent<void>();
   private readonly onEntriesModified = new LiteEvent<void>(); // Created, Deleted, Updated
@@ -449,14 +447,11 @@ class Table extends RawTable {
     super(tablename); // Call parent constructor
     this.GUID = DB.getID();
     this.selType = SelType;
-    this.selectedRow = undefined;
     this.TableType = this.getConfig().table_type;
     this.setSort(this.getConfig().stdsorting);
     this.ReadOnly = (this.getConfig().mode == 'ro');
     if (this.getConfig().se_active)
       this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
-    if (!this.ReadOnly)
-      this.diffFormCreateObject = JSON.parse(this.getConfig().formcreate);
   }
   public isRelationTable() {
     return (this.TableType !== TableType.obj);
@@ -464,8 +459,8 @@ class Table extends RawTable {
   public getTableType() {
     return this.TableType;
   }
-  public setCustomFormCreateOptions(customData: any) {
-    this.customFormCreateOptions = customData;
+  public getDiffFormCreate() {
+    return JSON.parse(this.getConfig().formcreate);
   }
   private toggleSort(ColumnName: string): void {
     let t = this;
@@ -528,8 +523,13 @@ class Table extends RawTable {
       newObj[key].value = Row[key];
     }
   }
-  public getSelectedRowID() {
-    return this.selectedRow[this.getPrimaryColname()];
+  public getSelectedIDs() {
+    const pcname = this.getPrimaryColname();
+    const IDs = this.selectedRows.map(el => { return el[pcname]; });
+    return IDs;
+  }
+  public setSelectedRows(selRowData) {
+    this.selectedRows = selRowData;
   }
   private setState(data: any, RowID: number, targetStateID: number, callback) {
     let t = this;
@@ -586,16 +586,17 @@ class Table extends RawTable {
     let t = this
     const pcname = t.getPrimaryColname();
     // Check Selection-Type
-    if (t.selType == SelectType.Single) {
-      //------------------------------------ SINGLE SELECT
-      t.selectedRow = t.Rows[id];
-      for (const row of t.Rows) {
-        if (row[pcname] == id) {
-          t.selectedRow = row;
-          break;
-        }
+    if (t.selType !== SelectType.NoSelect) {
+      //------------------------------------ SELECT 0..N
+      const selRow = t.Rows.filter(el => { return el[pcname] == id; })[0];
+      const isAlreadySeletecd = t.selectedRows.filter(el => { return el[pcname] == id; }).length > 0;
+      if (isAlreadySeletecd) {        
+        t.selectedRows = t.selectedRows.filter(el => { return el[pcname] != id; }); // del
       }
-
+      else {
+        if (t.selType === SelectType.Single) t.selectedRows = []; // clear
+        t.selectedRows.push(selRow); // add
+      }
       t.onSelectionChanged.trigger();
       return
     }
@@ -786,7 +787,8 @@ class Table extends RawTable {
       // Standard
       th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
 
-      if (t.TableType !== TableType.obj && t.selType !== SelectType.Single) {
+      // No Object and no Selection
+      if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
         // Create || Relate
         const cols = [];
         colnames.map(col => {
@@ -800,9 +802,10 @@ class Table extends RawTable {
           <a href="${location.hash+'/'+t.getTablename()+'/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
         </th>`;
       }
-      else if (t.TableType === TableType.obj && t.selType === SelectType.Single) {
+      // Select 1 - N
+      else if (t.TableType === TableType.obj && t.selType !== SelectType.NoSelect) {
         // FOREIGN KEY
-        if (t.selectedRow && !t.isExpanded) {
+        if (t.selectedRows.length > 0 && !t.isExpanded) {
           // Selected
           th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
             <a href="javascript:void(0);" class="resetTableFilter">
@@ -881,15 +884,17 @@ class Table extends RawTable {
       let data_string: string = '';
       let isSelected: boolean = false;
       // Check if selected
-      if (t.selectedRow) 
-        isSelected = (t.selectedRow[pcname] == RowID);
+      if (t.selectedRows.length > 0) {
+        isSelected = t.selectedRows.filter(el => { return el[pcname] == RowID; }).length > 0;
+      }
       // [Control Column] is set then Add one before each row
       if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
         const path = location.hash.split('/');
         const loc = (path.length === 2) ? '#' : path.join('/'); // Check if Root-Table
         data_string = `<td class="controllcoulm align-middle">
-          ${ (t.selType == SelectType.Single ? (isSelected ? 
-              '<i class="fa fa-check-square text-success"></i>' : '<span class="modRow"><i class="far fa-square text-secondary"></i></span>'
+          ${ (t.selType !== SelectType.NoSelect ? (isSelected ? 
+              '<i class="modRow fa fa-check-square text-success"></i>' :
+              '<i class="modRow far fa-square text-secondary"></i>'
             )
             : ( t.TableType == TableType.obj ?
               `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
@@ -921,6 +926,7 @@ class Table extends RawTable {
         }
       }
     })
+    // ====> Output
     return `<div class="tbl_content" id="${t.GUID}">
       ${ (t.Rows && t.Rows.length > 0) ?
       `<div class="tablewrapper border table-responsive-md">
@@ -953,7 +959,7 @@ class Table extends RawTable {
     }
 
     // special cases
-    if (t.selType == SelectType.Single && !t.isExpanded)
+    if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
       return `<div class="tbl_footer"></div>`;     
     if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
       return `<div class="tbl_footer"></div>`;
@@ -1025,8 +1031,6 @@ class Table extends RawTable {
           const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
           const Tablename = RowData[0];
           const ID = RowData[1];
-
-          //console.log("modRow: ", Tablename, ' -> ', ID);
           if (t.getTablename() !== Tablename) {
             // External Table
             const tmpTable = new Table(Tablename);
@@ -1159,7 +1163,6 @@ class FormGenerator {
     let result: string = '';
     let v = el.value || '';
 
-
     // Exceptions
     if (el.field_type == 'state') return '';
     if (!el.show_in_form) return '';
@@ -1204,7 +1207,7 @@ class FormGenerator {
       result += `<input name="${key}" type="password" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
         value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
-    //--- Datetime
+    //--- DateTime
     else if (el.field_type == 'datetime') {
       result += `<div class="input-group">
         <input name="${key}" type="date" id="inp_${key}" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
@@ -1214,13 +1217,13 @@ class FormGenerator {
       </div>`;
     }
     //--- Foreignkey
+    // TODO: This should be renamed to Table-Element (can be normal, singl select or mult-select)
     else if (el.field_type == 'foreignkey') {
-      // Variables
-      const tablename = el.fk_table;
-      //console.log("FKTable", tablename, el.mode_form, el);
-      const tmpTable = new Table(tablename, SelectType.Single);
-      tmpTable.ReadOnly = (el.mode_form == 'ro');
+      const selType = parseInt(el.seltype) || SelectType.Single;
+      const tmpTable = new Table(el.fk_table, selType);
       const randID = DB.getID();
+      
+      tmpTable.ReadOnly = (el.mode_form == 'ro');
 
       //--- Replace Patterns
       if (el.customfilter) {        
@@ -1229,14 +1232,22 @@ class FormGenerator {
         for (const colname of colnames) {
           const pattern = '%'+colname+'%';
           if (el.customfilter.indexOf(pattern) >= 0) {
-            const firstCol = Object.keys(rd[colname].value)[0];
-            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+            const dyn_val = rd[colname].value;
+            //console.log(dyn_val);
+            // Special:
+            //const firstCol = Object.keys(rd[colname].value)[0];
+            //console.log(rd, firstCol, colname );
+            //el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+            //------ new:
+            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), dyn_val);
           }
         }
         el.customfilter = decodeURI(el.customfilter);
         tmpTable.setFilter(el.customfilter);
       }
+      // TODO: Add Filter
       //--- Create SearchBar
+      /*
       const searchBar = document.createElement('input');
       searchBar.setAttribute('type', 'text');
       searchBar.setAttribute('class', 'form-control');
@@ -1245,25 +1256,28 @@ class FormGenerator {
         tmpTable.loadRows(() => tmpTable.renderHTML(randID));
       }
       searchBar.addEventListener('input', searchFunc);
-
-
+      */
+      // Update Value when selection happened
       tmpTable.SelectionHasChanged.on(() => {
-        // TODO: do not copy!
-        const row = Object.assign({}, tmpTable.selectedRow); // copy
-        const firstkey = Object.keys(row)[0];
-        const RowID = row[firstkey];
-        delete row[firstkey];
-        document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', RowID);
+        let value = "";
+        if (selType === SelectType.Single) {
+          value = tmpTable.getSelectedIDs()[0];
+        }
+        else if (selType === SelectType.Multi) {
+          value = JSON.stringify(tmpTable.getSelectedIDs());
+        }
+        // Set Value to field
+        if (!value) value = "";
+        document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
         tmpTable.renderHTML(randID);
       });
 
-      //Check if FK has value yes/no
+      // Check if FK already has a value from Server (yes/no)
       const fkIsSet = !Object.values(v).every(o => o === null);
-      //console.log('-->', fkIsSet);
       if (fkIsSet) {
         if (isObject(v)) {
           const key = Object.keys(v)[0];
-          tmpTable.selectedRow = v;
+          tmpTable.setSelectedRows([v]);
           tmpTable.isExpanded = false;
           v = v[key]; // First Key (=ID)
           tmpTable.setFilter('{"=":["'+key+'",'+v+']}');
@@ -1296,44 +1310,26 @@ class FormGenerator {
       const tmpGUID = DB.getID();
       const extTablename = el.revfk_tablename;
       const extTableColSelf = el.revfk_colname1;
-      const extTableColExt = el.revfk_colname2;
-      const extTableColExtFilter = el.revfk_col2filter;
       const hideCol = '`' + extTablename + '`.' + extTableColSelf;
       const extTable = new Table(extTablename);
-      let custFormCreate = {};
-
-      // TODO: Find 3rd Table via foreignKey of 2nd Table
       const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table;
-      //console.log(this.oTable.getTablename() ,' -> [' + extTablename + ':' + extTable.getTableType() + '] -> ', tablenameM);
-
       extTable.ReadOnly = (el.mode_form == 'ro');
 
       if (extTable.isRelationTable()) {
         // Relation:
         extTable.Columns[extTableColSelf].show_in_grid = false; // Hide self column
-        extTable.setColumnFilter(hideCol, this.oRowID.toString()); // Filter -> show only OWN relations
-        // [N] Set Origin element Fixed        
-        custFormCreate[extTableColSelf] = {};
-        custFormCreate[extTableColSelf]['value'] = this.oRowID;
-        custFormCreate[extTableColSelf]['mode_form'] = 'ro';
-        // [M] Set External Element
-        if (extTableColExtFilter) {
-          custFormCreate[extTableColExt] = {};
-          custFormCreate[extTableColExt]['customfilter'] = extTableColExtFilter;
-        }
-        // Set Form Create
-        extTable.setCustomFormCreateOptions(custFormCreate);
+        extTable.setColumnFilter(hideCol, this.oRowID.toString()); // show only OWN relations
       }
       // Load Rows
       extTable.loadRows(rows => {
         // Count
-        if (!extTable.ReadOnly && rows['count'] == 0) {
+        if (!extTable.ReadOnly && rows['count'] == 0) {          
           // Display Buttons for add Relation
+          const pathOrigin = location.hash+'/'+extTable.getTablename();
           document.getElementById(tmpGUID).innerHTML = 
-            `<a class="btn btn-default text-success" href="${location.hash+'/'+extTable.getTablename()+'/create/'+tablenameM}/create"><i class="fa fa-plus"></i> Create</a>`
-            +
-            `<span class="mx-3">or</span>` + 
-            `<a class="btn btn-default text-success" href="${location.hash+'/'+extTable.getTablename()}/create"><i class="fa fa-link"></i> Relate</a>`;
+            `<a class="btn btn-default text-success" href="${pathOrigin+'/create/'+tablenameM}/create"><i class="fa fa-plus"></i> Create</a>
+            <span class="mx-3">or</span>
+            <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> Relate</a>`;
         }
         else if (extTable.ReadOnly && rows['count'] == 0) {
           document.getElementById(tmpGUID).innerHTML = '<p class="text-muted mt-2">No Entries</p>';
@@ -1411,10 +1407,10 @@ class FormGenerator {
           value = result[key] + ' ' + inp.value; // append Time to Date
       }
       // ForeignKey
-      else if (type == 'hidden' && inp.classList.contains('inputFK')) {
-        let tmpVal = inp.value;
-        if (tmpVal == '') tmpVal = null;
-        value = tmpVal;
+      else if (type == 'hidden') {
+        let res = null;
+        if (inp.value != '') res = inp.value;
+        value = res;
       }
       // Every other type
       else {
@@ -1431,8 +1427,6 @@ class FormGenerator {
       const edi = editors[key];
       if (edi['objQuill']) 
         result[key] = edi['objQuill'].root.innerHTML;
-      else if (edi['objCodemirror'])
-        result[key] = edi['objCodemirror'].getValue();
     }
     // Output
     return result;
@@ -1504,8 +1498,6 @@ class FormGenerator {
   }
 }
 
-
-
 //==================================================================== Global Helper Methods
 function escapeHtml(string: string): string {
   const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
@@ -1541,7 +1533,6 @@ function recflattenObj(x) {
     return res;
   }
 }
-
 
 // PING
 setInterval(function(){
