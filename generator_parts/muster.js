@@ -607,13 +607,15 @@ class Table extends RawTable {
             });
             if (fTbl && !fTbl.ReadOnly) {
                 rowID = firstEl[Object.keys(firstEl)[0]];
-                const path = location.hash.split('/');
-                path.shift();
-                if (path.length === 1)
-                    path.push(mainRowID.toString());
-                path.push(fTablename, rowID);
-                content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-        <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
+                if (rowID) {
+                    const path = location.hash.split('/');
+                    path.shift();
+                    if (path.length === 1)
+                        path.push(mainRowID.toString());
+                    path.push(fTablename, rowID);
+                    content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
+            <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
+                }
             }
             return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
         }

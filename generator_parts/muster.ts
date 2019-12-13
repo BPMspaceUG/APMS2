@@ -687,12 +687,15 @@ class Table extends RawTable {
       // Add Edit Button Prefix -> Only if is not ReadOnly
       if (fTbl && !fTbl.ReadOnly) {
         rowID = firstEl[Object.keys(firstEl)[0]];
-        const path = location.hash.split('/');
-        path.shift(); // remove first element: #
-        if (path.length === 1) path.push(mainRowID.toString()); // Add Primary RowID
-        path.push(fTablename, rowID); 
-        content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-        <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
+        //console.log(rowID)
+        if (rowID) {
+          const path = location.hash.split('/');
+          path.shift(); // remove first element: #
+          if (path.length === 1) path.push(mainRowID.toString()); // Add Primary RowID
+          path.push(fTablename, rowID); 
+          content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
+            <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
+        }
       }
       return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
     }
