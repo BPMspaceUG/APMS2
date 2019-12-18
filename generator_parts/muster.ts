@@ -1,11 +1,9 @@
 // Plugins (only declared to remove TS Errors)
 declare var vis: any, Quill: any; // Plugins
-
 // Enums
 enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
 enum SelectType {NoSelect = 0, Single = 1, Multi = 2}
 enum TableType {obj = 'obj', t1_1 = '1_1', t1_n = '1_n', tn_1 = 'n_1', tn_m = 'n_m'}
-
 // Events
 // see here: https://stackoverflow.com/questions/12881212/does-typescript-support-events-on-classes
 interface ILiteEvent<T> {
@@ -28,7 +26,6 @@ class LiteEvent<T> implements ILiteEvent<T> {
     return this;
   }
 }
-
 //==============================================================
 // Database (Communication via API) !JQ
 //==============================================================
@@ -259,10 +256,9 @@ class StateMachine {
       return node;
     });
     const _edges = this.myLinks.map(link => {
-      const edge = {};
-      edge['from'] = (idOffset + link.from);
-      edge['to'] = (idOffset + link.to);
-      return edge;
+      const from = idOffset + link.from;
+      const to = idOffset + link.to;
+      return {from, to};
     });
 
     // Add Entrypoints
@@ -283,20 +279,31 @@ class StateMachine {
     });
     const options = {
       height: '400px',
-      edges: {color: {color: '#888888'}, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {}},
+      edges: {
+        color: {color: '#444444', opacity:0.5},
+        arrows: {'to': {enabled: true, type: 'vee'}},
+        smooth: {
+          type: 'cubicBezier',
+          forceDirection: 'horizontal',
+          roundness: 0.4
+        },
+        label: ""
+      },
       nodes: {
         shape: 'box', margin: 20, heightConstraint: {minimum: 40}, widthConstraint: {minimum: 80, maximum: 200},
-        borderWidth: 0, size: 24, font: {color: '#888888', size: 16}, shapeProperties: {useBorderWithImage: false}, scaling: {min: 10, max: 30},
-        fixed: {x: false, y: false}
+        borderWidth: 0, size: 24, font: {color: '#888888', size: 16}, scaling: {min: 10, max: 30}
       },
-      layout: {improvedLayout: true,
+      layout: {
         hierarchical: {
-          enabled: true, direction: 'LR', nodeSpacing: 200, levelSeparation: 225, blockShifting: false, edgeMinimization: false,
-          parentCentralization: false, sortMethod: 'directed'
+          direction: 'LR',
+          sortMethod: 'directed',
+          shakeTowards: 'leaves',
+          nodeSpacing: 200,
+          levelSeparation: 200,
+          treeSpacing: 400
         }
       },
-      physics: {enabled: false},
-      interaction: {}
+      physics: false
     };
     // Render
     let network = new vis.Network(querySelector, {nodes: _nodes, edges: _edges}, options);
@@ -581,6 +588,9 @@ class Table extends RawTable {
     }
     return FormObj;
   }
+  public hasStateMachine() {
+    return this.SM;
+  }
   //--------------------------------------------------   
   public modifyRow(id: number) {
     let t = this
@@ -786,10 +796,8 @@ class Table extends RawTable {
     let th = '';
     // Pre fill with 1 because of selector
     if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
-
       // Standard
       th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
-
       // No Object and no Selection
       if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
         // Create || Relate
@@ -1144,7 +1152,6 @@ class Table extends RawTable {
     return this.onEntriesModified.expose();
   }
 }
-
 //==============================================================
 // Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON) !JQ
 //==============================================================
@@ -1172,7 +1179,7 @@ class FormGenerator {
     if (el.mode_form == 'hi') return '';
     if (el.mode_form == 'ro' && el.is_primary) return '';
 
-    const form_label: string = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
+    const form_label: string = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : null;
 
     //--- Textarea
     if (el.field_type == 'textarea') {
@@ -1351,7 +1358,7 @@ class FormGenerator {
     }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
-      result += '<div class="pt-2">' + el.value + '</div>';
+      result += el.value;
     }
     //--- Enum
     else if (el.field_type == 'enum') {
@@ -1379,10 +1386,7 @@ class FormGenerator {
     }
     // ===> HTML Output
     return `<div class="form-group row">
-      ${form_label}
-      <div class="col-md-9 col-lg-10 align-middle">
-        ${result}
-      </div>
+      ${form_label ? form_label + '<div class="col-md-9 col-lg-10 align-middle">'+result+'</div>' : '<div class="col-12">'+result+'</div>'}
     </div>`;
   }
   public getValues() {
@@ -1500,7 +1504,6 @@ class FormGenerator {
     }
   }
 }
-
 //==================================================================== Global Helper Methods
 function escapeHtml(string: string): string {
   const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
@@ -1536,8 +1539,3 @@ function recflattenObj(x) {
     return res;
   }
 }
-
-// PING
-setInterval(function(){
-  DB.request('ping', {}, ()=>{});
-}, 10000);

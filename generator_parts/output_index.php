@@ -1,8 +1,5 @@
 <?php
-  require_once(__DIR__."/src/AuthHandler.inc.php");
   require_once(__DIR__."/src/RequestHandler.inc.php");
-
-
 
   if (isset($_GET['logout'])) {
     setcookie("token", "", time()-3600); // Delete cookies
@@ -54,7 +51,7 @@
   if (is_null(JWT::getBearerToken())) {
     // Store Access Token on client
     setcookie("token", $rawtoken, time()+ 3600 * 24 * 10, "", "", false, true);
-    header("Location: index.php");
+    header("Location: ".getSelfURL());
     exit();
   }
   // Success

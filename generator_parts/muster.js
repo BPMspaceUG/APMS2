@@ -223,10 +223,9 @@ class StateMachine {
             return node;
         });
         const _edges = this.myLinks.map(link => {
-            const edge = {};
-            edge['from'] = (idOffset + link.from);
-            edge['to'] = (idOffset + link.to);
-            return edge;
+            const from = idOffset + link.from;
+            const to = idOffset + link.to;
+            return { from, to };
         });
         _nodes.forEach(node => {
             if (node.isEntryPoint) {
@@ -243,20 +242,31 @@ class StateMachine {
         });
         const options = {
             height: '400px',
-            edges: { color: { color: '#888888' }, shadow: true, length: 100, arrows: 'to', arrowStrikethrough: true, smooth: {} },
+            edges: {
+                color: { color: '#444444', opacity: 0.5 },
+                arrows: { 'to': { enabled: true, type: 'vee' } },
+                smooth: {
+                    type: 'cubicBezier',
+                    forceDirection: 'horizontal',
+                    roundness: 0.4
+                },
+                label: ""
+            },
             nodes: {
                 shape: 'box', margin: 20, heightConstraint: { minimum: 40 }, widthConstraint: { minimum: 80, maximum: 200 },
-                borderWidth: 0, size: 24, font: { color: '#888888', size: 16 }, shapeProperties: { useBorderWithImage: false }, scaling: { min: 10, max: 30 },
-                fixed: { x: false, y: false }
+                borderWidth: 0, size: 24, font: { color: '#888888', size: 16 }, scaling: { min: 10, max: 30 }
             },
-            layout: { improvedLayout: true,
+            layout: {
                 hierarchical: {
-                    enabled: true, direction: 'LR', nodeSpacing: 200, levelSeparation: 225, blockShifting: false, edgeMinimization: false,
-                    parentCentralization: false, sortMethod: 'directed'
+                    direction: 'LR',
+                    sortMethod: 'directed',
+                    shakeTowards: 'leaves',
+                    nodeSpacing: 200,
+                    levelSeparation: 200,
+                    treeSpacing: 400
                 }
             },
-            physics: { enabled: false },
-            interaction: {}
+            physics: false
         };
         let network = new vis.Network(querySelector, { nodes: _nodes, edges: _edges }, options);
         network.fit({ scale: 1, offset: { x: 0, y: 0 } });
@@ -518,6 +528,9 @@ class Table extends RawTable {
                 FormObj[colname]['fk_table'] = ColObj.foreignKey.table;
         }
         return FormObj;
+    }
+    hasStateMachine() {
+        return this.SM;
     }
     modifyRow(id) {
         let t = this;
@@ -1010,7 +1023,7 @@ class FormGenerator {
             return '';
         if (el.mode_form == 'ro' && el.is_primary)
             return '';
-        const form_label = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : '';
+        const form_label = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : null;
         if (el.field_type == 'textarea') {
             result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
         }
@@ -1141,7 +1154,7 @@ class FormGenerator {
             result += `<div><div class="htmleditor" id="${newID}"></div></div>`;
         }
         else if (el.field_type == 'rawhtml') {
-            result += '<div class="pt-2">' + el.value + '</div>';
+            result += el.value;
         }
         else if (el.field_type == 'enum') {
             result += `<select name="${key}" class="custom-select${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}>`;
@@ -1167,10 +1180,7 @@ class FormGenerator {
       </div>`;
         }
         return `<div class="form-group row">
-      ${form_label}
-      <div class="col-md-9 col-lg-10 align-middle">
-        ${result}
-      </div>
+      ${form_label ? form_label + '<div class="col-md-9 col-lg-10 align-middle">' + result + '</div>' : '<div class="col-12">' + result + '</div>'}
     </div>`;
     }
     getValues() {
@@ -1302,6 +1312,3 @@ function recflattenObj(x) {
         return res;
     }
 }
-setInterval(function () {
-    DB.request('ping', {}, () => { });
-}, 10000);

@@ -245,9 +245,15 @@
     }
     public function getLinks() {
       $result = array();
-      $stmt = $this->db->prepare("SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
-        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?) ORDER BY state_id_TO");
-      $stmt->execute(array($this->ID));
+      $stmt = $this->db->prepare("(SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules
+      WHERE (state_id_FROM != state_id_TO) AND state_id_FROM AND state_id_TO IN
+      (SELECT state_id FROM state WHERE statemachine_id = ?) ORDER BY state_id_FROM, state_id_TO)
+      UNION
+      (SELECT state_id_FROM, state_id_TO FROM state_rules
+      WHERE (state_id_FROM = state_id_TO) AND state_id_FROM AND state_id_TO IN
+      (SELECT state_id FROM state WHERE statemachine_id = ?) ORDER BY state_id_FROM
+      )");
+      $stmt->execute([$this->ID, $this->ID]);
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $result[] = [
           'from' => (int)$row['from'],

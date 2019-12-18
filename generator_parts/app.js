@@ -17,10 +17,6 @@ const routes = [
 
 //=== Init Application
 document.addEventListener('DOMContentLoaded', () => {
-
-  // Remove Token from URL
-  //window.history.pushState('page2', 'Title', document.location.pathname);
-
   // Load Configuration
   DB.loadConfig(config => {
     //==========================================================
@@ -47,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const path = e.target.location.hash.substr(1);
       router.navigate(path);
     });
+    //------------------------------- PING (token refresh)
+    setInterval(() => { DB.request('ping', {}, ()=>{}); }, 10000);
   });
-
 });

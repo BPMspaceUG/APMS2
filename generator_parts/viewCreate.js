@@ -168,7 +168,7 @@ export default (props) => {
           });
 
           //===> Element was created!!!
-          if (resp.length === 2 && resp[1].element_id && resp[1].element_id > 0) {
+          if (t.hasStateMachine() && resp.length === 2 && resp[1].element_id && resp[1].element_id > 0) {
             const newElementID = parseInt(resp[1].element_id);
             if (path.length > 2) {
               let objsToCreate = [];
@@ -264,6 +264,15 @@ export default (props) => {
               path.pop();
             }
             redirect('#/' + path.join('/'));
+          }
+          else if (!t.hasStateMachine() && resp.length === 1 && resp[0].element_id && resp[0].element_id > 0) {
+            // Object created from single Foreign Key. ==> redirect one step back
+            if (path.length > 2) {
+              // TODO: maybe update the element before ;)
+              path.pop();
+              path.pop();
+              redirect('#/' + path.join('/'));
+            }
           }
           else {
             // Element was _NOT_ created!
