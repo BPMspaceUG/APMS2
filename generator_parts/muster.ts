@@ -458,6 +458,7 @@ class StateButton {
   private _stateCol = null;
   private _editable: boolean = false;
   private _name: string = '';
+  private _callbackStateChange = (resp) => {};
 
   constructor(stateid, rowid = null, statecol: string = 'state_id') {
     this._stateID = stateid;
@@ -465,18 +466,21 @@ class StateButton {
     this._stateCol = statecol;
     this._editable = (stateid && rowid);
   }
-  public setTable = (table: Table)=>{
+  public setTable = (table: Table) => {
     this._table = table;
     this._name = this._table.SM.getStateNameById(this._stateID);
   }
-  public setName = (name: string)=>{
+  public setName = (name: string) => {
     this._name = name;
   }
-  public setReadOnly = (readonly: boolean)=> {
+  public setReadOnly = (readonly: boolean) => {
     this._editable = !readonly;
   }
+  public setCallbackStateChange(callback) {
+    this._callbackStateChange = callback;
+  }
   //------------------------------- DOM
-  private getButton = ()=>{
+  private getButton = () => {
     const btn = document.createElement('button');
     btn.classList.add('btn', 'btnState', 'btnGrid', 'btn-sm', 'label-state', 'btnDisabled', 'state'+this._stateID);
     btn.setAttribute('onclick', 'return false;');
@@ -484,7 +488,7 @@ class StateButton {
     btn.innerText = this._name;
     return btn;
   }
-  public getElement = ()=>{
+  public getElement = () => {
     if (!this._editable) {
       // ReadOnly
       return this.getButton();
@@ -521,8 +525,10 @@ class StateButton {
             e.preventDefault();
             DB.setState(resp => {
               // State was set
-              console.log(resp);
-              t.loadRows(()=>{ t.renderContent(); });
+              //console.log(resp);
+              // TODO: set function dynamically which is called here
+              if (this._callbackStateChange)
+                this._callbackStateChange(resp);
             },
             this._table.getTablename(), this._rowID, state.id, this._stateCol);
             list.classList.remove('show');
@@ -840,10 +846,16 @@ class Table extends RawTable {
     }
     else if (t.Columns[col].field_type == 'state') {
       //--- Normal State-Buttons in normal Tables
+      // TODO: Find the RowID when state is from a foreign key
       const RowID = row[t.getPrimaryColname()];
       const SB = new StateButton(value, RowID, col);
       SB.setTable(t);
       SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
+      SB.setCallbackStateChange(resp => {
+        console.log("Statechange from Grid!", resp);
+        // TODO: When its a foreign key table?
+        t.loadRows(() => { t.renderContent(); });
+      })
       const tmpID = DB.getID();
       setTimeout(()=>{
         document.getElementById(tmpID).innerHTML = '';
@@ -1373,9 +1385,13 @@ class FormGenerator {
     //--- State
     else if (el.field_type == 'state') {
       const tmpID = DB.getID();
+      const SB = new StateButton(el.value, this.oRowID, key);
+      SB.setTable(this.oTable);
+      SB.setCallbackStateChange(resp => {
+        console.log("Statechange from Form!", resp);
+        document.location.reload();
+      })
       setTimeout(()=>{
-        const SB = new StateButton(el.value, this.oRowID, key);
-        SB.setTable(this.oTable);
         document.getElementById(tmpID).appendChild(SB.getElement());
       }, 1);
       result += `<div id="${tmpID}"></div>`;

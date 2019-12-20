@@ -414,6 +414,7 @@ class StateButton {
         this._stateCol = null;
         this._editable = false;
         this._name = '';
+        this._callbackStateChange = (resp) => { };
         this.setTable = (table) => {
             this._table = table;
             this._name = this._table.SM.getStateNameById(this._stateID);
@@ -462,8 +463,8 @@ class StateButton {
                         btn.addEventListener("click", e => {
                             e.preventDefault();
                             DB.setState(resp => {
-                                console.log(resp);
-                                t.loadRows(() => { t.renderContent(); });
+                                if (this._callbackStateChange)
+                                    this._callbackStateChange(resp);
                             }, this._table.getTablename(), this._rowID, state.id, this._stateCol);
                             list.classList.remove('show');
                         });
@@ -479,6 +480,9 @@ class StateButton {
         this._rowID = rowid;
         this._stateCol = statecol;
         this._editable = (stateid && rowid);
+    }
+    setCallbackStateChange(callback) {
+        this._callbackStateChange = callback;
     }
 }
 class Table extends RawTable {
@@ -745,6 +749,10 @@ class Table extends RawTable {
             const SB = new StateButton(value, RowID, col);
             SB.setTable(t);
             SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
+            SB.setCallbackStateChange(resp => {
+                console.log("Statechange from Grid!", resp);
+                t.loadRows(() => { t.renderContent(); });
+            });
             const tmpID = DB.getID();
             setTimeout(() => {
                 document.getElementById(tmpID).innerHTML = '';
@@ -1165,9 +1173,13 @@ class FormGenerator {
         }
         else if (el.field_type == 'state') {
             const tmpID = DB.getID();
+            const SB = new StateButton(el.value, this.oRowID, key);
+            SB.setTable(this.oTable);
+            SB.setCallbackStateChange(resp => {
+                console.log("Statechange from Form!", resp);
+                document.location.reload();
+            });
             setTimeout(() => {
-                const SB = new StateButton(el.value, this.oRowID, key);
-                SB.setTable(this.oTable);
                 document.getElementById(tmpID).appendChild(SB.getElement());
             }, 1);
             result += `<div id="${tmpID}"></div>`;
