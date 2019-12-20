@@ -32,7 +32,7 @@ body {overflow-x: hidden;}
 
 .datatbl td {color: #333; height: 34px; vertical-align: middle;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
-.datatbl .sorted {color: steelblue; min-width: 100px; white-space: nowrap;}
+.datatbl .sorted {color: steelblue; min-width: 40px; white-space: nowrap;}
 .datatbl .editFullRow:hover {cursor: pointer;}
 .external-table input.editable {cursor: pointer;}
 /* --- For the html inside the table --- */
@@ -43,16 +43,13 @@ body {overflow-x: hidden;}
 #formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 #formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 .customfooter {width: 100%;}
-.CodeMirror {border: 1px solid #ced4da; font-size: .85em;}
 .modal-title span {font-size: .75em;}
 
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
 .btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%; max-width: 100px; }
-
 .btnEnabled:hover {color: white !important; background-color: #333 !important;}
-.btnDisabled:focus, .btnDisabled:active:focus, .btnDisabled.active:focus {
-    outline: none !important; outline-style: none; box-shadow: none !important;}
+.btnDisabled:focus, .btnDisabled:active:focus, .btnDisabled.active:focus {outline: none !important; outline-style: none; box-shadow: none !important;}
 .btnDisabled:hover {background-color: none !important; cursor: default;}
 
 /* State-Colors */

@@ -151,12 +151,14 @@ export default (props) => {
         let data = fCreate.getValues();
         //---> CREATE
         t.createRow(data, resp => {
-
           //===> Show Messages
           let counter = 0; // 0 = trans, 1 = in -- but only at Create!
           resp.forEach(msg => {
             if (msg.show_message) {
-              const stateTo = t.renderStateButton(msg['_entry-point-state']['id'], false);
+              const stateIDTo = msg['_entry-point-state']['id'];
+              const SB = new StateButton(stateIDTo);
+              SB.setTable(t);
+              const stateTo = SB.getElement().outerHTML;
               const tmplTitle = 
                 counter === 0 ? `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>` :
                 counter === 1 ? `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>` :
@@ -166,7 +168,6 @@ export default (props) => {
               resM.show();
             }
           });
-
           //===> Element was created!!!
           if (t.hasStateMachine() && resp.length === 2 && resp[1].element_id && resp[1].element_id > 0) {
             const newElementID = parseInt(resp[1].element_id);

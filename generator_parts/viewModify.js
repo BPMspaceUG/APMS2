@@ -123,8 +123,11 @@ export default (props) => {
         el = document.getElementById('saveBtns'); if (el) el.innerHTML = "";
         el = document.getElementById('nextstates'); if (el) el.innerHTML = "";
         // Set current State if has one
-        if (t.SM) 
-          document.getElementById('actualState').innerHTML = t.renderStateButton(actStateID, false);
+        if (t.SM) {
+          const SB = new StateButton(actStateID);
+          SB.setTable(t);
+          document.getElementById('actualState').innerHTML = SB.getElement().outerHTML;
+        }
         newForm.initEditors();      
         // MAKE Transition
         if (t.SM) {
@@ -160,7 +163,7 @@ export default (props) => {
                   // Show all Script-Result Messages
                   if (messages.length > 0) {
                     messages.reverse(); // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
-                    const htmlStateFrom = t.renderStateButton(actStateID, false);
+                    const htmlStateFrom = SB.getElement().outerHTML;
                     const htmlStateTo = t.renderStateButton(state.id, false);
                     for (const m of messages) {
                       let title = '';

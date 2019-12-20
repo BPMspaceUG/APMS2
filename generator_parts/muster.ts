@@ -105,10 +105,47 @@ abstract class DB {
     function chr4(){ return Math.random().toString(16).slice(-4); }
     return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
   };
+  public static setState = (callback, tablename, rowID, targetStateID = null, colname = 'state_id') => {
+    const t = new Table(tablename);
+    const data = {table: tablename, row: {}};
+    data.row[t.getPrimaryColname()] = rowID;
+    if (targetStateID)
+      data.row[colname] = targetStateID;
+    DB.request('makeTransition', data, resp => {
+      callback(resp);
+
+      //----------------------------------------
+      // Handle Transition Feedback
+      let counter: number = 0;
+      const messages = [];
+      resp.forEach(msg => {
+        if (msg.show_message)
+          messages.push({type: counter, text: msg.message}); // for GUI
+        counter++;
+      });
+      // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
+      messages.reverse();
+      // Show all Script-Result Messages
+      const btnFrom = new StateButton(targetStateID); // actStateID
+      const btnTo = new StateButton(targetStateID);
+      btnFrom.setTable(t);
+      btnTo.setTable(t);
+      for (const msg of messages) {
+        let title = '';
+        if (msg.type == 0) title = `OUT <span class="text-muted ml-2">${btnFrom.getElement().outerHTML} &rarr;</span>`;
+        if (msg.type == 1) title = `Transition <span class="text-muted ml-2">${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}</span>`;
+        if (msg.type == 2) title = `IN <span class="text-muted ml-2">&rarr; ${btnTo.getElement().outerHTML}</span>`;
+        // Render a new Modal
+        const resM = new Modal(title, msg.text); // Display relevant MsgBoxes
+        //resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
+        resM.show();
+      }
+      //----------------------------------------
+
+    });
+  }
 }
-//==============================================================
-// Modal (Dynamic Modal Generation and Handling) !JQ
-//==============================================================
+
 class Modal {
   private DOM_ID: string;
   private heading: string;
@@ -188,9 +225,7 @@ class Modal {
     return this.DOM_ID;
   }
 }
-//==============================================================
-// Class: StateMachine !JQ
-//==============================================================
+
 class StateMachine {
   private myTable: Table;
   private myStates: any;
@@ -330,9 +365,7 @@ class StateMachine {
     return name;
   }
 }
-//==============================================================
-// Class: RawTable !JQ
-//==============================================================
+
 class RawTable {
   private tablename: string;
   private Sort: string = '';
@@ -417,6 +450,94 @@ class RawTable {
   public getTableIcon(): string { return this.getConfig().table_icon; }
   public getTableAlias(): string { return this.getConfig().table_alias; }
 }
+
+class StateButton {
+  private _table = null;
+  private _stateID = null;
+  private _rowID = null;
+  private _stateCol = null;
+  private _editable: boolean = false;
+  private _name: string = '';
+
+  constructor(stateid, rowid = null, statecol: string = 'state_id') {
+    this._stateID = stateid;
+    this._rowID = rowid;
+    this._stateCol = statecol;
+    this._editable = (stateid && rowid);
+  }
+  public setTable = (table: Table)=>{
+    this._table = table;
+    this._name = this._table.SM.getStateNameById(this._stateID);
+  }
+  public setName = (name: string)=>{
+    this._name = name;
+  }
+  public setReadOnly = (readonly: boolean)=> {
+    this._editable = !readonly;
+  }
+  //------------------------------- DOM
+  private getButton = ()=>{
+    const btn = document.createElement('button');
+    btn.classList.add('btn', 'btnState', 'btnGrid', 'btn-sm', 'label-state', 'btnDisabled', 'state'+this._stateID);
+    btn.setAttribute('onclick', 'return false;');
+    btn.setAttribute('title', 'State-ID: ' + this._stateID);
+    btn.innerText = this._name;
+    return btn;
+  }
+  public getElement = ()=>{
+    if (!this._editable) {
+      // ReadOnly
+      return this.getButton();
+    }
+    else {
+      const btn = this.getButton();
+      const list = document.createElement('div');
+      const wrapper = document.createElement('div');
+
+      // Dropdown
+      btn.classList.remove('btnDisabled');
+      btn.classList.add('dropdown-toggle', 'btnEnabled');
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        if (list.classList.contains('show'))
+          list.classList.remove('show');
+        else
+          list.classList.add('show');
+      });
+      // wrapper
+      wrapper.classList.add('dropdown');
+      // List of next states      
+      list.classList.add('dropdown-menu', 'p-0');
+      const t = this._table;
+      const nextstates = this._table.SM.getNextStates(this._stateID);
+      if (nextstates.length > 0) {
+        nextstates.map(state => {
+          // Create New Button-Element
+          const btn = document.createElement('a');
+          btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
+          btn.setAttribute('href', 'javascript:void(0)');
+          btn.innerText = state.name;
+          btn.addEventListener("click", e => {
+            e.preventDefault();
+            DB.setState(resp => {
+              // State was set
+              console.log(resp);
+              t.loadRows(()=>{ t.renderContent(); });
+            },
+            this._table.getTablename(), this._rowID, state.id, this._stateCol);
+            list.classList.remove('show');
+          });
+          list.appendChild(btn);
+        });
+      }
+      // Assemble
+      wrapper.appendChild(btn);
+      wrapper.appendChild(list);
+      return wrapper;
+    }
+  }
+}
+
 //==============================================================
 // Class: Table
 //==============================================================
@@ -538,43 +659,6 @@ class Table extends RawTable {
   public setSelectedRows(selRowData) {
     this.selectedRows = selRowData;
   }
-  private setState(data: any, RowID: number, targetStateID: number, callback) {
-    let t = this;
-    let actStateID = null;
-
-    // Get Actual State
-    for (const row of t.Rows) { if (row[t.getPrimaryColname()] == RowID) actStateID = row['state_id']; }
-    // REQUEST
-    t.transitRow(RowID, targetStateID, data, function(response) {
-      t.onEntriesModified.trigger();
-      // Handle Transition Feedback
-      let counter: number = 0;
-      const messages = [];
-      response.forEach(msg => {
-        if (msg.show_message)
-          messages.push({type: counter, text: msg.message}); // for GUI
-        counter++;
-      });
-      // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
-      messages.reverse();
-      // Show all Script-Result Messages
-      const htmlStateFrom: string = t.renderStateButton(actStateID, false);
-      const htmlStateTo: string = t.renderStateButton(targetStateID, false);
-      for (const msg of messages) {
-        let title = '';
-        if (msg.type == 0) title = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
-        if (msg.type == 1) title = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
-        if (msg.type == 2) title = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
-        // Render a new Modal
-        const resM = new Modal(title, msg.text); // Display relevant MsgBoxes
-        resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
-        resM.show();
-      }
-      // Successful Transition
-      if (counter === 3)
-        callback();
-    })
-  }
   private getDefaultFormObject(): any {
     const me = this
     let FormObj = {};
@@ -629,23 +713,6 @@ class Table extends RawTable {
     }
   }
   //---------------------------------------------------- Pure HTML building Functions
-  private renderStateButton(StateID: any, withDropdown: boolean, altName: string = undefined): string {
-    const name = altName || this.SM.getStateNameById(StateID);
-    const cssClass = 'state' + StateID;
-    if (withDropdown) {
-      // Dropdown
-      return `<div class="dropdown">
-            <button title="State-ID: ${StateID}" class="btn dropdown-toggle btnState btnGrid btnEnabled loadStates btn-sm label-state ${cssClass}"
-              data-stateid="${StateID}" data-toggle="dropdown">${name}</button>
-            <div class="dropdown-menu p-0">
-              <p class="m-0 p-3 text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading...</p>
-            </div>
-          </div>`;
-    } else {
-      // NO Dropdown
-      return `<button title="State-ID: ${StateID}" onclick="return false;" class="btn btnState btnGrid btnDisabled btn-sm label-state ${cssClass}">${name}</button>`;
-    }
-  }
   private formatCellFK(colname: string, cellData: any) {
     const showColumns = this.Columns[colname].foreignKey.col_subst;      
     // Loop external Table
@@ -773,18 +840,28 @@ class Table extends RawTable {
     }
     else if (t.Columns[col].field_type == 'state') {
       //--- Normal State-Buttons in normal Tables
-      const stateID = value;
-      const isExitNode = t.SM.isExitNode(stateID);
-      const withDropdown = !(t.ReadOnly || isExitNode);
-      return t.renderStateButton(stateID, withDropdown);
+      const RowID = row[t.getPrimaryColname()];
+      const SB = new StateButton(value, RowID, col);
+      SB.setTable(t);
+      SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
+      const tmpID = DB.getID();
+      setTimeout(()=>{
+        document.getElementById(tmpID).innerHTML = '';
+        document.getElementById(tmpID).appendChild(SB.getElement());        
+      },10);
+      return `<div id="${tmpID}"></div>`;
     }
     else if (col == 'name' && t.getTablename() == 'state') {
-      const stateID = parseInt(row['state_id']);
-      return t.renderStateButton(stateID, false, value);
+      // State-Table
+      const SB = new StateButton(row['state_id']);
+      SB.setName(value);
+      return SB.getElement().outerHTML;
     }
     else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.getTablename() == 'state_rules') {
-      const stateID = parseInt(value['state_id']);
-      return t.renderStateButton(stateID, false, value['name']);
+      // StateRules-Table
+      const SB = new StateButton(value['state_id']);
+      SB.setName(value['name']);
+      return SB.getElement().outerHTML;
     }
     //--- OTHER
     const isHTML = t.Columns[col].is_virtual || t.Columns[col].field_type == 'htmleditor';
@@ -831,7 +908,6 @@ class Table extends RawTable {
         }
       }
   }
-
     // Loop Columns
     for (const colname of colnames) {
       if (t.Columns[colname].show_in_grid) {
@@ -1053,71 +1129,6 @@ class Table extends RawTable {
             t.modifyRow(ID);
         });
       }
-    }   
-    // Set State
-    els = tableEl.getElementsByClassName('loadStates');
-    if (els) {
-      for (const el of els) {
-        el.addEventListener('click', function(e) {
-          e.preventDefault();
-          const DropDownMenu = el.parentNode.querySelectorAll('.dropdown-menu')[0];
-          const StateID = el.getAttribute('data-stateid');
-          const RowData = el.parentNode.parentNode.parentNode.getAttribute('data-rowid').split(':');
-          const Tablename = RowData[0];
-          const ID = RowData[1];
-          if (DropDownMenu.classList.contains("show")) return;
-
-          // Check if Same table?
-          if (Tablename === t.getTablename()) {
-            // Internal Table
-            const nextstates = t.SM.getNextStates(StateID);
-            if (nextstates.length > 0) {
-              DropDownMenu.innerHTML = '';
-              nextstates.map(state => {
-                // Create New Button-Element
-                const btn = document.createElement('a');
-                btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
-                btn.setAttribute('href', 'javascript:void(0)');
-                btn.innerText = state.name;
-                btn.addEventListener("click", function(e){
-                  e.preventDefault();
-                  t.setState({}, ID, state.id, function(){
-                    // Refresh Rows (refresh whole grid because of Relation-Tables [select <-> unselect])
-                    t.loadRows(function(){ t.renderContent(); });
-                  }); // Refresh same Table (or only the Row)
-                })
-                DropDownMenu.appendChild(btn);
-              });
-            }
-          }
-          else {
-            // External Table
-            const tmpTable = new Table(Tablename);
-            tmpTable.loadRow(ID, function(Row){
-              tmpTable.setRows([Row]); // Set Rows with 1 Row
-              const nextstates = tmpTable.SM.getNextStates(Row['state_id']);
-              if (nextstates.length > 0) {
-                DropDownMenu.innerHTML = '';
-                nextstates.map(state => {
-                  const btn = document.createElement('a');
-                  btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
-                  btn.setAttribute('href', 'javascript:void(0)');
-                  btn.text = state.name;
-                  btn.addEventListener("click", function(){
-                    tmpTable.setState({}, ID, state.id, function(){
-                      // Refresh relation Table
-                      t.loadRows(function(){ t.renderContent(); });
-                    });
-                    // Achtung! Table wird neu geladen!
-                  })
-                  DropDownMenu.appendChild(btn);
-                });
-              }
-            })          
-          }
-
-        })
-      }
     }
   }
   private renderFooter() {
@@ -1174,7 +1185,6 @@ class FormGenerator {
     let v = el.value || '';
 
     // Exceptions
-    if (el.field_type == 'state') return '';
     if (!el.show_in_form) return '';
     if (el.mode_form == 'hi') return '';
     if (el.mode_form == 'ro' && el.is_primary) return '';
@@ -1359,6 +1369,16 @@ class FormGenerator {
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
       result += el.value;
+    }
+    //--- State
+    else if (el.field_type == 'state') {
+      const tmpID = DB.getID();
+      setTimeout(()=>{
+        const SB = new StateButton(el.value, this.oRowID, key);
+        SB.setTable(this.oTable);
+        document.getElementById(tmpID).appendChild(SB.getElement());
+      }, 1);
+      result += `<div id="${tmpID}"></div>`;
     }
     //--- Enum
     else if (el.field_type == 'enum') {
