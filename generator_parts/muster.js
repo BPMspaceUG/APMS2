@@ -98,9 +98,10 @@ DB.getID = function () {
     function chr4() { return Math.random().toString(16).slice(-4); }
     return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
 };
-DB.setState = (callback, tablename, rowID, targetStateID = null, colname = 'state_id') => {
+DB.setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id') => {
     const t = new Table(tablename);
     const data = { table: tablename, row: {} };
+    data.row = rowData;
     data.row[t.getPrimaryColname()] = rowID;
     if (targetStateID)
         data.row[colname] = targetStateID;
@@ -353,13 +354,6 @@ class RawTable {
         data[this.PriColname] = RowID;
         DB.request('update', { table: this.tablename, row: new_data }, r => { callback(r); });
     }
-    transitRow(RowID, TargetStateID = null, trans_data = {}, callback) {
-        let data = trans_data;
-        data[this.PriColname] = RowID;
-        if (TargetStateID)
-            data['state_id'] = TargetStateID;
-        DB.request('makeTransition', { table: this.tablename, row: data }, r => { callback(r); });
-    }
     loadRow(RowID, callback) {
         let data = { table: this.tablename, limit: 1, filter: {} };
         data.filter = '{"=": ["' + this.PriColname + '", ' + RowID + ']}';
@@ -465,7 +459,7 @@ class StateButton {
                             DB.setState(resp => {
                                 if (this._callbackStateChange)
                                     this._callbackStateChange(resp);
-                            }, this._table.getTablename(), this._rowID, state.id, this._stateCol);
+                            }, this._table.getTablename(), this._rowID, {}, state.id, this._stateCol);
                             list.classList.remove('show');
                         });
                         list.appendChild(btn);
@@ -872,9 +866,11 @@ class Table extends RawTable {
                         `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
-            sortedColumnNames.forEach(function (col) {
+            sortedColumnNames.forEach(col => {
                 if (t.Columns[col].show_in_grid) {
-                    data_string += '<td ' + (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '') + '>' + t.renderCell(row, col) + '</td>';
+                    data_string += '<td ' + (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '') + '>' +
+                        t.renderCell(row, col) +
+                        '</td>';
                 }
             });
             if (t.GUIOptions.showControlColumn) {
@@ -1032,6 +1028,8 @@ class FormGenerator {
     getElement(key, el) {
         let result = '';
         let v = el.value || '';
+        if (el.value === 0)
+            v = 0;
         if (!el.show_in_form)
             return '';
         if (el.mode_form == 'hi')
@@ -1043,8 +1041,14 @@ class FormGenerator {
             result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
         }
         else if (el.field_type == 'text') {
-            result += `<input name="${key}" type="text" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+            result += `<input
+        name="${key}"
+        type="text"
+        id="inp_${key}"
+        ${el.maxlength ? 'maxlength="' + el.maxlength + '"' : ''}
+        class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
+        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}
+      />`;
         }
         else if (el.field_type == 'number') {
             result += `<input name="${key}" type="number" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
@@ -1087,8 +1091,8 @@ class FormGenerator {
                 for (const colname of colnames) {
                     const pattern = '%' + colname + '%';
                     if (el.customfilter.indexOf(pattern) >= 0) {
-                        const dyn_val = rd[colname].value;
-                        el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), dyn_val);
+                        const firstCol = Object.keys(rd[colname].value)[0];
+                        el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
                     }
                 }
                 el.customfilter = decodeURI(el.customfilter);
@@ -1124,8 +1128,9 @@ class FormGenerator {
             tmpTable.loadRows(rows => {
                 if (rows["count"] == 0) {
                     document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
-            <span class="mr-3">No Entries found</span>
-            <a class="btn btn-sm btn-success" href="${location.hash + '/' + tmpTable.getTablename() + '/create'}">Create</a></p>`;
+            <span class="mr-3">No Entries found</span>${tmpTable.ReadOnly ? '' :
+                        '<a class="btn btn-sm btn-success" href="' + location.hash + '/' + tmpTable.getTablename() + '/create">Create</a>'}
+          </p>`;
                 }
                 else {
                     tmpTable.renderHTML(randID);
@@ -1207,9 +1212,9 @@ class FormGenerator {
         <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
       </div>`;
         }
-        return `<div class="form-group row">
+        return `<div ${''} class="formBlock ${el.customclass ? el.customclass : 'col-12'}"><div class="row">
       ${form_label ? form_label + '<div class="col-md-9 col-lg-10 align-middle">' + result + '</div>' : '<div class="col-12">' + result + '</div>'}
-    </div>`;
+      </div></div>`;
     }
     getValues() {
         let result = {};
@@ -1251,9 +1256,9 @@ class FormGenerator {
         return result;
     }
     getHTML() {
-        let html = `<form id="${this.GUID}">`;
+        let html = `<form class="row" id="${this.GUID}">`;
         const data = this.data;
-        const sortedKeys = Object.keys(data).sort(function (x, y) {
+        const sortedKeys = Object.keys(data).sort((x, y) => {
             const a = data[x].orderF ? parseInt(data[x].orderF) : 0;
             const b = data[y].orderF ? parseInt(data[y].orderF) : 0;
             return a < b ? -1 : (a > b ? 1 : 0);

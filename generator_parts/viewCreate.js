@@ -22,12 +22,33 @@ export default (props) => {
 
   //--- Set Title  
   window.document.title = textCommand + ' ' + t.getTableAlias();
+
   //--- Mark actual Link
   const links = document.querySelectorAll('#sidebar-links .list-group-item');
   links.forEach(link => {
     link.classList.remove('active');
     if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
   });
+
+  function setFormState(allDisabled) {
+    // Btn
+    const btn = document.getElementsByClassName('btnCreate')[0];
+    if (allDisabled) {
+      btn.setAttribute('disabled', 'disabled');
+      const loader = document.createElement('span');
+      loader.classList.add('spinner-border', 'spinner-border-sm', 'mr-1');
+      btn.prepend(loader);
+    } else {
+      btn.removeAttribute('disabled');
+      btn.innerHTML = textCommand;
+    }
+    // Form
+    const els = document.getElementsByClassName('rwInput');
+    for (const el of els) {
+      allDisabled ? el.setAttribute('disabled', 'disabled') : el.removeAttribute('disabled');
+    }
+  }
+
 
   //===================================================================
   // Generate HTML from Form
@@ -44,7 +65,6 @@ export default (props) => {
     if (newObj[key].field_type == 'reversefk')
       newObj[key].mode_form = 'hi';
   }
-
 
   //=> Case 3
   // is add Relation and Coming from an Object? => then preselect object
@@ -124,7 +144,6 @@ export default (props) => {
     return fCreate.getHTML();
   }
   function redirect(toPath) {
-    //console.log("--->", toPath);
     document.location.assign(toPath);
   }
 
@@ -147,10 +166,12 @@ export default (props) => {
     for (const btn of btns) {
       btn.addEventListener('click', e => {
         e.preventDefault();
+        setFormState(true);
         // Read out all input fields with {key:value}
         let data = fCreate.getValues();
         //---> CREATE
         t.createRow(data, resp => {
+          setFormState(false);
           //===> Show Messages
           let counter = 0; // 0 = trans, 1 = in -- but only at Create!
           resp.forEach(msg => {
@@ -324,7 +345,7 @@ export default (props) => {
     <div class="my-3" id="formcreate">${getActualFormContent()}</div>
     <hr>
     <div class="text-center pb-3">
-      <a class="btn btn-success btnCreate" href="#/">${textCommand}</a>
+      <button class="btn btn-success btnCreate">${textCommand}</button>
       <span class="mx-3 text-muted">or</span>
       <span><a class="btn btn-light" href="${backPath}">Back</a></span>
     </div>

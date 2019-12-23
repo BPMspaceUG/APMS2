@@ -105,9 +105,10 @@ abstract class DB {
     function chr4(){ return Math.random().toString(16).slice(-4); }
     return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
   };
-  public static setState = (callback, tablename, rowID, targetStateID = null, colname = 'state_id') => {
+  public static setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id') => {
     const t = new Table(tablename);
     const data = {table: tablename, row: {}};
+    data.row = rowData;
     data.row[t.getPrimaryColname()] = rowID;
     if (targetStateID)
       data.row[colname] = targetStateID;
@@ -399,12 +400,14 @@ class RawTable {
     data[this.PriColname] = RowID
     DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); })
   }
+  /*
   public transitRow(RowID: number, TargetStateID: number = null, trans_data: any = {}, callback) {
     let data = trans_data;
     data[this.PriColname] = RowID; // PrimaryColID is the minimum Parameters which have to be set
     if (TargetStateID) data['state_id'] = TargetStateID;
     DB.request('makeTransition', {table: this.tablename, row: data}, r => { callback(r); })
   }
+  */
   public loadRow(RowID: number, callback) {
     let data = {table: this.tablename, limit: 1, filter: {}};
     data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
@@ -523,6 +526,8 @@ class StateButton {
           btn.innerText = state.name;
           btn.addEventListener("click", e => {
             e.preventDefault();
+            //console.log("---transition--->");
+            // setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id')
             DB.setState(resp => {
               // State was set
               //console.log(resp);
@@ -530,7 +535,7 @@ class StateButton {
               if (this._callbackStateChange)
                 this._callbackStateChange(resp);
             },
-            this._table.getTablename(), this._rowID, state.id, this._stateCol);
+            this._table.getTablename(), this._rowID, {}, state.id, this._stateCol);
             list.classList.remove('show');
           });
           list.appendChild(btn);
@@ -770,7 +775,6 @@ class Table extends RawTable {
       // Add Edit Button Prefix -> Only if is not ReadOnly
       if (fTbl && !fTbl.ReadOnly) {
         rowID = firstEl[Object.keys(firstEl)[0]];
-        //console.log(rowID)
         if (rowID) {
           const path = location.hash.split('/');
           path.shift(); // remove first element: #
@@ -785,6 +789,10 @@ class Table extends RawTable {
     // Cell is no String and no Object   
     return escapeHtml(cellContent);
   }
+
+
+
+
   // TODO: Make inputs like (col, val)
   public renderCell(row: any, col: string): string {
     let t = this;
@@ -846,8 +854,12 @@ class Table extends RawTable {
     }
     else if (t.Columns[col].field_type == 'state') {
       //--- Normal State-Buttons in normal Tables
-      // TODO: Find the RowID when state is from a foreign key
       const RowID = row[t.getPrimaryColname()];
+      /*
+      if (!RowID)
+        console.log("xxxx", row, col);
+      */
+      // TODO: Find the RowID when state is from a foreign key
       const SB = new StateButton(value, RowID, col);
       SB.setTable(t);
       SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
@@ -880,6 +892,10 @@ class Table extends RawTable {
     value = t.formatCell(col, value, isHTML, row[t.getPrimaryColname()]);
     return value;
   }
+
+
+
+
   private htmlHeaders(colnames) {
     let t = this;
     let th = '';
@@ -969,6 +985,7 @@ class Table extends RawTable {
     let t = this
     let tds: string = '';
     const pcname = t.getPrimaryColname();
+
     // Order Headers by col_order
     function compare(a, b) {
       a = parseInt(t.Columns[a].col_order);
@@ -977,6 +994,7 @@ class Table extends RawTable {
     }
     const sortedColumnNames = Object.keys(t.Columns).sort(compare);
     const ths = t.htmlHeaders(sortedColumnNames);
+
     // Loop Rows
     t.Rows.forEach(function(row){
       const RowID: number = row[pcname];
@@ -1003,10 +1021,12 @@ class Table extends RawTable {
         </td>`;
       }
       // Generate HTML for Table-Data Cells sorted
-      sortedColumnNames.forEach(function(col) {
+      sortedColumnNames.forEach(col => {
         // Check if it is displayed
         if (t.Columns[col].show_in_grid) {
-          data_string += '<td '+ (t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '') +'>' + t.renderCell(row, col) + '</td>';
+          data_string += '<td '+(t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '')+'>'+
+            t.renderCell(row, col)+
+            '</td>';
         }
       })
       //--------------------------------- ROW
@@ -1059,7 +1079,7 @@ class Table extends RawTable {
 
     // special cases
     if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
-      return `<div class="tbl_footer"></div>`;     
+      return `<div class="tbl_footer"></div>`;
     if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
       return `<div class="tbl_footer"></div>`;
 
@@ -1195,6 +1215,7 @@ class FormGenerator {
   private getElement(key: string, el): string {
     let result: string = '';
     let v = el.value || '';
+    if (el.value === 0) v = 0;
 
     // Exceptions
     if (!el.show_in_form) return '';
@@ -1209,8 +1230,14 @@ class FormGenerator {
     }
     //--- Text
     else if (el.field_type == 'text') {
-      result += `<input name="${key}" type="text" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+      result += `<input
+        name="${key}"
+        type="text"
+        id="inp_${key}"
+        ${el.maxlength ? 'maxlength="'+el.maxlength+'"' : ''}
+        class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
+        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}
+      />`;
     }
     //--- Number
     else if (el.field_type == 'number') {
@@ -1264,14 +1291,14 @@ class FormGenerator {
         for (const colname of colnames) {
           const pattern = '%'+colname+'%';
           if (el.customfilter.indexOf(pattern) >= 0) {
-            const dyn_val = rd[colname].value;
+            //const dyn_val = rd[colname].value;
             //console.log(dyn_val);
             // Special:
-            //const firstCol = Object.keys(rd[colname].value)[0];
+            const firstCol = Object.keys(rd[colname].value)[0];
             //console.log(rd, firstCol, colname );
-            //el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
             //------ new:
-            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), dyn_val);
+            //el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), dyn_val);
           }
         }
         el.customfilter = decodeURI(el.customfilter);
@@ -1326,8 +1353,10 @@ class FormGenerator {
         if (rows["count"] == 0) {
           // If no entries, then offer to Create a new one
           document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
-            <span class="mr-3">No Entries found</span>
-            <a class="btn btn-sm btn-success" href="${location.hash+'/'+tmpTable.getTablename()+'/create'}">Create</a></p>`;
+            <span class="mr-3">No Entries found</span>${ tmpTable.ReadOnly ? '' : 
+              '<a class="btn btn-sm btn-success" href="'+location.hash+'/'+tmpTable.getTablename()+'/create">Create</a>'
+            }
+          </p>`;
         } else {
           tmpTable.renderHTML(randID);
         }
@@ -1421,9 +1450,9 @@ class FormGenerator {
       </div>`;
     }
     // ===> HTML Output
-    return `<div class="form-group row">
+  return `<div ${/*class="form-group row"*/''} class="formBlock ${el.customclass ? el.customclass : 'col-12'}"><div class="row">
       ${form_label ? form_label + '<div class="col-md-9 col-lg-10 align-middle">'+result+'</div>' : '<div class="col-12">'+result+'</div>'}
-    </div>`;
+      </div></div>`;
   }
   public getValues() {
     let result = {};
@@ -1475,10 +1504,10 @@ class FormGenerator {
     return result;
   }
   public getHTML(){
-    let html: string = `<form id="${this.GUID}">`;
+    let html: string = `<form class="row" id="${this.GUID}">`;
     const data = this.data;
     // Order by data[key].orderF
-    const sortedKeys = Object.keys(data).sort(function(x,y){
+    const sortedKeys = Object.keys(data).sort((x,y) => {
       const a = data[x].orderF ? parseInt(data[x].orderF) : 0;
       const b = data[y].orderF ? parseInt(data[y].orderF) : 0;
       return a < b ? -1 : (a > b ? 1 : 0);

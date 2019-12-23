@@ -31,7 +31,25 @@ export default (props) => {
       }
     }
   }
-  
+  function setFormState(allDisabled, btn, textCommand) {
+    // Btn
+    //const btn = document.getElementsByClassName('btn')[0];
+    if (allDisabled) {
+      btn.setAttribute('disabled', 'disabled');
+      const loader = document.createElement('span');
+      loader.classList.add('spinner-border', 'spinner-border-sm', 'mr-1');
+      btn.prepend(loader);
+    } else {
+      btn.removeAttribute('disabled');
+      btn.innerHTML = textCommand;
+    }
+    // Form
+    const els = document.getElementsByClassName('rwInput');
+    for (const el of els) {
+      allDisabled ? el.setAttribute('disabled', 'disabled') : el.removeAttribute('disabled');
+    }
+  }
+
   // Get Row by ID
   function initForm() {
     // 1. Read existing Element (Obj or Rel)
@@ -56,7 +74,6 @@ export default (props) => {
         //=======================================
         // RELATION
         //=======================================
-        //console.log("Relation Table");
         if (t.SM) {
           // get Free Edges
           const data = {view: "_edges", filter: {}};
@@ -65,20 +82,16 @@ export default (props) => {
           DB.request('read', data, resp => {
             //---- Get all free Edges
             const freeEdges = resp.records[t.getTablename()];
-            //console.log(freeEdges);
             const freeObjIDs = [];
             Object.keys(freeEdges).forEach(feID => {
               const ObjID = freeEdges[feID][1].ObjectID;
               freeObjIDs.push(ObjID);
             });
-            //console.log(freeObjIDs);
             // Set existing values from Row
             let count = 0;          
             for (const key of Object.keys(row)) {
-              //console.log(key)
               newObj[key].value = row[key];
               if (count === 2) {
-                //console.log(newObj[key].foreignKey.col_id)
                 newObj[key].customfilter = '{"in":["'+ newObj[key].foreignKey.col_id +'","'+freeObjIDs.join(',')+'"]}';
               }
               count++;
@@ -103,7 +116,6 @@ export default (props) => {
         //=======================================
         // OBJECT
         //=======================================
-        //console.log("This is an Object!");
         //- Set existing values from Row
         for (const key of Object.keys(row))
           newObj[key].value = row[key];
@@ -113,7 +125,6 @@ export default (props) => {
         x();
         focusFirstElement();
       }
-
 
       //-----------------------------------------------
       function x() {
@@ -137,54 +148,27 @@ export default (props) => {
             for (const state of nextstates) {
               //-- Create State-Button
               const btn = document.createElement('a');
-              btn.setAttribute('href', '#/');
+              btn.setAttribute('href', 'javascript:void(0);');
               //-- Click-Event
               btn.addEventListener('click', e => {
                 e.preventDefault();
-                //console.log("makeTransition -->");
-                const newRowData = newForm.getValues();
+                const btnText = btn.innerHTML;
+                setFormState(true, btn);
                 //------------------------------------
                 // => TRANSITION (with Statemachine)
                 //------------------------------------
-                t.transitRow(actRowID, state.id, newRowData, resp => {
-                  if (resp.error) {
-                    console.error(resp.error.msg);
-                    return;
-                  }
-                  t.onEntriesModified.trigger(); // TODO: Remove, => put inside Class
-                  // Handle Transition Feedback
-                  let count = 0;
-                  const messages = [];
-                  resp.forEach(msg => {
-                    if (msg.show_message)
-                    messages.push({type: count, text: msg.message}); // for GUI
-                    count++;
-                  });            
-                  // Show all Script-Result Messages
-                  if (messages.length > 0) {
-                    messages.reverse(); // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
-                    const htmlStateFrom = SB.getElement().outerHTML;
-                    const htmlStateTo = t.renderStateButton(state.id, false);
-                    for (const m of messages) {
-                      let title = '';
-                      if (m.type == 0) title = `OUT <span class="text-muted ml-2">${htmlStateFrom} &rarr;</span>`;
-                      if (m.type == 1) title = `Transition <span class="text-muted ml-2">${htmlStateFrom} &rarr; ${htmlStateTo}</span>`;
-                      if (m.type == 2) title = `IN <span class="text-muted ml-2">&rarr; ${htmlStateTo}</span>`;
-                      // Render a new Modal
-                      const resM = new Modal(title, m.text); // Display relevant MsgBoxes
-                      resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
-                      resM.show();
-                    }
-                  }
-                  // Successful Transition => Refresh Form
-                  if (count === 3) initForm();
-
-                });
+                const newRowData = newForm.getValues();
+                DB.setState(resp => {
+                  setFormState(false, btn, btnText);
+                  // Successful Transition => Refresh the Form
+                  if (resp.length === 3) initForm();
+                },
+                t.getTablename(), actRowID, newRowData, state.id);
               });
               //-- SpecialCase: Save Button
               if (actStateID === state.id) {
                 // Save Button
-                btn.setAttribute('class', 'btn btn-primary trans'+actStateID+'-'+state.id);
+                btn.setAttribute('class', 'btn btn-primary transSave trans'+actStateID+'-'+state.id);
                 btn.innerText = "Save";
                 document.getElementById('saveBtns').appendChild(btn);
               }
@@ -201,7 +185,6 @@ export default (props) => {
         }
       }
       //-----------------------------------------------
-
     });
   }
   initForm();
