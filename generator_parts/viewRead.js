@@ -21,7 +21,7 @@ export default (props) => {
   //--- Set Title
   window.document.title = t.getTableAlias();
 
-  //--- Mark actual Link  
+  //--- Mark actual Link
   links.forEach(link => {
     link.classList.remove('active');
     if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
