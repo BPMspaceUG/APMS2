@@ -7,7 +7,11 @@ export default (props) => {
   // Get actual Table & ID (last)
   const actTable = path[path.length - 2];
   const t = new Table(actTable);
+
+  // Texts
   const textCommand = t.TableType !== 'obj' ? 'Relate' : 'Create';
+  const textCancel = 'Cancel';
+
   let fCreate = null;
 
   // Legend:
@@ -56,7 +60,7 @@ export default (props) => {
   // Overwrite and merge the differences from diffForm
   const defaultForm = t.getDefaultFormObject();
   const diffForm = t.getDiffFormCreate();
-  const newObj = mergeDeep({}, defaultForm, diffForm);
+  const newObj = DB.mergeDeep({}, defaultForm, diffForm);
 
   //--------------------------------------------------------
   // TODO: Possible Now!
@@ -143,9 +147,7 @@ export default (props) => {
     fCreate = new FormGenerator(t, undefined, newObj, null);
     return fCreate.getHTML();
   }
-  function redirect(toPath) {
-    document.location.assign(toPath);
-  }
+  function redirect(toPath) { document.location.assign(toPath); }
 
   //---------------------------------------------------
   // After HTML is placed in DOM
@@ -181,12 +183,13 @@ export default (props) => {
               SB.setTable(t);
               const stateTo = SB.getElement().outerHTML;
               const tmplTitle = 
-                counter === 0 ? `Transition <span class="text-muted ml-2">Create &rarr; ${stateTo}</span>` :
-                counter === 1 ? `IN <span class="text-muted ml-2">&rarr; ${stateTo}</span>` :
+                counter === 0 ? `<span class="text-muted">Create &rarr; ${stateTo}</span>` :
+                counter === 1 ? `<span class="text-muted">&rarr; ${stateTo}</span>` :
                 '';
-              const resM = new Modal(tmplTitle, msg.message);
-              resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
-              resM.show();
+              // Render a Modal
+              document.getElementById('myModalTitle').innerHTML = tmplTitle;
+              document.getElementById('myModalContent').innerHTML = msg.message;
+              $('#myModal').modal({});
             }
           });
           //===> Element was created!!!
@@ -336,18 +339,15 @@ export default (props) => {
   }
   //------------------------------------------------------------
 
-
-
   // ===> OUTPUT
   return `<div>
     <h2>${guiFullPath}</h2>
     <hr>
-    <div class="my-3" id="formcreate">${getActualFormContent()}</div>
-    <hr>
+    <div class="container-fluid my-3" id="formcreate">${getActualFormContent()}</div>
     <div class="text-center pb-3">
       <button class="btn btn-success btnCreate">${textCommand}</button>
-      <span class="mx-3 text-muted">or</span>
-      <span><a class="btn btn-light" href="${backPath}">Back</a></span>
+      <span class="mx-3 text-muted"></span>
+      <span><a class="btn btn-light" href="${backPath}">${textCancel}</a></span>
     </div>
   </div>`;
 }

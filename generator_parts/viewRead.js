@@ -1,5 +1,4 @@
 export default (props) => {
-
   // Debouncing Event for RT-Search
   function debounced(delay, fn) {
     let timerId;
@@ -8,40 +7,50 @@ export default (props) => {
       timerId = setTimeout(() => { fn(...args); timerId = null; }, delay);
     }
   }
-
-  const t = new Table(props.table);
-  //--- Set Title
-  window.document.title = t.getTableAlias();
-  //--- Mark actual Link
-  const links = document.querySelectorAll('#sidebar-links .list-group-item');
-  links.forEach(link => {
-    link.classList.remove('active');
-    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
-  });
-  const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
-
-  if (t.Config.is_virtual)
-    return eval('(function() {' + t.Config.virtualcontent + '}())') || '';
-
-  const displayRows = function(t) {
+  function displayRows(t) {
     if (t.actRowCount === 0) {
       document.getElementById('searchBox').outerHTML = '<span class="text-muted mr-3">No Entries</span>';
     } else
       t.renderHTML('tablecontent');
   }
+
+  const t = new Table(props.table);
+  const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+
+  //--- Set Title
+  window.document.title = t.getTableAlias();
+
+  //--- Mark actual Link  
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
+  });  
+
+  // Execute Javascript if its a virtual Page (i.e. Dashboard)
+  if (t.Config.is_virtual)
+    return eval('(function() {' + t.Config.virtualcontent + '}())') || '';
+
   // Load Rows
   t.loadRows(() => displayRows(t));
 
   //----------------------------
   // Execute this Code after rending DOM
   setTimeout(() => {
-    // Bind Events to Searchbox for Realtime Search
     const searchBox = document.getElementById('searchBox');
-    const dHandler = debounced(200, () => {
+    //--- Bind Events to Searchbox for Realtime Search
+    const dHandler = debounced(250, () => {
       t.setSearch(searchBox.value); // Set Filter
       t.loadRows(() => t.renderHTML('tablecontent'));
     });
     searchBox.addEventListener("input", dHandler);
+    //--- FOCUS SearchBox
+    const elemLen = searchBox.value.length;
+    if (searchBox.selectionStart || searchBox.selectionStart == '0') {
+      searchBox.selectionStart = elemLen;
+      searchBox.selectionEnd = elemLen;
+      searchBox.focus();
+    }
   }, 10);
   //----------------------------
 

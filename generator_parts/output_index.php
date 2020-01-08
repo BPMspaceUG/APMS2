@@ -7,11 +7,11 @@
     exit();
   }
   else if (isset($_GET['emails'])) {
-    // Redirect to Manage E-Mails
+    header('Location: ' . URL_MANAGEPROFILE);
     exit();
   }
   else if (isset($_GET['changepw'])) {
-    // Redirect to Change Password
+    header('Location: ' . URL_CHANGEPW);
     exit();
   }
   

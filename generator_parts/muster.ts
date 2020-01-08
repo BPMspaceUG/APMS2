@@ -1,9 +1,13 @@
 // Plugins (only declared to remove TS Errors)
-declare var vis: any, Quill: any; // Plugins
+declare var vis: any, Quill: any, $: any; // Plugins
+
 // Enums
 enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
 enum SelectType {NoSelect = 0, Single = 1, Multi = 2}
 enum TableType {obj = 'obj', t1_1 = '1_1', t1_n = '1_n', tn_1 = 'n_1', tn_m = 'n_m'}
+
+
+// TODO: Remove this crap :O
 // Events
 // see here: https://stackoverflow.com/questions/12881212/does-typescript-support-events-on-classes
 interface ILiteEvent<T> {
@@ -12,27 +16,22 @@ interface ILiteEvent<T> {
 }
 class LiteEvent<T> implements ILiteEvent<T> {
   private handlers: { (data?: T): void; }[] = [];
-
-  public on(handler: { (data?: T): void }) : void {
-      this.handlers.push(handler);
-  }
-  public off(handler: { (data?: T): void }) : void {
-      this.handlers = this.handlers.filter(h => h !== handler);
-  }
-  public trigger(data?: T) {
-      this.handlers.slice(0).forEach(h => h(data));
-  }
-  public expose() : ILiteEvent<T> {
-    return this;
-  }
+  public on(handler: { (data?: T): void }) : void { this.handlers.push(handler); }
+  public off(handler: { (data?: T): void }) : void { this.handlers = this.handlers.filter(h => h !== handler); }
+  public trigger(data?: T) { this.handlers.slice(0).forEach(h => h(data)); }
+  public expose() : ILiteEvent<T> { return this; }
 }
+
+
 //==============================================================
-// Database (Communication via API) !JQ
+// Database (Communication via API)
 //==============================================================
+// TODO: Rename this class to API, Controller or Main... Should be the main class, which controlls everything
 abstract class DB {
+  // Variables
   private static API_URL: string = 'api.php';
   public static Config: any;
-
+  // Methods
   public static request(command: string, params: any, callback) {
     let me = this;
     let data = {cmd: command};
@@ -56,7 +55,7 @@ abstract class DB {
       HTTPMethod = 'GET';
       const getParamStr = Object.keys(params).map(key => { 
         const val = params[key];
-        return key + '=' + (isObject(val) ? JSON.stringify(val) : val);
+        return key + '=' + (DB.isObject(val) ? JSON.stringify(val) : val);
       }).join('&');
       url += '?' + getParamStr;
     }
@@ -71,7 +70,6 @@ abstract class DB {
         data['param']['path'] = location.hash; // Send path within body
       HTTPBody = JSON.stringify(data);
     }
-
     // Request (every Request is processed by this function)
     fetch(url, {
       method: HTTPMethod,
@@ -101,10 +99,6 @@ abstract class DB {
       callback(config);
     });
   }
-  public static getID = function () {
-    function chr4(){ return Math.random().toString(16).slice(-4); }
-    return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
-  };
   public static setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id') => {
     const t = new Table(tablename);
     const data = {table: tablename, row: {}};
@@ -114,7 +108,6 @@ abstract class DB {
       data.row[colname] = targetStateID;
     DB.request('makeTransition', data, resp => {
       callback(resp);
-
       //----------------------------------------
       // Handle Transition Feedback
       let counter: number = 0;
@@ -127,106 +120,71 @@ abstract class DB {
       // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
       messages.reverse();
       // Show all Script-Result Messages
-      const btnFrom = new StateButton(targetStateID); // actStateID
+      const btnFrom = new StateButton(targetStateID); // TODO: actStateID !!
       const btnTo = new StateButton(targetStateID);
       btnFrom.setTable(t);
       btnTo.setTable(t);
       for (const msg of messages) {
-        let title = '';
-        if (msg.type == 0) title = `OUT <span class="text-muted ml-2">${btnFrom.getElement().outerHTML} &rarr;</span>`;
-        if (msg.type == 1) title = `Transition <span class="text-muted ml-2">${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}</span>`;
-        if (msg.type == 2) title = `IN <span class="text-muted ml-2">&rarr; ${btnTo.getElement().outerHTML}</span>`;
-        // Render a new Modal
-        const resM = new Modal(title, msg.text); // Display relevant MsgBoxes
-        //resM.options.btnTextClose = t.GUIOptions.modalButtonTextModifyClose;
-        resM.show();
+        let title = '<small class="text-muted">';
+        if (msg.type == 0) title += `${btnFrom.getElement().outerHTML} &rarr;`;
+        if (msg.type == 1) title += `${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}`;
+        if (msg.type == 2) title += `&rarr; ${btnTo.getElement().outerHTML}`;
+        title += '</small>';
+        // Render a Modal
+        document.getElementById('myModalTitle').innerHTML = title;
+        document.getElementById('myModalContent').innerHTML = msg.text;
+        $('#myModal').modal({});
       }
       //----------------------------------------
-
     });
   }
-}
-
-class Modal {
-  private DOM_ID: string;
-  private heading: string;
-  private content: string;
-  private footer: string;
-  private isBig: boolean;
-  public options = {
-    btnTextClose: 'Close'
+  public static escapeHtml(string: string): string {
+    const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
+    return String(string).replace(/[&<>"'`=\/]/g, s => entityMap[s]);
   }
-
-  public constructor(heading: string, content: string, footer: string = '', isBig: boolean = false) {
-    this.DOM_ID = DB.getID()
-    // Set Params
-    this.heading = heading;
-    this.content = content;
-    this.footer = footer;
-    this.isBig = isBig;
-    var self = this;
-
-    // Render and add to DOM-Tree
-    let sizeType = '';
-    if (this.isBig) sizeType = ' modal-xl';
-    // Result
-    let html = `<div id="${this.DOM_ID}" class="modal fade" tabindex="-1" role="dialog">
-      <div class="modal-dialog${sizeType}">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title w-75">${this.heading}</h5>
-            <button type="button" class="close closeButton" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            ${this.content}
-          </div>
-          <div class="modal-footer">
-            <span class="customfooter d-flex">${this.footer}</span>
-            <button type="button" class="btn btn-light closeButton" data-dismiss="modal">
-              ${this.options.btnTextClose}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>`;
-    
-    // Add generated HTML to DOM
-    let body = document.getElementsByTagName('body')[0];
-    let modal = document.createElement('div');
-    modal.innerHTML = html;
-    body.appendChild(modal);
-    
-    let closeBtns = document.getElementById(this.DOM_ID).getElementsByClassName('closeButton');
-    for (let closeBtn of closeBtns) {
-      closeBtn.addEventListener("click", function(){
-        self.close();
-      });
+  public static isObject(item) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+  }
+  public static mergeDeep(target, ...sources) {
+    if (!sources.length) return target;
+    const source = sources.shift();
+    if (this.isObject(target) && this.isObject(source)) {    
+      for (const key in source) {
+        if (this.isObject(source[key])) {
+          if (!target[key]) { 
+            Object.assign(target, { [key]: {} });
+          }else{          
+            target[key] = Object.assign({}, target[key])
+          }
+          this.mergeDeep(target[key], source[key]);
+        } else {
+          Object.assign(target, { [key]: source[key] });
+        }
+      }
+    }
+    return this.mergeDeep(target, ...sources);
+  }
+  public static recflattenObj(x) {
+    if (this.isObject(x)) {
+      let res = Object.keys(x).map(
+        e => { return this.isObject(x[e]) ? this.recflattenObj(x[e]) : x[e]; }
+      );
+      return res;
     }
   }
-  public setHeader(html: string) {
-    document.getElementById(this.DOM_ID).getElementsByClassName('modal-title')[0].innerHTML = html;
-  }
-  public setFooter(html: string) {
-    document.getElementById(this.DOM_ID).getElementsByClassName('customfooter')[0].innerHTML = html;
-  }
-  public setContent(html: string) {
-    document.getElementById(this.DOM_ID).getElementsByClassName('modal-body')[0].innerHTML = html;
-  }
-  public show(): void {  
-    let modal = document.getElementById(this.DOM_ID);
-    modal.classList.add('show');
-    modal.style.display = 'block';
-  }
-  public close(): void {
-    document.getElementById(this.DOM_ID).parentElement.remove();
-  }
-  public getDOMID(): string {
-    return this.DOM_ID;
-  }
+  // TODO: Remove the random ID generation because of Selenium!!! and use DOM-Create-Element instead!
+  public static getID = function() {
+    function chr4(){ return Math.random().toString(16).slice(-4); }
+    return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
+  };
 }
 
+
+//==============================================================
+// Class: Statemachine
+//==============================================================
+// TODO: A Statemachine should be independent from a table...
+// a table can have 0, 1 or even more statemachines (the link/settings for this should be in the json-config)
 class StateMachine {
   private myTable: Table;
   private myStates: any;
@@ -366,94 +324,6 @@ class StateMachine {
     return name;
   }
 }
-
-class RawTable {
-  private tablename: string;
-  private Sort: string = '';
-  private Search: string = '';
-  private Filter: string;
-  private PriColname: string = '';
-  private Config: any;
-  protected actRowCount: number; // Count total
-  protected Rows: any;
-  protected PageLimit: number = 10;
-  protected PageIndex: number = 0;
-  public Columns: any;
-  public ReadOnly: boolean;
-
-  constructor (tablename: string) {
-    const t = this;
-    t.actRowCount = 0;
-    t.tablename = tablename;
-    t.Config = JSON.parse(JSON.stringify(DB.Config.tables[tablename])); // Deep Copy!
-    t.Columns = t.Config.columns;
-    for (const colname of Object.keys(t.Columns)) {
-      if (t.Columns[colname].is_primary) {t.PriColname = colname; return; }
-    }
-    t.resetFilter();
-  }
-  public createRow(data: any, callback) {
-    DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });
-  }
-  public updateRow(RowID: number, new_data: any, callback) {
-    let data = new_data
-    data[this.PriColname] = RowID
-    DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); })
-  }
-  /*
-  public transitRow(RowID: number, TargetStateID: number = null, trans_data: any = {}, callback) {
-    let data = trans_data;
-    data[this.PriColname] = RowID; // PrimaryColID is the minimum Parameters which have to be set
-    if (TargetStateID) data['state_id'] = TargetStateID;
-    DB.request('makeTransition', {table: this.tablename, row: data}, r => { callback(r); })
-  }
-  */
-  public loadRow(RowID: number, callback) {
-    let data = {table: this.tablename, limit: 1, filter: {}};
-    data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
-    // HTTP Request
-    DB.request('read', data, r => { const row = r.records[0]; callback(row); });
-  }
-  public loadRows(callback) {
-    let me = this;
-    let data = {table: me.tablename, sort: me.Sort}
-    if (me.Filter && me.Filter !== '') data['filter'] = me.Filter;
-    if (me.Search && me.Search !== '') data['search'] = me.Search;
-    const offset = me.PageIndex * me.PageLimit;
-    if (me.PageLimit && me.PageLimit) data['limit'] =  me.PageLimit + (offset == 0 ? '' : ',' + offset);
-    // HTTP Request
-    DB.request('read', data, r => { me.Rows = r.records; me.actRowCount = r.count; callback(r); })
-  }
-  //---------------------------
-  public getNrOfRows(): number { return this.actRowCount }
-  public getTablename(): string { return this.tablename; }
-  public setSearch(searchText: string) { this.Search = searchText; }
-  public getSearch(): string { return this.Search; }
-  public getSortColname(): string { return this.Sort.split(',')[0]; }
-  public getSortDir(): string {
-    let dir = this.Sort.split(',')[1];
-    if (!dir) dir = "ASC";
-    return dir;
-  }
-  public setSort(sortStr: string) { this.Sort = sortStr; }
-  public setFilter(filterStr: string) {
-    if (filterStr && filterStr.trim().length > 0)
-      this.Filter = filterStr;
-  }
-  public setColumnFilter(columnName: string, filterText: string) {
-    this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
-  }
-  public resetFilter() { this.Filter = ''; }
-  public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
-  public getRows() { return this.Rows; }
-  public getConfig(): any { return this.Config; }
-  public getTableType(): TableType { return this.Config.table_type; }
-  public getPrimaryColname(): string { return this.PriColname; }
-  public setRows(ArrOfRows: any) { this.Rows = ArrOfRows; }
-  public getTableIcon(): string { return this.getConfig().table_icon; }
-  public getTableAlias(): string { return this.getConfig().table_alias; }
-}
-
 class StateButton {
   private _table = null;
   private _stateID = null;
@@ -549,9 +419,93 @@ class StateButton {
   }
 }
 
+
 //==============================================================
 // Class: Table
 //==============================================================
+// TODO: Merge this 2 classes into 1 nice class
+class RawTable {
+  private tablename: string;
+  private Sort: string = '';
+  private Search: string = '';
+  private Filter: string;
+  private PriColname: string = '';
+  private Config: any;
+  protected actRowCount: number; // Count total
+  protected Rows: any;
+  protected PageLimit: number = 10;
+  protected PageIndex: number = 0;
+  public Columns: any;
+  public ReadOnly: boolean;
+
+  constructor (tablename: string) {
+    const t = this;
+    t.actRowCount = 0;
+    t.tablename = tablename;
+    t.Config = JSON.parse(JSON.stringify(DB.Config.tables[tablename])); // Deep Copy!
+    t.Columns = t.Config.columns;
+    for (const colname of Object.keys(t.Columns)) {
+      if (t.Columns[colname].is_primary) {t.PriColname = colname; return; }
+    }
+    t.resetFilter();
+  }
+  public createRow(data: any, callback) {
+    DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });
+  }
+  public updateRow(RowID: number, new_data: any, callback) {
+    let data = new_data
+    data[this.PriColname] = RowID
+    DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); })
+  }
+  public loadRow(RowID: number, callback) {
+    let data = {table: this.tablename, limit: 1, filter: {}};
+    data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
+    // HTTP Request
+    DB.request('read', data, r => { const row = r.records[0]; callback(row); });
+  }
+  public loadRows(callback) {
+    let me = this;
+    let data = {table: me.tablename, sort: me.Sort}
+    if (me.Filter && me.Filter !== '') data['filter'] = me.Filter;
+    if (me.Search && me.Search !== '') data['search'] = me.Search;
+    const offset = me.PageIndex * me.PageLimit;
+    if (me.PageLimit && me.PageLimit) data['limit'] =  me.PageLimit + (offset == 0 ? '' : ',' + offset);
+    // HTTP Request
+    DB.request('read', data, r => {
+      me.actRowCount = r.count;
+      me.Rows = r.records;
+      callback(r);
+    })
+  }
+  //---------------------------
+  public getNrOfRows(): number { return this.actRowCount }
+  public getTablename(): string { return this.tablename; }
+  public setSearch(searchText: string) { this.Search = searchText; }
+  public getSearch(): string { return this.Search; }
+  public getSortColname(): string { return this.Sort.split(',')[0]; }
+  public getSortDir(): string {
+    let dir = this.Sort.split(',')[1];
+    if (!dir) dir = "ASC";
+    return dir;
+  }
+  public setSort(sortStr: string) { this.Sort = sortStr; }
+  public setFilter(filterStr: string) {
+    if (filterStr && filterStr.trim().length > 0)
+      this.Filter = filterStr;
+  }
+  public setColumnFilter(columnName: string, filterText: string) {
+    this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
+  }
+  public resetFilter() { this.Filter = ''; }
+  public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+  public getRows() { return this.Rows; }
+  public getConfig(): any { return this.Config; }
+  public getTableType(): TableType { return this.Config.table_type; }
+  public getPrimaryColname(): string { return this.PriColname; }
+  public setRows(ArrOfRows: any) { this.Rows = ArrOfRows; }
+  public getTableIcon(): string { return this.getConfig().table_icon; }
+  public getTableAlias(): string { return this.getConfig().table_alias; }
+}
 class Table extends RawTable {
   private GUID: string;
   private SM: StateMachine = null;
@@ -624,8 +578,7 @@ class Table extends RawTable {
     })
   }
   private getNrOfPages(): number {
-    const PageLimit = this.PageLimit || this.getNrOfRows();
-    return Math.ceil(this.getNrOfRows() / PageLimit);
+    return Math.ceil(this.getNrOfRows() / this.PageLimit);
   }
   private getPaginationButtons(): number[] {
     const MaxNrOfButtons: number = 5
@@ -652,11 +605,11 @@ class Table extends RawTable {
     }
     return pages
   }
-  private renderEditForm(Row: any, diffObject: any, ExistingModal: Modal = undefined) {
+  private renderEditForm(Row: any, diffObject: any, ExistingModal = undefined) {
     const t = this;
     //--- Overwrite and merge the differences from diffObject
     let defaultFormObj = t.getDefaultFormObject();
-    let newObj = mergeDeep({}, defaultFormObj, diffObject);
+    let newObj = DB.mergeDeep({}, defaultFormObj, diffObject);
     // Set default values
     for (const key of Object.keys(Row)) {
       newObj[key].value = Row[key];
@@ -686,7 +639,6 @@ class Table extends RawTable {
   public hasStateMachine() {
     return this.SM;
   }
-  //--------------------------------------------------   
   public modifyRow(id: number) {
     let t = this
     const pcname = t.getPrimaryColname();
@@ -744,7 +696,7 @@ class Table extends RawTable {
     if (typeof cellContent == 'string') {
       // String, and longer than X chars
       if (cellContent.length > this.GUIOptions.maxCellLength)
-        return escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
+        return DB.escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
     }
     else if ((typeof cellContent === "object") && (cellContent !== null)) {
       //-----------------------
@@ -762,8 +714,8 @@ class Table extends RawTable {
       // TODO: Check if Table exists in config
       cols.forEach(col => {    
         let htmlCell = col;
-        if (isObject(col)) {
-          const vals = recflattenObj(col);
+        if (DB.isObject(col)) {
+          const vals = DB.recflattenObj(col);
           let v = vals.join(' | ');
           v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
           htmlCell = v;
@@ -787,12 +739,8 @@ class Table extends RawTable {
       return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
     }
     // Cell is no String and no Object   
-    return escapeHtml(cellContent);
+    return DB.escapeHtml(cellContent);
   }
-
-
-
-
   // TODO: Make inputs like (col, val)
   public renderCell(row: any, col: string): string {
     let t = this;
@@ -892,10 +840,6 @@ class Table extends RawTable {
     value = t.formatCell(col, value, isHTML, row[t.getPrimaryColname()]);
     return value;
   }
-
-
-
-
   private htmlHeaders(colnames) {
     let t = this;
     let th = '';
@@ -1061,11 +1005,11 @@ class Table extends RawTable {
     </div>`;
   }
   private getFooter(): string {
-    let t = this;
+    const t = this;
     if (!t.Rows || t.Rows.length <= 0) return '<div class="tbl_footer"></div>';
     // Pagination
+    const PaginationButtons = t.getPaginationButtons();
     let pgntn = '';
-    let PaginationButtons = t.getPaginationButtons();
     // Only Display Buttons if more than one Button exists
     if (PaginationButtons.length > 1) {
       PaginationButtons.forEach(btnIndex => {
@@ -1076,7 +1020,6 @@ class Table extends RawTable {
         }
       })
     }
-
     // special cases
     if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
       return `<div class="tbl_footer"></div>`;
@@ -1109,17 +1052,16 @@ class Table extends RawTable {
   }
   //---------------------------------------- Render (Events etc.)
   private async renderContent() {
-    let t = this;
+    const t = this;
     const output = await t.getContent();
     const tableEl = document.getElementById(t.GUID); // Find Table-Div
     tableEl.innerHTML = output; // overwrite content    
-    //---------------------- Link jquery
     let els = null;
     // Table-Header - Sort
     els = tableEl.getElementsByClassName('datatbl_header');
     if (els) {
       for (const el of els) {
-        el.addEventListener('click', function(e){
+        el.addEventListener('click', e => {
           e.preventDefault();
           const colname = el.getAttribute('data-colname');
           t.toggleSort(colname)
@@ -1130,7 +1072,7 @@ class Table extends RawTable {
     els = tableEl.getElementsByClassName('resetTableFilter');
     if (els) {
       for (const el of els) {
-        el.addEventListener('click', function(e){
+        el.addEventListener('click', e => {
           e.preventDefault();
           t.isExpanded = true;
           t.resetFilter();
@@ -1145,7 +1087,7 @@ class Table extends RawTable {
     els = tableEl.getElementsByClassName('modRow');
     if (els) {
       for (const el of els) {
-        el.addEventListener('click', function(e){
+        el.addEventListener('click', e => {
           e.preventDefault();
           const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
           const Tablename = RowData[0];
@@ -1153,7 +1095,7 @@ class Table extends RawTable {
           if (t.getTablename() !== Tablename) {
             // External Table
             const tmpTable = new Table(Tablename);
-            tmpTable.loadRow(ID, function(Row){
+            tmpTable.loadRow(ID, Row => {
               tmpTable.setRows([Row]); // Set Rows with 1 Row
               tmpTable.modifyRow(ID);
             })
@@ -1164,14 +1106,14 @@ class Table extends RawTable {
     }
   }
   private renderFooter() {
-    let t = this;
+    const t = this;
     const parent = document.getElementById(t.GUID).parentElement;
     // Replace new HTML
     parent.getElementsByClassName('tbl_footer')[0].innerHTML = t.getFooter(); 
     // Pagination Button Events
     const btns = parent.getElementsByClassName('page-link');
     for (const btn of btns) {
-      btn.addEventListener('click', function(e){
+      btn.addEventListener('click', e => {
         e.preventDefault();
         t.setPageIndex(parseInt(btn.innerHTML) - 1);
       })
@@ -1188,16 +1130,16 @@ class Table extends RawTable {
     }
   }
   //-------------------------------------------------- EVENTS
-  public get SelectionHasChanged() {
-    return this.onSelectionChanged.expose();
-  }
-  public get EntriesHaveChanged() {
-    return this.onEntriesModified.expose();
-  }
+  public get SelectionHasChanged() { return this.onSelectionChanged.expose(); }
+  public get EntriesHaveChanged() { return this.onEntriesModified.expose(); }
 }
+
+
 //==============================================================
-// Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON) !JQ
+// Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON)
 //==============================================================
+// TODO: No HTML should be generated / returned ...
+// it should return a Single-Form-DOM-Element which can then be placed
 class FormGenerator {
   private data: any;
   private GUID: string;
@@ -1222,7 +1164,7 @@ class FormGenerator {
     if (el.mode_form == 'hi') return '';
     if (el.mode_form == 'ro' && el.is_primary) return '';
 
-    const form_label: string = el.column_alias ? `<label class="col-md-3 col-lg-2 col-form-label" for="inp_${key}">${el.column_alias}</label>` : null;
+    const form_label = el.column_alias ? `<label for="inp_${key}">${el.column_alias}</label>` : null;
 
     //--- Textarea
     if (el.field_type == 'textarea') {
@@ -1236,7 +1178,7 @@ class FormGenerator {
         id="inp_${key}"
         ${el.maxlength ? 'maxlength="'+el.maxlength+'"' : ''}
         class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}
+        value="${DB.escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}
       />`;
     }
     //--- Number
@@ -1334,7 +1276,7 @@ class FormGenerator {
       // Check if FK already has a value from Server (yes/no)
       const fkIsSet = !Object.values(v).every(o => o === null);
       if (fkIsSet) {
-        if (isObject(v)) {
+        if (DB.isObject(v)) {
           const key = Object.keys(v)[0];
           tmpTable.setSelectedRows([v]);
           tmpTable.isExpanded = false;
@@ -1409,7 +1351,7 @@ class FormGenerator {
     }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
-      result += el.value;
+      result += `<div>${el.value}</div>`;
     }
     //--- State
     else if (el.field_type == 'state') {
@@ -1418,7 +1360,7 @@ class FormGenerator {
       SB.setTable(this.oTable);
       SB.setCallbackStateChange(resp => {
         console.log("Statechange from Form!", resp);
-        document.location.reload();
+        document.location.reload(); // TODO: optimize
       })
       setTimeout(()=>{
         document.getElementById(tmpID).appendChild(SB.getElement());
@@ -1437,22 +1379,20 @@ class FormGenerator {
     //--- Switch
     else if (el.field_type == 'switch') {
       result = '';
-      result += `<div class="custom-control custom-switch mt-2">
+      result += `<div class="custom-control custom-switch mt-1">
       <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
-      <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
+      <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
     </div>`;
     }
     else if (el.field_type == 'checkbox') {
       result = '';
-      result += `<div class="custom-control custom-checkbox mt-2">
+      result += `<div class="custom-control custom-checkbox mt-1">
         <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
-        <label class="custom-control-label" for="inp_${key}">${el.column_alias}</label>
+        <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
       </div>`;
     }
     // ===> HTML Output
-  return `<div ${/*class="form-group row"*/''} class="formBlock ${el.customclass ? el.customclass : 'col-12'}"><div class="row">
-      ${form_label ? form_label + '<div class="col-md-9 col-lg-10 align-middle">'+result+'</div>' : '<div class="col-12">'+result+'</div>'}
-      </div></div>`;
+    return `<div class="${el.customclass || 'col-12'}">${form_label || ''}${result}</div>`;
   }
   public getValues() {
     let result = {};
@@ -1504,7 +1444,7 @@ class FormGenerator {
     return result;
   }
   public getHTML(){
-    let html: string = `<form class="row" id="${this.GUID}">`;
+    let html: string = `<form class="formcontent row" id="${this.GUID}">`;
     const data = this.data;
     // Order by data[key].orderF
     const sortedKeys = Object.keys(data).sort((x,y) => {
@@ -1513,9 +1453,8 @@ class FormGenerator {
       return a < b ? -1 : (a > b ? 1 : 0);
     });
     // Loop Form-Elements
-    for (const key of sortedKeys) {
+    for (const key of sortedKeys)
       html += this.getElement(key, data[key]);
-    }
     return html + '</form>';
   }
   public initEditors() {
@@ -1567,40 +1506,5 @@ class FormGenerator {
         if (e.which == 13) e.preventDefault(); // Prevent Page Reload
       });
     }
-  }
-}
-//==================================================================== Global Helper Methods
-function escapeHtml(string: string): string {
-  const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
-  return String(string).replace(/[&<>"'`=\/]/g, s => entityMap[s]);
-}
-function isObject(item) {
-  return (item && typeof item === 'object' && !Array.isArray(item));
-}
-function mergeDeep(target, ...sources) {
-  if (!sources.length) return target;
-  const source = sources.shift();
-  if (isObject(target) && isObject(source)) {    
-    for (const key in source) {
-      if (isObject(source[key])) {
-        if (!target[key]) { 
-          Object.assign(target, { [key]: {} });
-        }else{          
-          target[key] = Object.assign({}, target[key])
-        }
-        mergeDeep(target[key], source[key]);
-      } else {
-        Object.assign(target, { [key]: source[key] });
-      }
-    }
-  }
-  return mergeDeep(target, ...sources);
-}
-function recflattenObj(x) {
-  if (isObject(x)) {
-    let res = Object.keys(x).map(
-      e => { return isObject(x[e]) ? recflattenObj(x[e]) : x[e]; }
-    );
-    return res;
   }
 }

@@ -26,10 +26,9 @@ body {overflow-x: hidden;}
 /* Table */
 .datatbl {font-size: 1em; }
 .datatbl thead tr {/*background-color: #eee;*/ font-size: .8em;}
-.datatbl thead th {cursor: pointer; height: 30px;}
+.datatbl thead th {cursor: pointer; height: 30px; font-weight: normal;}
 .datatbl thead th:first-of-type {cursor: auto;}
 .controllcoulm {text-align: center; min-width: 50px; width: 50px;}
-
 .datatbl td {color: #333; height: 34px; vertical-align: middle;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
 .datatbl .sorted {color: steelblue; min-width: 40px; white-space: nowrap;}
@@ -44,6 +43,7 @@ body {overflow-x: hidden;}
 #formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 .customfooter {width: 100%;}
 .modal-title span {font-size: .75em;}
+.formcontent label:first-child {font-size: .85em;}
 
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }

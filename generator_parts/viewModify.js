@@ -16,6 +16,10 @@ export default (props) => {
   // Create Table Object
   const t = new Table(actTable);
 
+  const textLoading = 'Loading...';
+  const textCancel = 'Cancel';
+  const textSave = 'Save';
+
   //===================================================================
   // Generate HTML from Form
   //===================================================================
@@ -68,7 +72,7 @@ export default (props) => {
         actStateID = row['state_id'];
         diffObject = t.SM.getFormDiffByState(actStateID);
       }
-      newObj = mergeDeep({}, defaultFormObj, diffObject);
+      newObj = DB.mergeDeep({}, defaultFormObj, diffObject);
 
       if (t.getTableType() !== 'obj') {
         //=======================================
@@ -255,16 +259,16 @@ return `<div>
   <h2>${guiFullPath}<span class="ml-2" style="font-size:.75em;" id="actualState"></span></h2>
   <hr>
   <p id="errorText" class="text-danger"></p>
-  <div class="my-3" id="formedit">
-    <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>Loading...
+  <div class="container-fluid my-3" id="formedit">
+    <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>${textLoading}
   </div>
-  <hr>
   <div class="text-center pb-3">
-    ${ t.SM ? // Statemachine
-      '<span class="mr-3" id="saveBtns"></span><span class="mr-3" id="nextstates"></span>'
-    : // NO Statemachine
-      `<a class="btn btn-primary btnSave" href="#/${actTable}">Save</a><span class="mx-3 text-muted">or</span>`
-    } <span><a class="btn btn-light" href="${backPath}">Back</a></span>
+    ${
+      t.SM ? '<span class="mr-3" id="saveBtns"></span><span class="mr-3" id="nextstates"></span>' :
+      // NO Statemachine
+      `<a class="btn btn-primary btnSave" href="#/${actTable}">${textSave}</a><span class="mx-3 text-muted"></span>`
+    }
+    <span><a class="btn btn-light" href="${backPath}">${textCancel}</a></span>
   </div>
 </div>`;
 }

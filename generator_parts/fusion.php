@@ -3,7 +3,7 @@
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
-  function generateConfig($user = "", $pass = "", $host = "", $name = "", $urlLogin = "", $secretKey = "") {
+  function generateConfig($user = "", $pass = "", $host = "", $name = "", $urlLogin = "", $secretKey = "", $url1="", $url2="") {
     global $act_version_link; // TODO: Remove!
     $data = "<?php
     // APMS Generated Project (".date("Y-m-d H:i:s").")
@@ -17,7 +17,10 @@
     //-- Authentication + API
     define('API_URL_LIAM', '$urlLogin'); // Authentication-Service
     define('AUTH_KEY', '$secretKey'); // Secret of Auth-Service
-    define('TOKEN_EXP_TIME', 3600); // Expiry Time of an Access-Token [sec]";
+    define('TOKEN_EXP_TIME', 3600); // Expiry Time of an Access-Token [sec]
+    define('URL_CHANGEPW', '$url1'); // Link to change the Password
+    define('URL_MANAGEPROFILE', '$url2'); // Link to manage the Profile
+    ";
     return $data;
   }
   function createSubDirIfNotExists($dirname) {
@@ -51,6 +54,7 @@
   $redirectToLoginURL = $_REQUEST['redirectToLogin'];
   $loginURL = $_REQUEST['login_URL'];
   $secretKey = $_REQUEST['secret_KEY']; 
+  
 
   define('DB_HOST', $db_server);
   define('DB_NAME', $db_name);
@@ -191,8 +195,8 @@
       $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
 
       // Templates (Default Scripts)
-      $default_CREATE = ""; // "<?php\n\techo \"---CREATE--->\";";
-      $default_TRANSITION = ""; //"<?php\n\techo \"---TRANSITION--->\";";
+      $default_CREATE = "";
+      $default_TRANSITION = "";
       $default_FORM = "";
 
       //--- M A C H I N E S (needs form and functions)
@@ -203,7 +207,6 @@
       // If Create-Script is empty, then link to Filesystem
       if (empty($SM->getTransitionScriptCreate()))
         $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
-
 
       //--- T R A N S I T I O N S (only need functions)
       $count = 0;
@@ -227,7 +230,6 @@
           writeFileIfNotExist($scriptPath.$transID.'.php', $default_TRANSITION);
         }
       }
-
 
       // S T A T E S (only need Forms)
       $scriptPath = $project_dir."/_state/";
@@ -379,7 +381,10 @@
     file_put_contents($project_dir."/index.php", file_get_contents("./output_index.php"));
     file_put_contents($project_dir."/content.inc.html", $output_content);
     // Configuration
-    file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey));
+    // If file exists, load config
+    if (file_exists($project_dir."/config.SECRET.inc.php"))
+      @require_once($project_dir."/config.SECRET.inc.php"); // @ because const are redefined
+    file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey, URL_CHANGEPW, URL_MANAGEPROFILE));
     file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
     file_put_contents($project_dir."/config.inc.json", $json);
     // GitIgnore for Secret Files
