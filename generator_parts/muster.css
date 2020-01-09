@@ -1,6 +1,5 @@
 html {position: relative; min-height: 100%;}
 body {margin-bottom: 60px;}
-
 #app h2 {font-size: 1.2em;}
 
 /* SIDEBAR */
@@ -28,7 +27,6 @@ body {overflow-x: hidden;}
 .datatbl thead tr {/*background-color: #eee;*/ font-size: .8em;}
 .datatbl thead th {cursor: pointer; height: 30px; font-weight: normal;}
 .datatbl thead th:first-of-type {cursor: auto;}
-.controllcoulm {text-align: center; min-width: 50px; width: 50px;}
 .datatbl td {color: #333; height: 34px; vertical-align: middle;}
 .datatbl .datatbl_header:hover {background-color: #ddd; color: steelblue;}
 .datatbl .sorted {color: steelblue; min-width: 40px; white-space: nowrap;}
@@ -37,6 +35,8 @@ body {overflow-x: hidden;}
 /* --- For the html inside the table --- */
 .datatbl td p, h1, h2, h3, h4, h5, h6 {margin: 0; padding: 0;}
 .datatbl td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
+th.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; border: none !important; vertical-align: middle;}
+td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; vertical-align: middle;}
 
 /* Forms */
 #formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
@@ -49,6 +49,7 @@ body {overflow-x: hidden;}
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
 .btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%; max-width: 100px; }
 .btnEnabled:hover {color: white !important; background-color: #333 !important;}
+.btnDisabled {display: inline-block; max-width: 100px; width: auto !important;}
 .btnDisabled:focus, .btnDisabled:active:focus, .btnDisabled.active:focus {outline: none !important; outline-style: none; box-shadow: none !important;}
 .btnDisabled:hover {background-color: none !important; cursor: default;}
 

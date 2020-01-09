@@ -17,15 +17,6 @@ var TableType;
     TableType["tn_1"] = "n_1";
     TableType["tn_m"] = "n_m";
 })(TableType || (TableType = {}));
-class LiteEvent {
-    constructor() {
-        this.handlers = [];
-    }
-    on(handler) { this.handlers.push(handler); }
-    off(handler) { this.handlers = this.handlers.filter(h => h !== handler); }
-    trigger(data) { this.handlers.slice(0).forEach(h => h(data)); }
-    expose() { return this; }
-}
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -157,10 +148,7 @@ DB.setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, c
         }
     });
 };
-DB.getID = function () {
-    function chr4() { return Math.random().toString(16).slice(-4); }
-    return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
-};
+DB.getID = () => { const c4 = () => { return Math.random().toString(16).slice(-4); }; return 'i' + c4() + c4() + c4() + c4() + c4() + c4() + c4() + c4(); };
 class StateMachine {
     constructor(table, states, links) {
         this.myTable = table;
@@ -391,23 +379,23 @@ class RawTable {
         DB.request('create', { table: this.tablename, row: data }, r => { callback(r); });
     }
     updateRow(RowID, new_data, callback) {
-        let data = new_data;
+        const data = new_data;
         data[this.PriColname] = RowID;
         DB.request('update', { table: this.tablename, row: new_data }, r => { callback(r); });
     }
     loadRow(RowID, callback) {
-        let data = { table: this.tablename, limit: 1, filter: {} };
+        const data = { table: this.tablename, limit: 1, filter: {} };
         data.filter = '{"=": ["' + this.PriColname + '", ' + RowID + ']}';
         DB.request('read', data, r => { const row = r.records[0]; callback(row); });
     }
     loadRows(callback) {
-        let me = this;
-        let data = { table: me.tablename, sort: me.Sort };
+        const me = this;
+        const offset = me.PageIndex * me.PageLimit;
+        const data = { table: me.tablename, sort: me.Sort };
         if (me.Filter && me.Filter !== '')
             data['filter'] = me.Filter;
         if (me.Search && me.Search !== '')
             data['search'] = me.Search;
-        const offset = me.PageIndex * me.PageLimit;
         if (me.PageLimit && me.PageLimit)
             data['limit'] = me.PageLimit + (offset == 0 ? '' : ',' + offset);
         DB.request('read', data, r => {
@@ -421,29 +409,20 @@ class RawTable {
     setSearch(searchText) { this.Search = searchText; }
     getSearch() { return this.Search; }
     getSortColname() { return this.Sort.split(',')[0]; }
-    getSortDir() {
-        let dir = this.Sort.split(',')[1];
-        if (!dir)
-            dir = "ASC";
-        return dir;
-    }
-    setSort(sortStr) { this.Sort = sortStr; }
-    setFilter(filterStr) {
-        if (filterStr && filterStr.trim().length > 0)
-            this.Filter = filterStr;
-    }
-    setColumnFilter(columnName, filterText) {
-        this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}';
-    }
-    resetFilter() { this.Filter = ''; }
-    resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+    getSortDir() { return this.Sort.split(',')[1] || "ASC"; }
     getRows() { return this.Rows; }
     getConfig() { return this.Config; }
     getTableType() { return this.Config.table_type; }
     getPrimaryColname() { return this.PriColname; }
-    setRows(ArrOfRows) { this.Rows = ArrOfRows; }
     getTableIcon() { return this.getConfig().table_icon; }
     getTableAlias() { return this.getConfig().table_alias; }
+    setSort(sortStr) { this.Sort = sortStr; }
+    setFilter(filterStr) { if (filterStr && filterStr.trim().length > 0)
+        this.Filter = filterStr; }
+    setColumnFilter(columnName, filterText) { this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}'; }
+    setRows(ArrOfRows) { this.Rows = ArrOfRows; }
+    resetFilter() { this.Filter = ''; }
+    resetLimit() { this.PageIndex = null; this.PageLimit = null; }
 }
 class Table extends RawTable {
     constructor(tablename, SelType = SelectType.NoSelect) {
@@ -457,23 +436,12 @@ class Table extends RawTable {
             showControlColumn: true,
             showWorkflowButton: false,
             smallestTimeUnitMins: true,
-            Relation: {
-                createTitle: "New Relation",
-                createBtnRelate: "Add Relation"
-            },
-            modalHeaderTextCreate: 'Create Entry',
-            modalHeaderTextModify: 'Modify Entry',
-            modalButtonTextCreate: 'Create',
-            modalButtonTextModifySave: 'Save',
-            modalButtonTextModifySaveAndClose: 'Save &amp; Close',
-            modalButtonTextModifyClose: 'Close',
             filterPlaceholderText: 'Search...',
             statusBarTextNoEntries: 'No Entries',
             statusBarTextEntries: 'Entries {lim_from}-{lim_to} of {count}'
         };
         this.isExpanded = true;
-        this.onSelectionChanged = new LiteEvent();
-        this.onEntriesModified = new LiteEvent();
+        this._callbackSelectionChanged = (resp) => { };
         this.GUID = DB.getID();
         this.selType = SelType;
         this.TableType = this.getConfig().table_type;
@@ -582,7 +550,9 @@ class Table extends RawTable {
                     t.selectedRows = [];
                 t.selectedRows.push(selRow);
             }
-            t.onSelectionChanged.trigger();
+            if (this._callbackSelectionChanged)
+                this._callbackSelectionChanged(t.selectedRows);
+            t.renderContent();
             return;
         }
         else {
@@ -598,6 +568,9 @@ class Table extends RawTable {
                 t.renderEditForm(TheRow, diffJSON, null);
             }
         }
+    }
+    setCallbackSelectionChanged(callback) {
+        this._callbackSelectionChanged = callback;
     }
     formatCellFK(colname, cellData) {
         const showColumns = this.Columns[colname].foreignKey.col_subst;
@@ -647,7 +620,7 @@ class Table extends RawTable {
                         path.push(mainRowID.toString());
                     path.push(fTablename, rowID);
                     content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-            <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
+            <a href="#/${path.join('/')}"><i class="fas fa-edit"></i></a></td>` + content;
                 }
             }
             return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
@@ -655,7 +628,7 @@ class Table extends RawTable {
         return DB.escapeHtml(cellContent);
     }
     renderCell(row, col) {
-        let t = this;
+        const t = this;
         let value = row[col];
         if (!value)
             return '&nbsp;';
@@ -737,7 +710,7 @@ class Table extends RawTable {
         let t = this;
         let th = '';
         if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
-            th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
+            th = `<th class="controllcoulm"></th>`;
             if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
                 const cols = [];
                 colnames.map(col => {
@@ -746,22 +719,21 @@ class Table extends RawTable {
                 });
                 const colM = cols[1];
                 const objTable2 = t.Columns[colM].foreignKey.table;
-                th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
+                th = `<th class="controllcoulm">
           <a href="${location.hash + '/' + t.getTablename() + '/create/' + objTable2 + '/create'}"><i class="fa fa-plus text-success"></i></a>
           <a href="${location.hash + '/' + t.getTablename() + '/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
         </th>`;
             }
             else if (t.TableType === TableType.obj && t.selType !== SelectType.NoSelect) {
                 if (t.selectedRows.length > 0 && !t.isExpanded) {
-                    th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
+                    th = `<th class="controllcoulm">
             <a href="javascript:void(0);" class="resetTableFilter">
               <i class="fas fa-chevron-down"></i>
             </a>
           </th>`;
                 }
                 else {
-                    th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="' + location.hash + '/' + t.getTablename() +
-                        '/create"><i class="fa fa-plus text-success"></i></a></th>';
+                    th = `<th class="controllcoulm"><a href="${location.hash + '/' + t.getTablename()}/create"><i class="fa fa-plus text-success"></i></a></th>`;
                 }
             }
         }
@@ -812,7 +784,7 @@ class Table extends RawTable {
         }
         const sortedColumnNames = Object.keys(t.Columns).sort(compare);
         const ths = t.htmlHeaders(sortedColumnNames);
-        t.Rows.forEach(function (row) {
+        t.Rows.forEach(row => {
             const RowID = row[pcname];
             let data_string = '';
             let isSelected = false;
@@ -822,12 +794,12 @@ class Table extends RawTable {
             if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
                 const path = location.hash.split('/');
                 const loc = (path.length === 2) ? '#' : path.join('/');
-                data_string = `<td class="controllcoulm align-middle">
+                data_string = `<td class="controllcoulm">
           ${(t.selType !== SelectType.NoSelect ? (isSelected ?
                     '<i class="modRow fa fa-check-square text-success"></i>' :
                     '<i class="modRow far fa-square text-secondary"></i>')
                     : (t.TableType == TableType.obj ?
-                        `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
+                        `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-edit"></i></a>` :
                         `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
         </td>`;
             }
@@ -882,7 +854,7 @@ class Table extends RawTable {
         }
         if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
             return `<div class="tbl_footer"></div>`;
-        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
+        if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1)
             return `<div class="tbl_footer"></div>`;
         let statusText = '';
         if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
@@ -896,19 +868,21 @@ class Table extends RawTable {
             statusText = this.GUIOptions.statusBarTextNoEntries;
         }
         return `<div class="tbl_footer">
-      <div class="text-muted p-0 px-2">
-        <p class="float-left m-0 mb-1"><small>${statusText}</small></p>
-        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
-        <div class="clearfix"></div>
+      <div class="text-muted p-0">
+        <small>${statusText}</small>
+        <nav class="float-right">
+          <ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul>
+        </nav>
+        <div style="clear:both;"></div>
       </div>
     </div>`;
     }
     async renderContent() {
+        let els = null;
         const t = this;
         const output = await t.getContent();
         const tableEl = document.getElementById(t.GUID);
         tableEl.innerHTML = output;
-        let els = null;
         els = tableEl.getElementsByClassName('datatbl_header');
         if (els) {
             for (const el of els) {
@@ -957,7 +931,7 @@ class Table extends RawTable {
     renderFooter() {
         const t = this;
         const parent = document.getElementById(t.GUID).parentElement;
-        parent.getElementsByClassName('tbl_footer')[0].innerHTML = t.getFooter();
+        parent.getElementsByClassName('tbl_footer')[0].outerHTML = t.getFooter();
         const btns = parent.getElementsByClassName('page-link');
         for (const btn of btns) {
             btn.addEventListener('click', e => {
@@ -975,8 +949,6 @@ class Table extends RawTable {
             await this.renderFooter();
         }
     }
-    get SelectionHasChanged() { return this.onSelectionChanged.expose(); }
-    get EntriesHaveChanged() { return this.onEntriesModified.expose(); }
 }
 class FormGenerator {
     constructor(originTable, originRowID, rowData, GUID) {
@@ -1059,7 +1031,7 @@ class FormGenerator {
                 el.customfilter = decodeURI(el.customfilter);
                 tmpTable.setFilter(el.customfilter);
             }
-            tmpTable.SelectionHasChanged.on(() => {
+            tmpTable.setCallbackSelectionChanged(selRows => {
                 let value = "";
                 if (selType === SelectType.Single) {
                     value = tmpTable.getSelectedIDs()[0];
@@ -1070,7 +1042,6 @@ class FormGenerator {
                 if (!value)
                     value = "";
                 document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
-                tmpTable.renderHTML(randID);
             });
             const fkIsSet = !Object.values(v).every(o => o === null);
             if (fkIsSet) {

@@ -6,27 +6,10 @@ enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
 enum SelectType {NoSelect = 0, Single = 1, Multi = 2}
 enum TableType {obj = 'obj', t1_1 = '1_1', t1_n = '1_n', tn_1 = 'n_1', tn_m = 'n_m'}
 
-
-// TODO: Remove this crap :O
-// Events
-// see here: https://stackoverflow.com/questions/12881212/does-typescript-support-events-on-classes
-interface ILiteEvent<T> {
-  on(handler: { (data?: T): void }) : void;
-  off(handler: { (data?: T): void }) : void;
-}
-class LiteEvent<T> implements ILiteEvent<T> {
-  private handlers: { (data?: T): void; }[] = [];
-  public on(handler: { (data?: T): void }) : void { this.handlers.push(handler); }
-  public off(handler: { (data?: T): void }) : void { this.handlers = this.handlers.filter(h => h !== handler); }
-  public trigger(data?: T) { this.handlers.slice(0).forEach(h => h(data)); }
-  public expose() : ILiteEvent<T> { return this; }
-}
-
-
 //==============================================================
 // Database (Communication via API)
 //==============================================================
-// TODO: Rename this class to API, Controller or Main... Should be the main class, which controlls everything
+// TODO: Rename this class to API, Ctrl or Main... Should be the main class, which controlls everything
 abstract class DB {
   // Variables
   private static API_URL: string = 'api.php';
@@ -173,12 +156,8 @@ abstract class DB {
     }
   }
   // TODO: Remove the random ID generation because of Selenium!!! and use DOM-Create-Element instead!
-  public static getID = function() {
-    function chr4(){ return Math.random().toString(16).slice(-4); }
-    return 'i' + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4() + chr4();
-  };
+  public static getID = ()=>{ const c4 = ()=>{ return Math.random().toString(16).slice(-4); }; return 'i'+c4()+c4()+c4()+c4()+c4()+c4()+c4()+c4(); };
 }
-
 
 //==============================================================
 // Class: Statemachine
@@ -419,25 +398,26 @@ class StateButton {
   }
 }
 
-
 //==============================================================
 // Class: Table
 //==============================================================
+// Creates nice HTML Table with logic and Filters / Search / Selection etc.
 // TODO: Merge this 2 classes into 1 nice class
 class RawTable {
+  // Variables
   private tablename: string;
   private Sort: string = '';
   private Search: string = '';
   private Filter: string;
   private PriColname: string = '';
   private Config: any;
-  protected actRowCount: number; // Count total
+  private actRowCount: number;
   protected Rows: any;
   protected PageLimit: number = 10;
   protected PageIndex: number = 0;
   public Columns: any;
   public ReadOnly: boolean;
-
+  // Methods
   constructor (tablename: string) {
     const t = this;
     t.actRowCount = 0;
@@ -453,61 +433,50 @@ class RawTable {
     DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });
   }
   public updateRow(RowID: number, new_data: any, callback) {
-    let data = new_data
+    const data = new_data
     data[this.PriColname] = RowID
     DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); })
   }
   public loadRow(RowID: number, callback) {
-    let data = {table: this.tablename, limit: 1, filter: {}};
+    const data = {table: this.tablename, limit: 1, filter: {}};
     data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
-    // HTTP Request
     DB.request('read', data, r => { const row = r.records[0]; callback(row); });
   }
   public loadRows(callback) {
-    let me = this;
-    let data = {table: me.tablename, sort: me.Sort}
+    const me = this;
+    const offset = me.PageIndex * me.PageLimit;
+    const data = {table: me.tablename, sort: me.Sort}
     if (me.Filter && me.Filter !== '') data['filter'] = me.Filter;
     if (me.Search && me.Search !== '') data['search'] = me.Search;
-    const offset = me.PageIndex * me.PageLimit;
     if (me.PageLimit && me.PageLimit) data['limit'] =  me.PageLimit + (offset == 0 ? '' : ',' + offset);
-    // HTTP Request
     DB.request('read', data, r => {
       me.actRowCount = r.count;
       me.Rows = r.records;
       callback(r);
-    })
+    });
   }
-  //---------------------------
   public getNrOfRows(): number { return this.actRowCount }
   public getTablename(): string { return this.tablename; }
   public setSearch(searchText: string) { this.Search = searchText; }
   public getSearch(): string { return this.Search; }
   public getSortColname(): string { return this.Sort.split(',')[0]; }
-  public getSortDir(): string {
-    let dir = this.Sort.split(',')[1];
-    if (!dir) dir = "ASC";
-    return dir;
-  }
-  public setSort(sortStr: string) { this.Sort = sortStr; }
-  public setFilter(filterStr: string) {
-    if (filterStr && filterStr.trim().length > 0)
-      this.Filter = filterStr;
-  }
-  public setColumnFilter(columnName: string, filterText: string) {
-    this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}';
-  }
-  public resetFilter() { this.Filter = ''; }
-  public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+  public getSortDir(): string { return this.Sort.split(',')[1] || "ASC"; }
   public getRows() { return this.Rows; }
   public getConfig(): any { return this.Config; }
   public getTableType(): TableType { return this.Config.table_type; }
   public getPrimaryColname(): string { return this.PriColname; }
-  public setRows(ArrOfRows: any) { this.Rows = ArrOfRows; }
   public getTableIcon(): string { return this.getConfig().table_icon; }
   public getTableAlias(): string { return this.getConfig().table_alias; }
+  public setSort(sortStr: string) { this.Sort = sortStr; }
+  public setFilter(filterStr: string) { if (filterStr && filterStr.trim().length > 0) this.Filter = filterStr; }
+  public setColumnFilter(columnName: string, filterText: string) { this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}'; }
+  public setRows(ArrOfRows: any) { this.Rows = ArrOfRows; }
+  public resetFilter() { this.Filter = ''; }
+  public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
 }
 class Table extends RawTable {
-  private GUID: string;
+  // Variables
+  private GUID: string; // TODO: Remove
   private SM: StateMachine = null;
   private selType: SelectType = SelectType.NoSelect;
   private TableType: TableType = TableType.obj;
@@ -517,25 +486,13 @@ class Table extends RawTable {
     showControlColumn: true,
     showWorkflowButton: false,
     smallestTimeUnitMins: true,    
-    Relation : {
-      createTitle: "New Relation",
-      createBtnRelate: "Add Relation"
-    },
-    modalHeaderTextCreate: 'Create Entry',
-    modalHeaderTextModify: 'Modify Entry',
-    modalButtonTextCreate: 'Create',
-    modalButtonTextModifySave: 'Save',
-    modalButtonTextModifySaveAndClose: 'Save &amp; Close',
-    modalButtonTextModifyClose: 'Close',
     filterPlaceholderText: 'Search...',
     statusBarTextNoEntries: 'No Entries',
     statusBarTextEntries: 'Entries {lim_from}-{lim_to} of {count}'
   }
   public isExpanded: boolean = true;
-  // Events
-  private readonly onSelectionChanged = new LiteEvent<void>();
-  private readonly onEntriesModified = new LiteEvent<void>(); // Created, Deleted, Updated
-
+  private _callbackSelectionChanged = (resp) => {};
+  // Methods
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
     super(tablename); // Call parent constructor
     this.GUID = DB.getID();
@@ -644,21 +601,27 @@ class Table extends RawTable {
     const pcname = t.getPrimaryColname();
     // Check Selection-Type
     if (t.selType !== SelectType.NoSelect) {
-      //------------------------------------ SELECT 0..N
+      //------------------------------------ SELECT (0..N)
       const selRow = t.Rows.filter(el => { return el[pcname] == id; })[0];
       const isAlreadySeletecd = t.selectedRows.filter(el => { return el[pcname] == id; }).length > 0;
-      if (isAlreadySeletecd) {        
+      if (isAlreadySeletecd) { 
+        // Multi-Select (0..N)       
         t.selectedRows = t.selectedRows.filter(el => { return el[pcname] != id; }); // del
       }
       else {
+        // Single-Select (0..1)
         if (t.selType === SelectType.Single) t.selectedRows = []; // clear
         t.selectedRows.push(selRow); // add
       }
-      t.onSelectionChanged.trigger();
+      // Call Feedback Function if set
+      if (this._callbackSelectionChanged)
+        this._callbackSelectionChanged(t.selectedRows);
+      // Redraw HTML
+      t.renderContent();
       return
     }
     else {
-      //------------------------------------ NO SELECT / EDITABLE / READ-ONLY
+      //------------------------------------ EDITABLE / READ-ONLY / NO SELECT
       // Exit if it is a ReadOnly Table
       if (t.ReadOnly) {
         alert("Can not modify!\nTable \"" + t.getTablename() + "\" is read-only!");
@@ -674,6 +637,9 @@ class Table extends RawTable {
         t.renderEditForm(TheRow, diffJSON, null);
       }
     }
+  }
+  public setCallbackSelectionChanged(callback) {
+    this._callbackSelectionChanged = callback;
   }
   //---------------------------------------------------- Pure HTML building Functions
   private formatCellFK(colname: string, cellData: any) {
@@ -733,7 +699,7 @@ class Table extends RawTable {
           if (path.length === 1) path.push(mainRowID.toString()); // Add Primary RowID
           path.push(fTablename, rowID); 
           content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-            <a href="#/${path.join('/')}"><i class="far fa-edit"></i></a></td>` + content;
+            <a href="#/${path.join('/')}"><i class="fas fa-edit"></i></a></td>` + content;
         }
       }
       return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
@@ -741,15 +707,15 @@ class Table extends RawTable {
     // Cell is no String and no Object   
     return DB.escapeHtml(cellContent);
   }
-  // TODO: Make inputs like (col, val)
   public renderCell(row: any, col: string): string {
-    let t = this;
-    let value: any = row[col];
+    // TODO: Make inputs like (col, val)
+    const t = this;
+    let value = row[col];
     // Return if null
-    if (!value) return '&nbsp;';
+    if (!value) return '&nbsp;';    
     // Check data type
+    //--- DATE
     if (t.Columns[col].field_type == 'date') {
-      //--- DATE
       let tmp = new Date(value)
       if(!isNaN(tmp.getTime()))
         value = tmp.toLocaleDateString('de-DE')
@@ -757,8 +723,8 @@ class Table extends RawTable {
         value = '';
       return value;
     }
+    //--- TIME
     else if(t.Columns[col].field_type == 'time') {
-      //--- TIME
       if (t.GUIOptions.smallestTimeUnitMins) {
         // Remove seconds from TimeString
         let timeArr = value.split(':');
@@ -767,8 +733,8 @@ class Table extends RawTable {
         return value;
       }
     }
+    //--- DATETIME
     else if (t.Columns[col].field_type == 'datetime') {
-      //--- DATETIME
       let tmp = new Date(value)
       if(!isNaN(tmp.getTime())) {
         value = tmp.toLocaleString('de-DE')
@@ -782,31 +748,28 @@ class Table extends RawTable {
         value = '';
       return value;
     }
+    //--- Raw HTML
     else if (t.Columns[col].field_type == 'rawhtml') {
-      //--- Raw.HTML
       return value;
     }
+    //--- INTEGER / Number
     else if (t.Columns[col].field_type == 'number') {
-      //--- INTEGER / Number
       const number = parseInt(value);
       return number.toString(); //number.toLocaleString('de-DE');
     }
+    //--- FLOAT
     else if (t.Columns[col].field_type == 'float') {
-      //--- FLOAT
       const number = parseFloat(value);
       return number.toLocaleString('de-DE');
     }
+    //--- BOOLEAN
     else if (t.Columns[col].field_type == 'switch' || t.Columns[col].field_type == 'checkbox') {
-      //--- BOOLEAN
       return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>'
     }
+    //--- STATE-BUTTON
     else if (t.Columns[col].field_type == 'state') {
       //--- Normal State-Buttons in normal Tables
       const RowID = row[t.getPrimaryColname()];
-      /*
-      if (!RowID)
-        console.log("xxxx", row, col);
-      */
       // TODO: Find the RowID when state is from a foreign key
       const SB = new StateButton(value, RowID, col);
       SB.setTable(t);
@@ -824,7 +787,7 @@ class Table extends RawTable {
       return `<div id="${tmpID}"></div>`;
     }
     else if (col == 'name' && t.getTablename() == 'state') {
-      // State-Table
+      // for the State-Table
       const SB = new StateButton(row['state_id']);
       SB.setName(value);
       return SB.getElement().outerHTML;
@@ -846,7 +809,7 @@ class Table extends RawTable {
     // Pre fill with 1 because of selector
     if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
       // Standard
-      th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"></th>`;
+      th = `<th class="controllcoulm"></th>`;
       // No Object and no Selection
       if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
         // Create || Relate
@@ -857,7 +820,7 @@ class Table extends RawTable {
         })
         const colM = cols[1];
         const objTable2 = t.Columns[colM].foreignKey.table;
-        th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
+        th = `<th class="controllcoulm">
           <a href="${location.hash+'/'+t.getTablename()+'/create/'+objTable2+'/create'}"><i class="fa fa-plus text-success"></i></a>
           <a href="${location.hash+'/'+t.getTablename()+'/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
         </th>`;
@@ -867,7 +830,7 @@ class Table extends RawTable {
         // FOREIGN KEY
         if (t.selectedRows.length > 0 && !t.isExpanded) {
           // Selected
-          th = `<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;">
+          th = `<th class="controllcoulm">
             <a href="javascript:void(0);" class="resetTableFilter">
               <i class="fas fa-chevron-down"></i>
             </a>
@@ -875,8 +838,7 @@ class Table extends RawTable {
         }
         else {
           // Create
-          th = '<th class="border-0 align-middle text-center" style="max-width:50px;width:50px;"><a href="'+ location.hash + '/' + t.getTablename() + 
-          '/create"><i class="fa fa-plus text-success"></i></a></th>';
+          th = `<th class="controllcoulm"><a href="${location.hash+'/'+t.getTablename()}/create"><i class="fa fa-plus text-success"></i></a></th>`;
         }
       }
   }
@@ -940,7 +902,7 @@ class Table extends RawTable {
     const ths = t.htmlHeaders(sortedColumnNames);
 
     // Loop Rows
-    t.Rows.forEach(function(row){
+    t.Rows.forEach(row => {
       const RowID: number = row[pcname];
       let data_string: string = '';
       let isSelected: boolean = false;
@@ -952,13 +914,13 @@ class Table extends RawTable {
       if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
         const path = location.hash.split('/');
         const loc = (path.length === 2) ? '#' : path.join('/'); // Check if Root-Table
-        data_string = `<td class="controllcoulm align-middle">
+        data_string = `<td class="controllcoulm">
           ${ (t.selType !== SelectType.NoSelect ? (isSelected ? 
               '<i class="modRow fa fa-check-square text-success"></i>' :
               '<i class="modRow far fa-square text-secondary"></i>'
             )
             : ( t.TableType == TableType.obj ?
-              `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="far fa-edit"></i></a>` :
+              `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-edit"></i></a>` :
               `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`)
             )
           }
@@ -1023,7 +985,7 @@ class Table extends RawTable {
     // special cases
     if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
       return `<div class="tbl_footer"></div>`;
-    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.actRowCount === 1)
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1)
       return `<div class="tbl_footer"></div>`;
 
     //--- StatusText
@@ -1039,24 +1001,26 @@ class Table extends RawTable {
     else {
       // No Entries
       statusText = this.GUIOptions.statusBarTextNoEntries;
-    }    
-
+    }
     // Normal
     return `<div class="tbl_footer">
-      <div class="text-muted p-0 px-2">
-        <p class="float-left m-0 mb-1"><small>${statusText}</small></p>
-        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
-        <div class="clearfix"></div>
+      <div class="text-muted p-0">
+        <small>${statusText}</small>
+        <nav class="float-right">
+          <ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul>
+        </nav>
+        <div style="clear:both;"></div>
       </div>
     </div>`;
   }
-  //---------------------------------------- Render (Events etc.)
+  //---------------------------------------- Render
   private async renderContent() {
+    let els = null;
     const t = this;
     const output = await t.getContent();
     const tableEl = document.getElementById(t.GUID); // Find Table-Div
-    tableEl.innerHTML = output; // overwrite content    
-    let els = null;
+    tableEl.innerHTML = output; // overwrite content
+    //---Events
     // Table-Header - Sort
     els = tableEl.getElementsByClassName('datatbl_header');
     if (els) {
@@ -1083,7 +1047,7 @@ class Table extends RawTable {
         });
       }
     }
-    // Edit Row    
+    // EditRow / SelectRow
     els = tableEl.getElementsByClassName('modRow');
     if (els) {
       for (const el of els) {
@@ -1109,7 +1073,7 @@ class Table extends RawTable {
     const t = this;
     const parent = document.getElementById(t.GUID).parentElement;
     // Replace new HTML
-    parent.getElementsByClassName('tbl_footer')[0].innerHTML = t.getFooter(); 
+    parent.getElementsByClassName('tbl_footer')[0].outerHTML = t.getFooter(); 
     // Pagination Button Events
     const btns = parent.getElementsByClassName('page-link');
     for (const btn of btns) {
@@ -1129,17 +1093,15 @@ class Table extends RawTable {
       await this.renderFooter();
     }
   }
-  //-------------------------------------------------- EVENTS
-  public get SelectionHasChanged() { return this.onSelectionChanged.expose(); }
-  public get EntriesHaveChanged() { return this.onEntriesModified.expose(); }
 }
-
 
 //==============================================================
 // Class: FormGenerator (Generates HTML-Bootstrap4 Forms from JSON)
 //==============================================================
 // TODO: No HTML should be generated / returned ...
-// it should return a Single-Form-DOM-Element which can then be placed
+// it should return a Single-Form-DOM-Element which can then be placed like at the Table!
+// So then it is possible to create a Form inside a Form
+// Rename this to Form
 class FormGenerator {
   private data: any;
   private GUID: string;
@@ -1259,7 +1221,7 @@ class FormGenerator {
       searchBar.addEventListener('input', searchFunc);
       */
       // Update Value when selection happened
-      tmpTable.SelectionHasChanged.on(() => {
+      tmpTable.setCallbackSelectionChanged(selRows => {
         let value = "";
         if (selType === SelectType.Single) {
           value = tmpTable.getSelectedIDs()[0];
@@ -1270,7 +1232,6 @@ class FormGenerator {
         // Set Value to field
         if (!value) value = "";
         document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
-        tmpTable.renderHTML(randID);
       });
 
       // Check if FK already has a value from Server (yes/no)
@@ -1284,7 +1245,6 @@ class FormGenerator {
           tmpTable.setFilter('{"=":["'+key+'",'+v+']}');
         } else {
           // Coming from Path
-
         }
       }
       else
