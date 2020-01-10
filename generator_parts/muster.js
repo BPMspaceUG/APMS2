@@ -17,6 +17,41 @@ var TableType;
     TableType["tn_1"] = "n_1";
     TableType["tn_m"] = "n_m";
 })(TableType || (TableType = {}));
+const gText = {
+    en: {
+        Create: 'Create',
+        Cancel: 'Cancel',
+        Search: 'Search...',
+        Loading: 'Loading...',
+        Save: 'Save',
+        Relate: 'Relate',
+        Workflow: 'Workflow',
+        titleCreate: 'Create {alias}',
+        titleRelate: 'Relate {alias}',
+        titleModify: 'Modify {alias} {id}',
+        titleWorkflow: 'Workflow of {alias}',
+        noEntries: 'No Entries',
+        entriesStats: 'Entries {lim_from}-{lim_to} of {count}',
+        noFinds: 'Sorry, nothing found.'
+    },
+    de: {
+        Create: 'Neu',
+        Cancel: 'Abbrechen',
+        Search: 'Suchen...',
+        Loading: 'Laden...',
+        Save: 'Speichern',
+        Relate: 'Verbinden',
+        Workflow: 'Workflow',
+        titleCreate: 'Neu {alias}',
+        titleRelate: 'Verbinden {alias}',
+        titleModify: 'Ändern {alias} {id}',
+        titleWorkflow: 'Workflow von {alias}',
+        noEntries: 'Keine Einträge',
+        entriesStats: 'Einträge {lim_from}-{lim_to} von {count}',
+        noFinds: 'Keine Ergebnisse gefunden.'
+    }
+};
+const setLang = 'en';
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -106,8 +141,7 @@ class DB {
     }
     static recflattenObj(x) {
         if (this.isObject(x)) {
-            let res = Object.keys(x).map(e => { return this.isObject(x[e]) ? this.recflattenObj(x[e]) : x[e]; });
-            return res;
+            return Object.keys(x).map(e => { return this.isObject(x[e]) ? this.recflattenObj(x[e]) : x[e]; });
         }
     }
 }
@@ -134,14 +168,13 @@ DB.setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, c
         btnFrom.setTable(t);
         btnTo.setTable(t);
         for (const msg of messages) {
-            let title = '<small class="text-muted">';
+            let title = '';
             if (msg.type == 0)
                 title += `${btnFrom.getElement().outerHTML} &rarr;`;
             if (msg.type == 1)
                 title += `${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}`;
             if (msg.type == 2)
                 title += `&rarr; ${btnTo.getElement().outerHTML}`;
-            title += '</small>';
             document.getElementById('myModalTitle').innerHTML = title;
             document.getElementById('myModalContent').innerHTML = msg.text;
             $('#myModal').modal({});
@@ -435,10 +468,7 @@ class Table extends RawTable {
             maxCellLength: 50,
             showControlColumn: true,
             showWorkflowButton: false,
-            smallestTimeUnitMins: true,
-            filterPlaceholderText: 'Search...',
-            statusBarTextNoEntries: 'No Entries',
-            statusBarTextEntries: 'Entries {lim_from}-{lim_to} of {count}'
+            smallestTimeUnitMins: true
         };
         this.isExpanded = true;
         this._callbackSelectionChanged = (resp) => { };
@@ -450,15 +480,9 @@ class Table extends RawTable {
         if (this.getConfig().se_active)
             this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
     }
-    isRelationTable() {
-        return (this.TableType !== TableType.obj);
-    }
-    getTableType() {
-        return this.TableType;
-    }
-    getDiffFormCreate() {
-        return JSON.parse(this.getConfig().formcreate);
-    }
+    isRelationTable() { return (this.TableType !== TableType.obj); }
+    getTableType() { return this.TableType; }
+    getDiffFormCreate() { return JSON.parse(this.getConfig().formcreate); }
     toggleSort(ColumnName) {
         let t = this;
         const SortDir = (t.getSortDir() == SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC;
@@ -479,9 +503,7 @@ class Table extends RawTable {
             await me.renderFooter();
         });
     }
-    getNrOfPages() {
-        return Math.ceil(this.getNrOfRows() / this.PageLimit);
-    }
+    getNrOfPages() { return Math.ceil(this.getNrOfRows() / this.PageLimit); }
     getPaginationButtons() {
         const MaxNrOfButtons = 5;
         var NrOfPages = this.getNrOfPages();
@@ -516,12 +538,9 @@ class Table extends RawTable {
     }
     getSelectedIDs() {
         const pcname = this.getPrimaryColname();
-        const IDs = this.selectedRows.map(el => { return el[pcname]; });
-        return IDs;
+        return this.selectedRows.map(el => { return el[pcname]; });
     }
-    setSelectedRows(selRowData) {
-        this.selectedRows = selRowData;
-    }
+    setSelectedRows(selRowData) { this.selectedRows = selRowData; }
     getDefaultFormObject() {
         const me = this;
         let FormObj = {};
@@ -533,9 +552,7 @@ class Table extends RawTable {
         }
         return FormObj;
     }
-    hasStateMachine() {
-        return this.SM;
-    }
+    hasStateMachine() { return this.SM; }
     modifyRow(id) {
         let t = this;
         const pcname = t.getPrimaryColname();
@@ -557,7 +574,6 @@ class Table extends RawTable {
         }
         else {
             if (t.ReadOnly) {
-                alert("Can not modify!\nTable \"" + t.getTablename() + "\" is read-only!");
                 return;
             }
             let TheRow = null;
@@ -569,9 +585,7 @@ class Table extends RawTable {
             }
         }
     }
-    setCallbackSelectionChanged(callback) {
-        this._callbackSelectionChanged = callback;
-    }
+    setCallbackSelectionChanged(callback) { this._callbackSelectionChanged = callback; }
     formatCellFK(colname, cellData) {
         const showColumns = this.Columns[colname].foreignKey.col_subst;
         let cols = [];
@@ -682,7 +696,6 @@ class Table extends RawTable {
             SB.setTable(t);
             SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
             SB.setCallbackStateChange(resp => {
-                console.log("Statechange from Grid!", resp);
                 t.loadRows(() => { t.renderContent(); });
             });
             const tmpID = DB.getID();
@@ -833,7 +846,7 @@ class Table extends RawTable {
             ${tds}
           </tbody>
         </table>
-      </div>` : (t.getSearch() != '' ? 'Sorry, nothing found.' : '')}
+      </div>` : (t.getSearch() != '' ? gText[setLang].noFinds : '')}
     </div>`;
     }
     getFooter() {
@@ -858,14 +871,14 @@ class Table extends RawTable {
             return `<div class="tbl_footer"></div>`;
         let statusText = '';
         if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
-            let text = this.GUIOptions.statusBarTextEntries;
+            let text = gText[setLang].entriesStats;
             text = text.replace('{lim_from}', '' + ((this.PageIndex * this.PageLimit) + 1));
             text = text.replace('{lim_to}', '' + ((this.PageIndex * this.PageLimit) + this.Rows.length));
             text = text.replace('{count}', '' + this.getNrOfRows());
             statusText = text;
         }
         else {
-            statusText = this.GUIOptions.statusBarTextNoEntries;
+            statusText = gText[setLang].noEntries;
         }
         return `<div class="tbl_footer">
       <div class="text-muted p-0">
@@ -1088,17 +1101,16 @@ class FormGenerator {
                 if (!extTable.ReadOnly && rows['count'] == 0) {
                     const pathOrigin = location.hash + '/' + extTable.getTablename();
                     document.getElementById(tmpGUID).innerHTML =
-                        `<a class="btn btn-default text-success" href="${pathOrigin + '/create/' + tablenameM}/create"><i class="fa fa-plus"></i> Create</a>
-            <span class="mx-3">or</span>
-            <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> Relate</a>`;
+                        `<a class="btn btn-default text-success" href="${pathOrigin + '/create/' + tablenameM}/create"><i class="fa fa-plus"></i> ${gText[setLang].Create}</a>
+            <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> ${gText[setLang].Relate}</a>`;
                 }
                 else if (extTable.ReadOnly && rows['count'] == 0) {
-                    document.getElementById(tmpGUID).innerHTML = '<p class="text-muted mt-2">No Entries</p>';
+                    document.getElementById(tmpGUID).innerHTML = `<p class="text-muted mt-2">${gText[setLang].noEntries}</p>`;
                 }
                 else
                     extTable.renderHTML(tmpGUID);
             });
-            result += `<div id="${tmpGUID}"><p class="text-muted mt-2"><span class="spinner-grow spinner-grow-sm"></span> Loading Elements...</p></div>`;
+            result += `<div id="${tmpGUID}"><p class="text-muted mt-2"><span class="spinner-grow spinner-grow-sm"></span>${gText[setLang].Loading}</p></div>`;
         }
         else if (el.field_type == 'htmleditor') {
             const newID = DB.getID();
@@ -1113,7 +1125,6 @@ class FormGenerator {
             const SB = new StateButton(el.value, this.oRowID, key);
             SB.setTable(this.oTable);
             SB.setCallbackStateChange(resp => {
-                console.log("Statechange from Form!", resp);
                 document.location.reload();
             });
             setTimeout(() => {

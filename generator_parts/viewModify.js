@@ -16,9 +16,10 @@ export default (props) => {
   // Create Table Object
   const t = new Table(actTable);
 
-  const textLoading = 'Loading...';
-  const textCancel = 'Cancel';
-  const textSave = 'Save';
+  // Texts
+  const textLoading = gText[setLang].Loading;
+  const textCancel = gText[setLang].Cancel;
+  const textSave = gText[setLang].Save;
 
   //===================================================================
   // Generate HTML from Form
@@ -173,7 +174,7 @@ export default (props) => {
               if (actStateID === state.id) {
                 // Save Button
                 btn.setAttribute('class', 'btn btn-primary transSave trans'+actStateID+'-'+state.id);
-                btn.innerText = "Save";
+                btn.innerText = textSave;
                 document.getElementById('saveBtns').appendChild(btn);
               }
               else {
@@ -220,7 +221,8 @@ export default (props) => {
   //----------------------------
 
   //--- Set Title
-  window.document.title = "Modify Entry in " + t.getTableAlias();
+  window.document.title = gText[setLang].titleModify.replace('{alias}', t.getTableAlias()).replace('{id}', actRowID);
+
   //--- Mark actual Link
   const links = document.querySelectorAll('#sidebar-links .list-group-item');
   links.forEach(link => {
@@ -264,8 +266,8 @@ return `<div>
   </div>
   <div class="text-center pb-3">
     ${
-      t.SM ? '<span class="mr-3" id="saveBtns"></span><span class="mr-3" id="nextstates"></span>' :
-      // NO Statemachine
+      t.SM ? 
+      '<span class="mr-3" id="saveBtns"></span><span class="mr-3" id="nextstates"></span>' :
       `<a class="btn btn-primary btnSave" href="#/${actTable}">${textSave}</a><span class="mx-3 text-muted"></span>`
     }
     <span><a class="btn btn-light" href="${backPath}">${textCancel}</a></span>

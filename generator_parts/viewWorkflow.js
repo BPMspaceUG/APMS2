@@ -1,12 +1,14 @@
 export default props => {
+
   // Variables
   const t = new Table(props.table);
-  const textCancel = 'Cancel';
+  const textCancel = gText[setLang].Cancel;
 
   // Methods
   if (t.SM) {
-    // Set Title
-    window.document.title = "Workflow of " + t.getTableAlias();
+    //--- Set Title
+    window.document.title = gText[setLang].titleWorkflow.replace('{alias}', t.getTableAlias());
+
     // Load workflow into DOM
     setTimeout(() => {
       t.SM.renderHTML(document.getElementById('statemachine'));

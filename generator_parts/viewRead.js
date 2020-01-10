@@ -15,7 +15,8 @@ export default (props) => {
   }
 
   const t = new Table(props.table);
-  const textCreate = (t.TableType !== 'obj' ? 'Add Relation' : 'Create');
+  const textCreate = t.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
+  const textSearch = gText[setLang].Search;
   const links = document.querySelectorAll('#sidebar-links .list-group-item');
 
   //--- Set Title
@@ -58,9 +59,9 @@ export default (props) => {
     <h2 title="${t.getTableType()}">${t.getTableIcon() + ' ' + t.getTableAlias()}</h2>
     <hr>
     <form class="form-inline mb-1">
-      <input type="text" id="searchBox" class="form-control d-inline-block w-50 w-lg-25 mr-1" placeholder="Search..."/>
+      <input type="text" id="searchBox" class="form-control d-inline-block w-50 w-lg-25 mr-1" placeholder="${textSearch}"/>
       <a class="btn btn-success mr-1" href="#/${props.table}/create">${textCreate}</a>
-      ${t.SM ? '<a class="btn btn-info" href="#/'+props.table+'/workflow"><span class="d-none d-lg-inline">Workflow</span><span class="d-lg-none">WF</span></a>' : ''}
+      ${t.SM ? `<a class="btn btn-info" href="#/${props.table}/workflow">${gText[setLang].Workflow}</a>` : ''}
     </div>
     <div id="tablecontent"></div>
   </div>`;

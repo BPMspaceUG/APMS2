@@ -9,8 +9,8 @@ export default (props) => {
   const t = new Table(actTable);
 
   // Texts
-  const textCommand = t.TableType !== 'obj' ? 'Relate' : 'Create';
-  const textCancel = 'Cancel';
+  const textCommand = t.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
+  const textCancel = gText[setLang].Cancel;
 
   let fCreate = null;
 
@@ -24,8 +24,11 @@ export default (props) => {
   // 3. o/---    -> Relate, Create new Relation coming from existing Object (fixed Obj)
   // 4. o/---/o   -> Create & Relate, Create new Object and new Relation coming from an existing Object
 
-  //--- Set Title  
-  window.document.title = textCommand + ' ' + t.getTableAlias();
+  //--- Set Title
+  if (t.TableType !== 'obj')
+    window.document.title = gText[setLang].titleRelate.replace('{alias}', t.getTableAlias());
+  else
+    window.document.title = gText[setLang].titleCreate.replace('{alias}', t.getTableAlias());
 
   //--- Mark actual Link
   const links = document.querySelectorAll('#sidebar-links .list-group-item');
@@ -33,7 +36,6 @@ export default (props) => {
     link.classList.remove('active');
     if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
   });
-
   function setFormState(allDisabled) {
     // Btn
     const btn = document.getElementsByClassName('btnCreate')[0];
@@ -52,7 +54,6 @@ export default (props) => {
       allDisabled ? el.setAttribute('disabled', 'disabled') : el.removeAttribute('disabled');
     }
   }
-
 
   //===================================================================
   // Generate HTML from Form
@@ -141,7 +142,6 @@ export default (props) => {
     newObj[fixedKey].mode_form = 'ro';
     //newObj[fixedKey].show_in_form = false;
   }
-
 
   function getActualFormContent() {
     fCreate = new FormGenerator(t, undefined, newObj, null);
@@ -256,7 +256,6 @@ export default (props) => {
                   });
                 }
               }
-
               // 3. Create the path
               if (objsToCreate.length === 0 && relsToCreate.length > 0) {
                 objsToCreate = [{t: t.getTablename(), id: newElementID}];
@@ -309,9 +308,6 @@ export default (props) => {
     //---
   }, 10);
   
-
-
-
   //---------------------------------------------------- Path
   const guiPath = [];
   const count = path.length / 2;
