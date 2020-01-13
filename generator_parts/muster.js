@@ -51,7 +51,7 @@ const gText = {
         noFinds: 'Keine Ergebnisse gefunden.'
     }
 };
-const setLang = 'de';
+const setLang = 'en';
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -732,7 +732,7 @@ class Table extends RawTable {
     htmlHeaders(colnames) {
         let t = this;
         let th = '';
-        if (t.options.showControlColumn && !t.ReadOnly) {
+        if (t.options.showControlColumn) {
             th = `<th class="controllcoulm"></th>`;
             if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
                 const cols = [];
@@ -756,7 +756,8 @@ class Table extends RawTable {
           </th>`;
                 }
                 else {
-                    th = `<th class="controllcoulm"><a href="${location.hash + '/' + t.getTablename()}/create"><i class="fa fa-plus text-success"></i></a></th>`;
+                    const createBtn = `<a href="${location.hash + '/' + t.getTablename()}/create"><i class="fa fa-plus text-success"></i></a>`;
+                    th = `<th class="controllcoulm">${t.ReadOnly ? '' : createBtn}</th>`;
                 }
             }
         }
@@ -814,16 +815,11 @@ class Table extends RawTable {
             if (t.selectedRows.length > 0) {
                 isSelected = t.selectedRows.filter(el => { return el[pcname] == RowID; }).length > 0;
             }
-            if (t.options.showControlColumn && !t.ReadOnly) {
+            if (t.options.showControlColumn) {
                 const path = location.hash.split('/');
                 const loc = (path.length === 2) ? '#' : path.join('/');
                 data_string = `<td class="controllcoulm">
-          ${(t.selType !== SelectType.NoSelect ? (isSelected ?
-                    '<i class="modRow fa fa-check-square text-success"></i>' :
-                    '<i class="modRow far fa-square text-secondary"></i>')
-                    : (t.TableType == TableType.obj ?
-                        `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-edit"></i></a>` :
-                        `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`))}
+          ${(t.selType !== SelectType.NoSelect ? (isSelected ? '<i class="modRow fa fa-check-square text-success"></i>' : '<i class="modRow far fa-square text-secondary"></i>') : (!t.ReadOnly ? (t.TableType === TableType.obj ? `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-edit"></i></a>` : `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`) : ''))}
         </td>`;
             }
             sortedColumnNames.forEach(col => {
@@ -1028,13 +1024,12 @@ class FormGenerator {
         let v = el.value || '';
         if (el.value === 0)
             v = 0;
-        if (!el.show_in_form)
+        if (!el.show_in_form && el.field_type != 'foreignkey')
             return '';
         if (el.mode_form == 'hi')
             return '';
         if (el.mode_form == 'ro' && el.is_primary)
             return '';
-        const form_label = el.column_alias ? `<label for="inp_${key}">${el.column_alias}</label>` : null;
         if (el.field_type == 'textarea') {
             result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
         }
@@ -1083,31 +1078,6 @@ class FormGenerator {
             const tmpTable = new Table(el.fk_table, selType);
             const randID = DB.getID();
             tmpTable.ReadOnly = (el.mode_form == 'ro');
-            if (el.customfilter) {
-                const rd = this.data;
-                const colnames = Object.keys(rd);
-                for (const colname of colnames) {
-                    const pattern = '%' + colname + '%';
-                    if (el.customfilter.indexOf(pattern) >= 0) {
-                        const firstCol = Object.keys(rd[colname].value)[0];
-                        el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
-                    }
-                }
-                el.customfilter = decodeURI(el.customfilter);
-                tmpTable.setFilter(el.customfilter);
-            }
-            tmpTable.setCallbackSelectionChanged(selRows => {
-                let value = "";
-                if (selType === SelectType.Single) {
-                    value = tmpTable.getSelectedIDs()[0];
-                }
-                else if (selType === SelectType.Multi) {
-                    value = JSON.stringify(tmpTable.getSelectedIDs());
-                }
-                if (!value)
-                    value = "";
-                document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
-            });
             const fkIsSet = !Object.values(v).every(o => o === null);
             if (fkIsSet) {
                 if (DB.isObject(v)) {
@@ -1117,24 +1087,53 @@ class FormGenerator {
                     v = v[key];
                     tmpTable.setFilter('{"=":["' + key + '",' + v + ']}');
                 }
-                else {
-                }
             }
             else
                 v = "";
-            tmpTable.loadRows(rows => {
-                if (rows["count"] == 0) {
-                    document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
-            <span class="mr-3">No Entries found</span>${tmpTable.ReadOnly ? '' :
-                        '<a class="btn btn-sm btn-success" href="' + location.hash + '/' + tmpTable.getTablename() + '/create">Create</a>'}
-          </p>`;
+            if (el.show_in_form) {
+                if (el.customfilter) {
+                    const rd = this.data;
+                    const colnames = Object.keys(rd);
+                    for (const colname of colnames) {
+                        const pattern = '%' + colname + '%';
+                        if (el.customfilter.indexOf(pattern) >= 0) {
+                            const firstCol = Object.keys(rd[colname].value)[0];
+                            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+                        }
+                    }
+                    el.customfilter = decodeURI(el.customfilter);
+                    tmpTable.setFilter(el.customfilter);
                 }
-                else {
-                    tmpTable.renderHTML(randID);
-                }
-            });
+                tmpTable.setCallbackSelectionChanged(selRows => {
+                    let value = "";
+                    if (selType === SelectType.Single) {
+                        value = tmpTable.getSelectedIDs()[0];
+                    }
+                    else if (selType === SelectType.Multi) {
+                        value = JSON.stringify(tmpTable.getSelectedIDs());
+                    }
+                    if (!value)
+                        value = "";
+                    document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
+                });
+                tmpTable.loadRows(rows => {
+                    if (rows["count"] == 0) {
+                        document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
+              <span class="mr-3">No Entries found</span>${tmpTable.ReadOnly ? '' :
+                            '<a class="btn btn-sm btn-success" href="' + location.hash + '/' + tmpTable.getTablename() + '/create">Create</a>'}
+            </p>`;
+                    }
+                    else {
+                        tmpTable.renderHTML(randID);
+                    }
+                });
+            }
+            else {
+                el.column_alias = null;
+            }
             result += `<div><input type="hidden" class="rwInput" name="${key}" value="${v}">`;
-            result += `<div id="${randID}">Loading...</div>`;
+            if (el.show_in_form)
+                result += `<div id="${randID}">Loading...</div>`;
             result += '</div>';
         }
         else if (el.field_type == 'reversefk') {
@@ -1207,6 +1206,7 @@ class FormGenerator {
         <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
       </div>`;
         }
+        const form_label = el.column_alias ? `<label for="inp_${key}">${el.column_alias}</label>` : null;
         return `<div class="${el.customclass || 'col-12'}">${form_label || ''}${result}</div>`;
     }
     getValues() {

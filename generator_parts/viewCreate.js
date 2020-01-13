@@ -140,7 +140,7 @@ export default (props) => {
     val[fixedPColname] = origObjID;
     newObj[fixedKey].value = val;
     newObj[fixedKey].mode_form = 'ro';
-    //newObj[fixedKey].show_in_form = false;
+    newObj[fixedKey].show_in_form = false;
   }
 
   function getActualFormContent() {
