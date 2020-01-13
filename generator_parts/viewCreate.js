@@ -338,7 +338,6 @@ export default (props) => {
   // ===> OUTPUT
   return `<div>
     <h2>${guiFullPath}</h2>
-    <hr>
     <div class="container-fluid my-3" id="formcreate">${getActualFormContent()}</div>
     <div class="text-center pb-3">
       <button class="btn btn-success btnCreate">${textCommand}</button>

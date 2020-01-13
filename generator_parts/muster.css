@@ -37,6 +37,7 @@ body {overflow-x: hidden;}
 .datatbl td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
 th.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; border: none !important; vertical-align: middle;}
 td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; vertical-align: middle;}
+.tbl_statustext {font-size: .8em; color: grey;}
 
 /* Forms */
 #formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}

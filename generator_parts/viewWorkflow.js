@@ -15,8 +15,7 @@ export default props => {
     }, 1);
     //------ HTML Output
     return `<div>
-      <h2>${t.getTableIcon() + ' ' + t.getTableAlias()}:Workflow</h2>
-      <hr>
+      <h2 class="text-info">${t.getTableIcon() + ' ' + t.getTableAlias()} Workflow</h2>
       <div id="statemachine"></div>
       <br>
       <div class="text-center pb-3">

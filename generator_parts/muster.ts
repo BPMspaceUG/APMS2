@@ -24,7 +24,7 @@ const gText = {
     noFinds: 'Sorry, nothing found.'
   },
   de: {
-    Create: 'Neu',
+    Create: 'Erstellen',
     Cancel: 'Abbrechen',
     Search: 'Suchen...',
     Loading: 'Laden...',
@@ -40,7 +40,7 @@ const gText = {
     noFinds: 'Keine Ergebnisse gefunden.'
   }
 }
-const setLang = 'en';
+const setLang = 'de';
 
 //==============================================================
 // Database (Communication via API)
@@ -187,6 +187,13 @@ abstract class DB {
       return Object.keys(x).map(
         e => { return this.isObject(x[e]) ? this.recflattenObj(x[e]) : x[e]; }
       );
+    }
+  }
+  public static debounce(delay, fn) {
+    let timerId;
+    return function (...args) {
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(() => { fn(...args); timerId = null; }, delay);
     }
   }
   // TODO: Remove the random ID generation because of Selenium!!! and use DOM-Create-Element instead!
@@ -515,11 +522,13 @@ class Table extends RawTable {
   private selType: SelectType = SelectType.NoSelect;
   private TableType: TableType = TableType.obj;
   private selectedRows = [];
-  private GUIOptions = {
+  public options = {
     maxCellLength: 50,
+    smallestTimeUnitMins: true,
     showControlColumn: true,
     showWorkflowButton: false,
-    smallestTimeUnitMins: true
+    showCreateButton: false,
+    showSearch: false
   }
   public isExpanded: boolean = true;
   private _callbackSelectionChanged = (resp) => {};
@@ -613,7 +622,7 @@ class Table extends RawTable {
     }
     return FormObj;
   }
-  public hasStateMachine() { return this.SM; }
+  public hasStateMachine() { return !!this.SM; }
   public modifyRow(id: number) {
     let t = this
     const pcname = t.getPrimaryColname();
@@ -677,8 +686,8 @@ class Table extends RawTable {
     // check cell type
     if (typeof cellContent == 'string') {
       // String, and longer than X chars
-      if (cellContent.length > this.GUIOptions.maxCellLength)
-        return DB.escapeHtml(cellContent.substr(0, this.GUIOptions.maxCellLength) + "\u2026");
+      if (cellContent.length > this.options.maxCellLength)
+        return DB.escapeHtml(cellContent.substr(0, this.options.maxCellLength) + "\u2026");
     }
     else if ((typeof cellContent === "object") && (cellContent !== null)) {
       //-----------------------
@@ -741,7 +750,7 @@ class Table extends RawTable {
     }
     //--- TIME
     else if(t.Columns[col].field_type == 'time') {
-      if (t.GUIOptions.smallestTimeUnitMins) {
+      if (t.options.smallestTimeUnitMins) {
         // Remove seconds from TimeString
         let timeArr = value.split(':');
         timeArr.pop();
@@ -755,8 +764,8 @@ class Table extends RawTable {
       if(!isNaN(tmp.getTime())) {
         value = tmp.toLocaleString('de-DE')
         // Remove seconds from TimeString
-        if (t.GUIOptions.smallestTimeUnitMins) {
-          let timeArr = value.split(':');
+        if (t.options.smallestTimeUnitMins) {
+          const timeArr = value.split(':');
           timeArr.pop();
           value = timeArr.join(':');
         }
@@ -823,7 +832,7 @@ class Table extends RawTable {
     let t = this;
     let th = '';
     // Pre fill with 1 because of selector
-    if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
+    if (t.options.showControlColumn && !t.ReadOnly) {
       // Standard
       th = `<th class="controllcoulm"></th>`;
       // No Object and no Selection
@@ -902,7 +911,7 @@ class Table extends RawTable {
       }
     }
     return th;
-  } 
+  }
   private getContent(): string {
     let t = this
     let tds: string = '';
@@ -927,7 +936,7 @@ class Table extends RawTable {
         isSelected = t.selectedRows.filter(el => { return el[pcname] == RowID; }).length > 0;
       }
       // [Control Column] is set then Add one before each row
-      if (t.GUIOptions.showControlColumn && !t.ReadOnly) {
+      if (t.options.showControlColumn && !t.ReadOnly) {
         const path = location.hash.split('/');
         const loc = (path.length === 2) ? '#' : path.join('/'); // Check if Root-Table
         data_string = `<td class="controllcoulm">
@@ -953,7 +962,7 @@ class Table extends RawTable {
       })
       //--------------------------------- ROW
       // Add row to table
-      if (t.GUIOptions.showControlColumn) {
+      if (t.options.showControlColumn) {
         // Edit via first column
         tds += `<tr class="${(isSelected ? ' table-info' : (row['gridclass'] ? row['gridclass'] : 'gridrow') )}" data-rowid="${t.getTablename()+':'+row[pcname]}">${data_string}</tr>`;
       }
@@ -982,50 +991,85 @@ class Table extends RawTable {
       </div>` : ( t.getSearch() != '' ? gText[setLang].noFinds : '') }
     </div>`;
   }
+  // Nice Components (Create, Workflow, Searchbar, Statustext)
+  private getCreateButton() {
+    const createBtnElement = document.createElement('a');
+    createBtnElement.classList.add('tbl_createbtn');
+    createBtnElement.setAttribute('href', `#/${this.getTablename()}/create`);
+    createBtnElement.innerText = this.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
+    createBtnElement.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    return createBtnElement;
+  }
+  private getWorkflowButton() {
+    const createBtnElement = document.createElement('a');
+    createBtnElement.classList.add('tbl_workflowbtn');
+    createBtnElement.setAttribute('href', `#/${this.getTablename()}/workflow`);
+    createBtnElement.innerText = gText[setLang].Workflow;
+    createBtnElement.classList.add('btn', 'btn-info', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    return createBtnElement;
+  }
+  private getSearchBar() {
+    const t = this;
+    const searchBarElement = document.createElement('input');
+    searchBarElement.setAttribute('type', "text");
+    searchBarElement.setAttribute('placeholder', gText[setLang].Search);
+    searchBarElement.classList.add('tbl_searchbar');
+    // Bootstrap custom classes
+    searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1', 'mb-1');
+    // Events
+    const dHandler = DB.debounce(250, ()=>{
+      t.setSearch(searchBarElement.value); // Set Filter
+      t.loadRows(()=>{
+        t.renderContent();
+        t.renderFooter();
+      });
+    });
+    searchBarElement.addEventListener("input", dHandler);
+    // Return
+    return searchBarElement;
+  }
+  private getStatusText() {
+    const statusTextElement = document.createElement('span');
+    statusTextElement.classList.add('tbl_statustext');
+    statusTextElement.innerText = (this.getNrOfRows() > 0 && this.Rows.length > 0) ?
+      // i.e. Entries 1-2 of 2
+      gText[setLang].entriesStats
+        .replace('{lim_from}', ''+((this.PageIndex * this.PageLimit) + 1))
+        .replace('{lim_to}', ''+((this.PageIndex * this.PageLimit) + this.Rows.length))
+        .replace('{count}', ''+(this.getNrOfRows()))
+      :
+      // No Entries
+      gText[setLang].noEntries;
+    return statusTextElement;
+  }
+  // TODO: Make Element out of it
   private getFooter(): string {
     const t = this;
-    if (!t.Rows || t.Rows.length <= 0) return '<div class="tbl_footer"></div>';
+    // Create default Footer
+    const footerElement = document.createElement('div');
+    footerElement.classList.add('tbl_footer');
+    // No Rows = No Footer
+    if (!t.Rows || t.Rows.length <= 0) return footerElement.outerHTML;
+    if ((t.selType !== SelectType.NoSelect) && !t.isExpanded) return footerElement.outerHTML;
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1) return footerElement.outerHTML;
     // Pagination
     const PaginationButtons = t.getPaginationButtons();
     let pgntn = '';
-    // Only Display Buttons if more than one Button exists
     if (PaginationButtons.length > 1) {
+      // Only Display Buttons if more than one Button exists
       PaginationButtons.forEach(btnIndex => {
-        if (t.PageIndex == t.PageIndex + btnIndex) { // Active
+        if (t.PageIndex == t.PageIndex + btnIndex) // Active
           pgntn += `<li class="page-item active"><span class="page-link">${t.PageIndex + 1 + btnIndex}</span></li>`;
-        } else {
+        else 
           pgntn += `<li class="page-item"><a href="${window.location}" class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
-        }
       })
     }
-    // special cases
-    if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
-      return `<div class="tbl_footer"></div>`;
-    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1)
-      return `<div class="tbl_footer"></div>`;
-
-    //--- StatusText
-    let statusText = '';
-    if (this.getNrOfRows() > 0 && this.Rows.length > 0) {
-      let text = gText[setLang].entriesStats;
-      text = text.replace('{lim_from}', ''+ ((this.PageIndex * this.PageLimit) + 1) );
-      text = text.replace('{lim_to}', ''+ ((this.PageIndex * this.PageLimit) + this.Rows.length) );
-      text = text.replace('{count}', '' + this.getNrOfRows() );
-      statusText = text;
-    }
-    else {
-      // No Entries
-      statusText = gText[setLang].noEntries;
-    }
-    // Normal
+    //===> Return
     return `<div class="tbl_footer">
-      <div class="text-muted p-0">
-        <small>${statusText}</small>
-        <nav class="float-right">
-          <ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul>
-        </nav>
+        ${ this.getStatusText().outerHTML }
+        <!-- Pagination -->
+        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
         <div style="clear:both;"></div>
-      </div>
     </div>`;
   }
   //---------------------------------------- Render
@@ -1105,6 +1149,18 @@ class Table extends RawTable {
       el.innerHTML = content;
       await this.renderContent();
       await this.renderFooter();
+      //--- Header
+      if (this.SM && this.options.showWorkflowButton) {
+        el.prepend(this.getWorkflowButton());
+      }
+      if (!this.ReadOnly && this.options.showCreateButton) {
+        el.prepend(this.getCreateButton());
+      }
+      if (this.options.showSearch) {
+        const searchBar = this.getSearchBar();
+        el.prepend(searchBar);
+        searchBar.focus();
+      }
     }
   }
 }
@@ -1437,7 +1493,7 @@ class FormGenerator {
       const options = t.editors[key];
       //--- Quill.
       if (options.editor === 'quill') {
-        let QuillOptions = {theme: 'snow'};
+        const QuillOptions = {theme: 'snow'};
         if (options.mode == 'ro') {
           QuillOptions['readOnly'] = true;
           QuillOptions['modules'] = {toolbar: false};
@@ -1471,7 +1527,7 @@ class FormGenerator {
         }
       })
     }
-    //--- Do a submit - if on any R/W field return is pressed
+    //--- TODO: Do a submit - if on any R/W field return is pressed
     elements = document.querySelectorAll('.rwInput:not(textarea)');
     for (let el of elements) {
       el.addEventListener('keydown', function(e: KeyboardEvent){

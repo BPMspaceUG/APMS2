@@ -259,7 +259,6 @@ export default (props) => {
 
 return `<div>
   <h2>${guiFullPath}<span class="ml-2" style="font-size:.75em;" id="actualState"></span></h2>
-  <hr>
   <p id="errorText" class="text-danger"></p>
   <div class="container-fluid my-3" id="formedit">
     <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>${textLoading}
