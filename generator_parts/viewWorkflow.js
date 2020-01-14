@@ -7,11 +7,8 @@ export default props => {
   if (t.SM) {
     //--- Set Title
     window.document.title = gText[setLang].titleWorkflow.replace('{alias}', t.getTableAlias());
-
-    // Load workflow into DOM
-    setTimeout(() => {
-      t.SM.renderHTML(document.getElementById('statemachine'));
-    }, 1);
+    //--- Load Workflow into DOM
+    setTimeout(() => { t.SM.renderHTML(document.getElementById('statemachine')); }, 10);
     //------ HTML Output
     return `<div>
       <h2 class="text-info">${t.getTableIcon() + ' ' + t.getTableAlias()} Workflow</h2>
@@ -22,7 +19,6 @@ export default props => {
       </div>
     </div>`;
   }
-
   // Error
   return `<div>
     <p style="color: red;">Error: This Table does not have a Workflow!</p>

@@ -40,7 +40,7 @@ const gText = {
     noFinds: 'Keine Ergebnisse gefunden.'
   }
 }
-const setLang = 'en';
+const setLang = 'de';
 
 //==============================================================
 // Database (Communication via API)
@@ -206,12 +206,10 @@ abstract class DB {
 // TODO: A Statemachine should be independent from a table...
 // a table can have 0, 1 or even more statemachines (the link/settings for this should be in the json-config)
 class StateMachine {
-  private myTable: Table;
   private myStates: any;
   private myLinks: any;
   
-  constructor(table: Table, states: any, links: any){
-    this.myTable = table
+  constructor(states: any, links: any){
     this.myStates = states;
     this.myLinks = links;
   }
@@ -269,11 +267,53 @@ class StateMachine {
       node['color'] = css.background;
       return node;
     });
-    const _edges = this.myLinks.map(link => {
-      const from = idOffset + link.from;
-      const to = idOffset + link.to;
-      return {from, to};
+
+    //---------------------------------------------- Edges
+    function getDuplicates(input){
+      if (input.length === 1) return [null, input[0]];
+      // Find duplicates by from + to
+      const unique = [];
+      const duplicates = input.filter(o => {
+        if (unique.find(i => i.from === o.from && i.to === o.to)) return true;
+        unique.push(o);
+        return false;
+      });
+      return [duplicates, unique];
+    }
+
+    let iter = 0;
+    let running = true;
+    let tmp = null;
+    let du = this.myLinks;
+    let uni = [];
+
+    while (running) {
+      iter++;
+      tmp = getDuplicates(du);
+      du = tmp[0];
+      uni = uni.concat(tmp[1]);
+      if (du && du.length > 0) {
+        du = du.map(x => {
+          if (x.from === x.to)
+            x['selfReferenceSize'] = 30 + 20 * iter;
+          else
+            x['smooth'] = {type: 'curvedCW', roundness: 0.2 * iter}; // Roundness can be from -1 to 1
+          return x;
+        });
+      } else running = false;
+    }
+
+    let links = uni;
+    // Convert transID => label
+    links = links.map(o => {
+      o['label'] = o.transID.toString();
+      delete o.transID;
+      o.from += idOffset;
+      o.to += idOffset;
+      return o;
     });
+    const _edges = links;
+    //----------------------------------------------------
 
     // Add Entrypoints
     _nodes.forEach(node => {
@@ -292,28 +332,24 @@ class StateMachine {
       }
     });
     const options = {
-      height: '400px',
+      height: '500px',
       edges: {
-        color: {color: '#444444', opacity:0.5},
-        arrows: {'to': {enabled: true, type: 'vee'}},
-        smooth: {
-          type: 'cubicBezier',
-          forceDirection: 'horizontal',
-          roundness: 0.4
-        },
-        label: ""
+        color: {color: '#aaaaaa'},
+        arrows: {'to': {enabled: true}},
+        selfReferenceSize: 35,
+        smooth: {type: 'continuous', roundness: 0.5}
       },
       nodes: {
-        shape: 'box', margin: 20, heightConstraint: {minimum: 40}, widthConstraint: {minimum: 80, maximum: 200},
-        borderWidth: 0, size: 24, font: {color: '#888888', size: 16}, scaling: {min: 10, max: 30}
+        shape: 'box',
+        heightConstraint: {minimum: 40},
+        widthConstraint: {minimum: 80, maximum: 200},
+        font: {color: '#888888', size: 14}
       },
       layout: {
         hierarchical: {
           direction: 'LR',
-          sortMethod: 'directed',
-          shakeTowards: 'leaves',
           nodeSpacing: 200,
-          levelSeparation: 200,
+          levelSeparation: 300,
           treeSpacing: 400
         }
       },
@@ -321,7 +357,7 @@ class StateMachine {
     };
     // Render
     let network = new vis.Network(querySelector, {nodes: _nodes, edges: _edges}, options);
-    network.fit({scale: 1, offset: {x:0, y:0}});
+    network.fit({scale:1,offset:{x:0,y:0}});
   }
   public getFormDiffByState(StateID: number) {
     let result = {};
@@ -452,7 +488,7 @@ class RawTable {
   private Filter: string;
   private PriColname: string = '';
   private Config: any;
-  private actRowCount: number;
+  protected actRowCount: number;
   protected Rows: any;
   protected PageLimit: number = 10;
   protected PageIndex: number = 0;
@@ -470,17 +506,14 @@ class RawTable {
     }
     t.resetFilter();
   }
-  public createRow(data: any, callback) {
-    DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });
-  }
+  public createRow(data: any, callback) { DB.request('create', {table: this.tablename, row: data}, r => { callback(r); }); }
   public updateRow(RowID: number, new_data: any, callback) {
-    const data = new_data
-    data[this.PriColname] = RowID
-    DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); })
+    const data = new_data;
+    data[this.PriColname] = RowID;
+    DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); });
   }
   public loadRow(RowID: number, callback) {
-    const data = {table: this.tablename, limit: 1, filter: {}};
-    data.filter = '{"=": ["'+ this.PriColname +'", ' + RowID + ']}';
+    const data = {table: this.tablename, limit: 1, filter: '{"=":["'+this.PriColname +'", '+RowID+']}'};
     DB.request('read', data, r => { const row = r.records[0]; callback(row); });
   }
   public loadRows(callback) {
@@ -535,13 +568,14 @@ class Table extends RawTable {
   // Methods
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
     super(tablename); // Call parent constructor
+    const config = this.getConfig();
     this.GUID = DB.getID();
     this.selType = SelType;
-    this.TableType = this.getConfig().table_type;
-    this.setSort(this.getConfig().stdsorting);
-    this.ReadOnly = (this.getConfig().mode == 'ro');
-    if (this.getConfig().se_active)
-      this.SM = new StateMachine(this, this.getConfig().sm_states, this.getConfig().sm_rules);
+    this.TableType = config.table_type;
+    this.setSort(config.stdsorting);
+    this.ReadOnly = (config.mode == 'ro');
+    if (config.se_active)
+      this.SM = new StateMachine(config.sm_states, config.sm_rules);
   }
   public isRelationTable() { return (this.TableType !== TableType.obj); }
   public getTableType() { return this.TableType; }
@@ -1066,7 +1100,7 @@ class Table extends RawTable {
     }
     //===> Return
     return `<div class="tbl_footer">
-        ${ this.getStatusText().outerHTML }
+        ${ PaginationButtons.length === 1 ? '' : this.getStatusText().outerHTML }
         <!-- Pagination -->
         <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
         <div style="clear:both;"></div>
@@ -1146,6 +1180,13 @@ class Table extends RawTable {
     const content = await this.getContent() + this.getFooter();
     const el = document.getElementById(DOM_ID);
     if (el) {
+      // Check if it has entries
+      if (this.actRowCount === 0) {
+        // If no entries, then offer to Create a new one
+        el.innerHTML = this.ReadOnly ? gText[setLang].noEntries :
+          `<a class="btn btn-success" href="${location.hash}/create">${gText[setLang].Create}</a>`;
+        return;
+      }
       el.innerHTML = content;
       await this.renderContent();
       await this.renderFooter();
@@ -1217,8 +1258,7 @@ class FormGenerator {
     }
     //--- Float
     else if (el.field_type == 'float') {
-      if (el.value) el.value = parseFloat(el.value).toLocaleString('de-DE');
-      
+      if (el.value) el.value = parseFloat(el.value).toLocaleString('de-DE');      
       result += `<input name="${key}" type="text" id="inp_${key}" class="inpFloat${el.mode_form == 'rw' ? ' form-control rwInput' : ' form-control-plaintext'}"
       value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
     }
@@ -1308,11 +1348,8 @@ class FormGenerator {
         tmpTable.loadRows(rows => {
           if (rows["count"] == 0) {
             // If no entries, then offer to Create a new one
-            document.getElementById(randID).outerHTML = `<p class="text-muted" style="margin-top:.4rem;">
-              <span class="mr-3">No Entries found</span>${ tmpTable.ReadOnly ? '' : 
-                '<a class="btn btn-sm btn-success" href="'+location.hash+'/'+tmpTable.getTablename()+'/create">Create</a>'
-              }
-            </p>`;
+            document.getElementById(randID).outerHTML = tmpTable.ReadOnly ? gText[setLang].noEntries :
+              `<a class="btn btn-sm btn-success" href="${location.hash}/${tmpTable.getTablename()}/create">${gText[setLang].Create}</a>`;
           } else {
             tmpTable.renderHTML(randID);
           }
@@ -1339,6 +1376,7 @@ class FormGenerator {
       if (extTable.isRelationTable()) {
         // Relation:
         extTable.Columns[extTableColSelf].show_in_grid = false; // Hide self column
+        extTable.options.showControlColumn = !(el.mode_form == 'ro')
         extTable.setColumnFilter(hideCol, this.oRowID.toString()); // show only OWN relations
       }
       // Load Rows
@@ -1348,7 +1386,7 @@ class FormGenerator {
           // Display Buttons for add Relation
           const pathOrigin = location.hash+'/'+extTable.getTablename();
           document.getElementById(tmpGUID).innerHTML = 
-            `<a class="btn btn-default text-success" href="${pathOrigin+'/create/'+tablenameM}/create"><i class="fa fa-plus"></i> ${gText[setLang].Create}</a>
+            `<a class="btn btn-default text-success" href="${pathOrigin}/create/${tablenameM}/create"><i class="fa fa-plus"></i> ${gText[setLang].Create}</a>
             <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> ${gText[setLang].Relate}</a>`;
         }
         else if (extTable.ReadOnly && rows['count'] == 0) {

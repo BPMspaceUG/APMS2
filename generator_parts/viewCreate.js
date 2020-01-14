@@ -7,16 +7,9 @@ export default (props) => {
   // Get actual Table & ID (last)
   const actTable = path[path.length - 2];
   const t = new Table(actTable);
-
   // Texts
   const textCommand = t.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
-  const textCancel = gText[setLang].Cancel;
-
   let fCreate = null;
-
-  // Legend:
-  // [ --- ] Relation
-  // [  o  ] Object
 
   // Possibilities:
   // 1. /o      -> Create, Create new Object
@@ -83,7 +76,7 @@ export default (props) => {
     let fixedKey = null;
     let fixedPColname = null;
     let cnt = 0;
-
+    
     for (const colname of Object.keys(t.Columns)) {
       const col = t.Columns[colname];
       if (col.field_type == 'foreignkey' && col.foreignKey.table == origTbl) {
@@ -153,16 +146,6 @@ export default (props) => {
   // After HTML is placed in DOM
   setTimeout(() => {
     fCreate.initEditors();
-    //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
-    const elem = document.getElementsByClassName('rwInput')[0];
-    if (elem) {
-      const elemLen = elem.value.length;
-      if (elem.selectionStart || elem.selectionStart == '0') {
-        elem.selectionStart = elemLen;
-        elem.selectionEnd = elemLen;
-        elem.focus();
-      }
-    }
     //--- Bind Buttonclick
     const btns = document.getElementsByClassName('btnCreate');
     for (const btn of btns) {
@@ -183,8 +166,8 @@ export default (props) => {
               SB.setTable(t);
               const stateTo = SB.getElement().outerHTML;
               const tmplTitle = 
-                counter === 0 ? `<span class="text-muted">Create &rarr; ${stateTo}</span>` :
-                counter === 1 ? `<span class="text-muted">&rarr; ${stateTo}</span>` :
+                counter === 0 ? `${gText[setLang].Create} &rarr; ${stateTo}` :
+                counter === 1 ? `&rarr; ${stateTo}` :
                 '';
               // Render a Modal
               document.getElementById('myModalTitle').innerHTML = tmplTitle;
@@ -304,6 +287,16 @@ export default (props) => {
           }
         });
       });
+    }    
+    //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
+    const elem = document.getElementsByClassName('rwInput')[0];
+    if (elem) {
+      const elemLen = elem.value.length;
+      if (elem.selectionStart || elem.selectionStart == '0') {
+        elem.selectionStart = elemLen;
+        elem.selectionEnd = elemLen;
+        elem.focus();
+      }
     }
     //---
   }, 10);
@@ -342,7 +335,7 @@ export default (props) => {
     <div class="text-center pb-3">
       <button class="btn btn-success btnCreate">${textCommand}</button>
       <span class="mx-3 text-muted"></span>
-      <span><a class="btn btn-light" href="${backPath}">${textCancel}</a></span>
+      <span><a class="btn btn-light" href="${backPath}">${gText[setLang].Cancel}</a></span>
     </div>
   </div>`;
 }

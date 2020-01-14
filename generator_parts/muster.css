@@ -48,9 +48,9 @@ td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50
 
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
-.btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%; max-width: 100px; }
+.btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%; min-width: 80px; max-width: 140px; }
 .btnEnabled:hover {color: white !important; background-color: #333 !important;}
-.btnDisabled {display: inline-block; max-width: 100px; width: auto !important;}
+.btnDisabled {display: inline-block; max-width: 140px; width: auto !important;}
 .btnDisabled:focus, .btnDisabled:active:focus, .btnDisabled.active:focus {outline: none !important; outline-style: none; box-shadow: none !important;}
 .btnDisabled:hover {background-color: none !important; cursor: default;}
 
