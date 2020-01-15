@@ -2,14 +2,14 @@ export default (props) => {
   //---> PATH
   const path = location.hash.split('/');
   path.shift(); // Remove first element (#)
+  
   // Checks
   if (path.length % 2 !== 0) return `<div><p style="color: red;">Create: Path is invalid!</p></div>`;
+  
   // Get actual Table & ID (last)
   const actTable = path[path.length - 2];
   const t = new Table(actTable);
-  // Texts
   const textCommand = t.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
-  let fCreate = null;
 
   // Possibilities:
   // 1. /o      -> Create, Create new Object
@@ -17,18 +17,7 @@ export default (props) => {
   // 3. o/---    -> Relate, Create new Relation coming from existing Object (fixed Obj)
   // 4. o/---/o   -> Create & Relate, Create new Object and new Relation coming from an existing Object
 
-  //--- Set Title
-  if (t.TableType !== 'obj')
-    window.document.title = gText[setLang].titleRelate.replace('{alias}', t.getTableAlias());
-  else
-    window.document.title = gText[setLang].titleCreate.replace('{alias}', t.getTableAlias());
-
-  //--- Mark actual Link
-  const links = document.querySelectorAll('#sidebar-links .list-group-item');
-  links.forEach(link => {
-    link.classList.remove('active');
-    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
-  });
+  //--- Functions
   function setFormState(allDisabled) {
     // Btn
     const btn = document.getElementsByClassName('btnCreate')[0];
@@ -47,22 +36,30 @@ export default (props) => {
       allDisabled ? el.setAttribute('disabled', 'disabled') : el.removeAttribute('disabled');
     }
   }
+  function redirect(toPath) {
+    document.location.assign(toPath);
+  }
+
+  //--- Set Title
+  if (t.TableType !== 'obj')
+    window.document.title = gText[setLang].titleRelate.replace('{alias}', t.getTableAlias());
+  else
+    window.document.title = gText[setLang].titleCreate.replace('{alias}', t.getTableAlias());
+
+  //--- Mark actual Link
+  const links = document.querySelectorAll('#sidebar-links .list-group-item');
+  links.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') == '#/' + props.origin) link.classList.add('active');
+  });
 
   //===================================================================
   // Generate HTML from Form
   //===================================================================
-  // Overwrite and merge the differences from diffForm
-  const defaultForm = t.getDefaultFormObject();
-  const diffForm = t.getDiffFormCreate();
-  const newObj = DB.mergeDeep({}, defaultForm, diffForm);
+  const combinedFormConfig = t.getFormCreate();
+  const fCreate = new Form(t, null, combinedFormConfig);
 
-  //--------------------------------------------------------
-  // TODO: Possible Now!
-  // HIDE Reverse Foreign Keys (==> Create!) => can't be related - Object doesn't exist yet
-  for (const key of Object.keys(newObj)) {
-    if (newObj[key].field_type == 'reversefk')
-      newObj[key].mode_form = 'hi';
-  }
+
 
   //=> Case 3
   // is add Relation and Coming from an Object? => then preselect object
@@ -120,7 +117,8 @@ export default (props) => {
               } else {
                 newObj[colname].customfilter = '{"=":[1,2]}'; // NO Results
               }
-              document.getElementById('formcreate').innerHTML = getActualFormContent();
+              // Create Form
+              document.getElementById('formcreate').innerHTML = fCreate.getHTML();
             });          
           })
         }
@@ -128,7 +126,6 @@ export default (props) => {
       }
       cnt++;
     }
-
     // Fix the Origin-Key
     val[fixedPColname] = origObjID;
     newObj[fixedKey].value = val;
@@ -136,25 +133,37 @@ export default (props) => {
     newObj[fixedKey].show_in_form = false;
   }
 
-  function getActualFormContent() {
-    fCreate = new FormGenerator(t, undefined, newObj, null);
-    return fCreate.getHTML();
-  }
-  function redirect(toPath) { document.location.assign(toPath); }
-
   //---------------------------------------------------
   // After HTML is placed in DOM
   setTimeout(() => {
+    //--- HTML Editors
     fCreate.initEditors();
+
     //--- Bind Buttonclick
     const btns = document.getElementsByClassName('btnCreate');
     for (const btn of btns) {
       btn.addEventListener('click', e => {
         e.preventDefault();
-        setFormState(true);
+
+        //setFormState(true);
+
         // Read out all input fields with {key:value}
         let data = fCreate.getValues();
+
+        // TODO: 1. Get the JSON
+        console.log(data);
+
+
+        // TODO: 2. Send to Import function
+
+
+        // TODO: 3. Profit!
+
+
+
+
         //---> CREATE
+        /*
         t.createRow(data, resp => {
           setFormState(false);
           //===> Show Messages
@@ -286,8 +295,13 @@ export default (props) => {
             console.error("Could not create Element!");
           }
         });
+        */
+        // ---/Create
+
+
+
       });
-    }    
+    }
     //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
     const elem = document.getElementsByClassName('rwInput')[0];
     if (elem) {
@@ -299,8 +313,7 @@ export default (props) => {
       }
     }
     //---
-  }, 10);
-  
+  }, 10);  
   //---------------------------------------------------- Path
   const guiPath = [];
   const count = path.length / 2;
@@ -331,7 +344,7 @@ export default (props) => {
   // ===> OUTPUT
   return `<div>
     <h2>${guiFullPath}</h2>
-    <div class="container-fluid my-3" id="formcreate">${getActualFormContent()}</div>
+    <div class="container-fluid my-3" id="formcreate">${ fCreate.getHTML() }</div>
     <div class="text-center pb-3">
       <button class="btn btn-success btnCreate">${textCommand}</button>
       <span class="mx-3 text-muted"></span>

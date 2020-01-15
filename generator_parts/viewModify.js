@@ -67,7 +67,7 @@ export default (props) => {
       }
       let diffObject = {};
       let newObj = {};
-      let defaultFormObj = t.getDefaultFormObject();
+      let defaultFormObj = t.getDefaultForm(); // TODO: This is private!
       //--- Overwrite and merge the differences from diffObject
       if (t.SM) {
         actStateID = row['state_id'];
@@ -102,7 +102,7 @@ export default (props) => {
               count++;
             }
             //- Generate a Modify-Form
-            newForm = new FormGenerator(t, actRowID, newObj, null);
+            newForm = new Form(t, actRowID, newObj);
             document.getElementById('formedit').innerHTML = newForm.getHTML();
             x();
           });
@@ -112,7 +112,7 @@ export default (props) => {
           for (const key of Object.keys(row))
             newObj[key].value = row[key];
           //- Generate a Modify-Form
-          newForm = new FormGenerator(t, actRowID, newObj, null);
+          newForm = new Form(t, actRowID, newObj);
           document.getElementById('formedit').innerHTML = newForm.getHTML();
           x();
         }
@@ -125,7 +125,7 @@ export default (props) => {
         for (const key of Object.keys(row))
           newObj[key].value = row[key];
         //- Generate a Modify-Form
-        newForm = new FormGenerator(t, actRowID, newObj, null);
+        newForm = new Form(t, actRowID, newObj);
         document.getElementById('formedit').innerHTML = newForm.getHTML();
         x();
         focusFirstElement();

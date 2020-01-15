@@ -523,7 +523,23 @@ class Table extends RawTable {
     }
     isRelationTable() { return (this.TableType !== TableType.obj); }
     getTableType() { return this.TableType; }
-    getDiffFormCreate() { return JSON.parse(this.getConfig().formcreate); }
+    getDefaultForm() {
+        const me = this;
+        let FormObj = {};
+        for (const colname of Object.keys(me.Columns)) {
+            const ColObj = me.Columns[colname];
+            FormObj[colname] = ColObj;
+            if (ColObj.field_type == 'foreignkey')
+                FormObj[colname]['fk_table'] = ColObj.foreignKey.table;
+        }
+        return FormObj;
+    }
+    getDifferenceForm() { return JSON.parse(this.getConfig().formcreate); }
+    getFormCreate() {
+        const defaultForm = this.getDefaultForm();
+        const diffForm = this.getDifferenceForm();
+        return DB.mergeDeep({}, defaultForm, diffForm);
+    }
     toggleSort(ColumnName) {
         let t = this;
         const SortDir = (t.getSortDir() == SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC;
@@ -569,30 +585,11 @@ class Table extends RawTable {
         }
         return pages;
     }
-    renderEditForm(Row, diffObject, ExistingModal = undefined) {
-        const t = this;
-        let defaultFormObj = t.getDefaultFormObject();
-        let newObj = DB.mergeDeep({}, defaultFormObj, diffObject);
-        for (const key of Object.keys(Row)) {
-            newObj[key].value = Row[key];
-        }
-    }
     getSelectedIDs() {
         const pcname = this.getPrimaryColname();
         return this.selectedRows.map(el => { return el[pcname]; });
     }
     setSelectedRows(selRowData) { this.selectedRows = selRowData; }
-    getDefaultFormObject() {
-        const me = this;
-        let FormObj = {};
-        for (const colname of Object.keys(me.Columns)) {
-            const ColObj = me.Columns[colname];
-            FormObj[colname] = ColObj;
-            if (ColObj.field_type == 'foreignkey')
-                FormObj[colname]['fk_table'] = ColObj.foreignKey.table;
-        }
-        return FormObj;
-    }
     hasStateMachine() { return !!this.SM; }
     modifyRow(id) {
         let t = this;
@@ -622,7 +619,10 @@ class Table extends RawTable {
                 TheRow = row; });
             if (t.SM) {
                 const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
-                t.renderEditForm(TheRow, diffJSON, null);
+                const defaultFormObj = this.getDefaultForm();
+                const newObj = DB.mergeDeep({}, defaultFormObj, diffJSON);
+                for (const key of Object.keys(TheRow))
+                    newObj[key].value = TheRow[key];
             }
         }
     }
@@ -741,8 +741,11 @@ class Table extends RawTable {
             });
             const tmpID = DB.getID();
             setTimeout(() => {
-                document.getElementById(tmpID).innerHTML = '';
-                document.getElementById(tmpID).appendChild(SB.getElement());
+                const el = document.getElementById(tmpID);
+                if (el) {
+                    document.getElementById(tmpID).innerHTML = '';
+                    document.getElementById(tmpID).appendChild(SB.getElement());
+                }
             }, 10);
             return `<div id="${tmpID}"></div>`;
         }
@@ -1047,67 +1050,141 @@ class Table extends RawTable {
         }
     }
 }
-class FormGenerator {
-    constructor(originTable, originRowID, rowData, GUID) {
+class Form {
+    constructor(Table, RowID = null, formConfig, Path = '') {
         this.editors = {};
-        this.GUID = GUID || DB.getID();
-        this.oTable = originTable;
-        this.oRowID = originRowID;
-        this.data = rowData;
+        this._path = '';
+        this.oTable = Table;
+        this.oRowID = RowID;
+        this._formConfig = formConfig;
+        this._path = Path;
     }
     getElement(key, el) {
-        let result = '';
         let v = el.value || '';
         if (el.value === 0)
             v = 0;
         if (!el.show_in_form && el.field_type != 'foreignkey')
-            return '';
+            return null;
         if (el.mode_form == 'hi')
-            return '';
+            return null;
         if (el.mode_form == 'ro' && el.is_primary)
-            return '';
+            return null;
+        let crElem = null;
         if (el.field_type == 'textarea') {
-            result += `<textarea name="${key}" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" ${el.mode_form == 'ro' ? ' readonly' : ''}>${v}</textarea>`;
+            crElem = document.createElement('textarea');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('form-control');
+            crElem.innerText = v;
         }
         else if (el.field_type == 'text') {
-            result += `<input
-        name="${key}"
-        type="text"
-        id="inp_${key}"
-        ${el.maxlength ? 'maxlength="' + el.maxlength + '"' : ''}
-        class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${DB.escapeHtml(v)}"${el.mode_form == 'ro' ? ' readonly' : ''}
-      />`;
+            crElem = document.createElement('input');
+            crElem.setAttribute('type', 'text');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.maxlength)
+                crElem.setAttribute('maxlength', el.maxlength);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('form-control');
+            crElem.setAttribute('value', DB.escapeHtml(v));
         }
         else if (el.field_type == 'number') {
-            result += `<input name="${key}" type="number" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+            crElem = document.createElement('input');
+            crElem.setAttribute('type', 'number');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('form-control');
+            crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'float') {
             if (el.value)
                 el.value = parseFloat(el.value).toLocaleString('de-DE');
-            result += `<input name="${key}" type="text" id="inp_${key}" class="inpFloat${el.mode_form == 'rw' ? ' form-control rwInput' : ' form-control-plaintext'}"
-      value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+            crElem = document.createElement('input');
+            crElem.setAttribute('type', 'text');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            crElem.setAttribute('name', key);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('inpFloat');
+            crElem.classList.add('form-control');
+            crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'time') {
-            result += `<input name="${key}" type="time" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+            crElem = document.createElement('input');
+            crElem.setAttribute('type', 'time');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('form-control');
+            crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'date') {
-            result += `<input name="${key}" type="date" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+            crElem = document.createElement('input');
+            crElem.setAttribute('type', 'date');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('form-control');
+            crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'password') {
-            result += `<input name="${key}" type="password" id="inp_${key}" class="form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${v}"${el.mode_form == 'ro' ? ' readonly' : ''}/>`;
+            crElem = document.createElement('input');
+            crElem.setAttribute('type', 'password');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('readonly', 'readonly');
+            crElem.classList.add('form-control');
+            crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'datetime') {
-            result += `<div class="input-group">
-        <input name="${key}" type="date" id="inp_${key}" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${v.split(' ')[0]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
-        <input name="${key}" type="time" id="inp_${key}_time" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}"
-        value="${v.split(' ')[1]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
-      </div>`;
+            const iDate = document.createElement('input');
+            iDate.setAttribute('name', key);
+            iDate.setAttribute('type', 'date');
+            iDate.setAttribute('id', 'inp_' + key);
+            iDate.classList.add('dtm', 'form-control');
+            iDate.setAttribute('value', v.split(' ')[0]);
+            if (el.mode_form === 'rw')
+                iDate.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                iDate.setAttribute('readonly', 'readonly');
+            const iTime = document.createElement('input');
+            iTime.setAttribute('name', key);
+            iTime.setAttribute('type', 'time');
+            iTime.setAttribute('id', 'inp_' + key + '_time');
+            iTime.classList.add('dtm', 'form-control');
+            iTime.setAttribute('value', v.split(' ')[1]);
+            if (el.mode_form === 'rw')
+                iTime.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                iTime.setAttribute('readonly', 'readonly');
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('input-group');
+            wrapper.appendChild(iDate);
+            wrapper.appendChild(iTime);
+            crElem = wrapper;
         }
         else if (el.field_type == 'foreignkey') {
             const selType = parseInt(el.seltype) || SelectType.Single;
@@ -1128,7 +1205,7 @@ class FormGenerator {
                 v = "";
             if (el.show_in_form) {
                 if (el.customfilter) {
-                    const rd = this.data;
+                    const rd = this._formConfig;
                     const colnames = Object.keys(rd);
                     for (const colname of colnames) {
                         const pattern = '%' + colname + '%';
@@ -1165,10 +1242,15 @@ class FormGenerator {
             else {
                 el.column_alias = null;
             }
-            result += `<div><input type="hidden" class="rwInput" name="${key}" value="${v}">`;
+            crElem = document.createElement('div');
+            const hiddenInp = document.createElement('input');
+            hiddenInp.setAttribute('type', 'hidden');
+            hiddenInp.classList.add('rwInput');
+            hiddenInp.setAttribute('name', key);
+            hiddenInp.setAttribute('value', v);
             if (el.show_in_form)
-                result += `<div id="${randID}">Loading...</div>`;
-            result += '</div>';
+                hiddenInp.innerHTML = `<div id="${randID}">Loading...</div>`;
+            crElem.appendChild(hiddenInp);
         }
         else if (el.field_type == 'reversefk') {
             const tmpGUID = DB.getID();
@@ -1176,81 +1258,123 @@ class FormGenerator {
             const extTableColSelf = el.revfk_colname1;
             const hideCol = '`' + extTablename + '`.' + extTableColSelf;
             const extTable = new Table(extTablename);
-            const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table;
+            const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table || null;
             extTable.ReadOnly = (el.mode_form == 'ro');
-            if (extTable.isRelationTable()) {
-                extTable.Columns[extTableColSelf].show_in_grid = false;
-                extTable.options.showControlColumn = !(el.mode_form == 'ro');
-                extTable.setColumnFilter(hideCol, this.oRowID.toString());
+            const isCreate = !this.oRowID;
+            if (isCreate) {
+                if (tablenameM) {
+                    const tblM = new Table(tablenameM);
+                    const formConfig = tblM.getFormCreate();
+                    const extForm = new Form(extTable, null, formConfig);
+                    setTimeout(() => {
+                        document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
+                        extForm.initEditors();
+                    }, 10);
+                }
             }
-            extTable.loadRows(rows => {
-                if (!extTable.ReadOnly && rows['count'] == 0) {
-                    const pathOrigin = location.hash + '/' + extTable.getTablename();
-                    document.getElementById(tmpGUID).innerHTML =
-                        `<a class="btn btn-default text-success" href="${pathOrigin}/create/${tablenameM}/create"><i class="fa fa-plus"></i> ${gText[setLang].Create}</a>
-            <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> ${gText[setLang].Relate}</a>`;
+            else {
+                if (extTable.isRelationTable()) {
+                    extTable.Columns[extTableColSelf].show_in_grid = false;
+                    extTable.options.showControlColumn = !(el.mode_form == 'ro');
+                    extTable.setColumnFilter(hideCol, this.oRowID.toString());
                 }
-                else if (extTable.ReadOnly && rows['count'] == 0) {
-                    document.getElementById(tmpGUID).innerHTML = `<p class="text-muted mt-2">${gText[setLang].noEntries}</p>`;
-                }
-                else
-                    extTable.renderHTML(tmpGUID);
-            });
-            result += `<div id="${tmpGUID}"><p class="text-muted mt-2"><span class="spinner-grow spinner-grow-sm"></span>${gText[setLang].Loading}</p></div>`;
+                extTable.loadRows(rows => {
+                    if (!extTable.ReadOnly && rows['count'] == 0) {
+                        const pathOrigin = location.hash + '/' + extTable.getTablename();
+                        document.getElementById(tmpGUID).innerHTML =
+                            `<a class="btn btn-default text-success" href="${pathOrigin}/create/${tablenameM}/create"><i class="fa fa-plus"></i> ${gText[setLang].Create}</a>
+              <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> ${gText[setLang].Relate}</a>`;
+                    }
+                    else if (extTable.ReadOnly && rows['count'] == 0) {
+                        document.getElementById(tmpGUID).innerHTML = `<span class="text-muted">${gText[setLang].noEntries}</span>`;
+                    }
+                    else
+                        extTable.renderHTML(tmpGUID);
+                });
+            }
+            const html = `<div ${isCreate ? 'class="row ml-1" ' : ''}id="${tmpGUID}"><span class="spinner-grow spinner-grow-sm"></span> ${gText[setLang].Loading}</div>`;
+            crElem = document.createElement('div');
+            crElem.outerHTML = html;
         }
         else if (el.field_type == 'htmleditor') {
+            crElem = document.createElement('div');
             const newID = DB.getID();
+            const editorWrapper = document.createElement('div');
+            editorWrapper.classList.add('htmleditor');
+            editorWrapper.setAttribute('id', newID);
             this.editors[key] = { mode: el.mode_form, id: newID, editor: 'quill' };
-            result += `<div><div class="htmleditor" id="${newID}"></div></div>`;
+            crElem.appendChild(editorWrapper);
         }
         else if (el.field_type == 'rawhtml') {
-            result += `<div>${el.value}</div>`;
+            crElem = document.createElement('div');
+            crElem.innerHTML = el.value;
         }
         else if (el.field_type == 'state') {
-            const tmpID = DB.getID();
             const SB = new StateButton(el.value, this.oRowID, key);
             SB.setTable(this.oTable);
-            SB.setCallbackStateChange(resp => {
-                document.location.reload();
-            });
-            setTimeout(() => {
-                document.getElementById(tmpID).appendChild(SB.getElement());
-            }, 1);
-            result += `<div id="${tmpID}"></div>`;
+            SB.setCallbackStateChange(resp => { document.location.reload(); });
+            crElem = SB.getElement();
         }
         else if (el.field_type == 'enum') {
-            result += `<select name="${key}" class="custom-select${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}>`;
             const options = JSON.parse(el.col_options);
+            crElem = document.createElement('select');
+            crElem.setAttribute('name', key);
+            crElem.setAttribute('id', 'inp_' + key);
+            if (el.maxlength)
+                crElem.setAttribute('maxlength', el.maxlength);
+            if (el.mode_form === 'rw')
+                crElem.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                crElem.setAttribute('disabled', 'disabled');
+            crElem.classList.add('custom-select');
             if (el.col_options)
                 for (const o of options) {
-                    result += `<option value="${o.value}"${el.value == o.value ? 'selected' : ''}>${o.name}</option>`;
+                    const opt = document.createElement('option');
+                    opt.setAttribute('value', o.value);
+                    opt.innerText = o.name;
+                    if (el.value == o.value)
+                        opt.setAttribute('selected', 'selected');
+                    crElem.appendChild(opt);
                 }
-            result += `</select>`;
         }
         else if (el.field_type == 'switch') {
-            result = '';
-            result += `<div class="custom-control custom-switch mt-1">
+            const html = `<div class="custom-control custom-switch mt-1">
       <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
       <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
     </div>`;
+            crElem = document.createElement('div');
+            crElem.outerHTML = html;
         }
         else if (el.field_type == 'checkbox') {
-            result = '';
-            result += `<div class="custom-control custom-checkbox mt-1">
+            const html = `<div class="custom-control custom-checkbox mt-1">
         <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
         <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
       </div>`;
+            crElem = document.createElement('div');
+            crElem.outerHTML = html;
         }
-        const form_label = el.column_alias ? `<label for="inp_${key}">${el.column_alias}</label>` : null;
-        return `<div class="${el.customclass || 'col-12'}">${form_label || ''}${result}</div>`;
+        const resWrapper = document.createElement('div');
+        resWrapper.setAttribute('class', el.customclass || 'col-12');
+        if (el.column_alias) {
+            const label = document.createElement('label');
+            label.setAttribute('for', 'inp_' + key);
+            label.innerText = el.column_alias;
+            resWrapper.appendChild(label);
+        }
+        crElem.setAttribute('data-path', this._path);
+        resWrapper.appendChild(crElem);
+        return resWrapper;
     }
-    getValues() {
-        let result = {};
-        const rwInputs = document.getElementById(this.GUID).getElementsByClassName('rwInput');
+    getValues(formElement = null) {
+        const result = {};
+        if (!formElement)
+            formElement = document;
+        const rwInputs = formElement.getElementsByClassName('rwInput');
         for (const element of rwInputs) {
             const inp = element;
             const key = inp.getAttribute('name');
             const type = inp.getAttribute('type');
+            const path = inp.getAttribute('data-path');
             let value = undefined;
             if (type == 'checkbox') {
                 value = inp.matches(':checked') ? 1 : 0;
@@ -1284,16 +1408,19 @@ class FormGenerator {
         return result;
     }
     getHTML() {
-        let html = `<form class="formcontent row" id="${this.GUID}">`;
-        const data = this.data;
-        const sortedKeys = Object.keys(data).sort((x, y) => {
-            const a = data[x].orderF ? parseInt(data[x].orderF) : 0;
-            const b = data[y].orderF ? parseInt(data[y].orderF) : 0;
+        const conf = this._formConfig;
+        const sortedKeys = Object.keys(conf).sort((x, y) => {
+            const a = parseInt(conf[x].orderF || 0);
+            const b = parseInt(conf[y].orderF || 0);
             return a < b ? -1 : (a > b ? 1 : 0);
         });
-        for (const key of sortedKeys)
-            html += this.getElement(key, data[key]);
-        return html + '</form>';
+        let html = '';
+        for (const key of sortedKeys) {
+            const element = this.getElement(key, conf[key]);
+            if (element)
+                html += element.outerHTML;
+        }
+        return `<form class="formcontent row">${html}</form>`;
     }
     initEditors() {
         let t = this;
@@ -1307,7 +1434,7 @@ class FormGenerator {
                     QuillOptions['modules'] = { toolbar: false };
                 }
                 t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
-                t.editors[key]['objQuill'].root.innerHTML = t.data[key].value || '<p></p>';
+                t.editors[key]['objQuill'].root.innerHTML = t._formConfig[key].value || '<p></p>';
                 if (cnt === 0)
                     t.editors[key]['objQuill'].focus();
             }
@@ -1326,13 +1453,6 @@ class FormGenerator {
                 if ((e.shiftKey || (kc < 48 || kc > 57)) && (kc < 96 || kc > 105)) {
                     e.preventDefault();
                 }
-            });
-        }
-        elements = document.querySelectorAll('.rwInput:not(textarea)');
-        for (let el of elements) {
-            el.addEventListener('keydown', function (e) {
-                if (e.which == 13)
-                    e.preventDefault();
             });
         }
     }
