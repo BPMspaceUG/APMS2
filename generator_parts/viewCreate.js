@@ -137,7 +137,7 @@ export default (props) => {
   // After HTML is placed in DOM
   setTimeout(() => {
     //--- HTML Editors
-    fCreate.initEditors();
+    //fCreate.initEditors();
 
     //--- Bind Buttonclick
     const btns = document.getElementsByClassName('btnCreate');

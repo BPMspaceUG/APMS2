@@ -1225,13 +1225,13 @@ class Form {
   private oTable: Table;
   private oRowID: number;
   private editors = {};
-  private _path: string = '';
+  private _path;
 
-  constructor(Table: Table, RowID: number = null, formConfig, Path: string = '') {
+  constructor(Table: Table, RowID: number = null, formConfig, Path: string = null) {
     this.oTable = Table;
     this.oRowID = RowID;
     this._formConfig = formConfig;
-    this._path = Path;
+    this._path = Path || Table.getTablename();
   }
   private getElement(key: string, el): HTMLElement {
     let v = el.value || '';
@@ -1243,6 +1243,7 @@ class Form {
     //====================================================
     // Create Element
     let crElem = null;
+    const path = this._path + '/' + key;
     //--- Textarea
     if (el.field_type == 'textarea') {
       crElem = document.createElement('textarea');
@@ -1450,10 +1451,9 @@ class Form {
         if (tablenameM) {
           const tblM = new Table(tablenameM);
           const formConfig = tblM.getFormCreate();
-          const extForm = new Form(extTable, null, formConfig);
+          const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM );
           setTimeout(()=>{
             document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
-            extForm.initEditors();
           }, 10)
         }
       }
@@ -1483,19 +1483,28 @@ class Form {
         });
       }
       // Container for Table
-      const html = `<div ${isCreate ? 'class="row ml-1" ' : ''}id="${tmpGUID}"><span class="spinner-grow spinner-grow-sm"></span> ${gText[setLang].Loading}</div>`;
       crElem = document.createElement('div');
-      crElem.outerHTML = html;
+      if (isCreate) crElem.setAttribute('class', 'row ml-1');
+      crElem.setAttribute('id', tmpGUID);
+      crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
     }    
     //--- Quill Editor
     else if (el.field_type == 'htmleditor') {
-      crElem = document.createElement('div');
       const newID = DB.getID();
-      const editorWrapper = document.createElement('div');
-      editorWrapper.classList.add('htmleditor');
-      editorWrapper.setAttribute('id', newID);
-      this.editors[key] = {mode: el.mode_form, id: newID, editor: 'quill'}; // reserve key
-      crElem.appendChild(editorWrapper);
+      crElem = document.createElement('div');
+      const cont = document.createElement('div');
+      cont.setAttribute('id', newID);
+      cont.setAttribute('class', 'rwInput');
+      cont.setAttribute('name', key);
+      cont.setAttribute('data-path', path);
+      crElem.appendChild(cont);
+      // Quill
+      const options = {theme: 'snow'};
+      if (el.mode_form == 'ro') {
+        options['readOnly'] = true;
+        options['modules'] = {toolbar: false};
+      }
+      setTimeout(() => { new Quill('#'+newID, options); }, 10);
     }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
@@ -1560,17 +1569,70 @@ class Form {
       resWrapper.appendChild(label);
     }
     // ========> OUTPUT
-    crElem.setAttribute('data-path', this._path);
+    crElem.setAttribute('data-path', path); // TODO: Put in every elem itself
     resWrapper.appendChild(crElem);
     return resWrapper;
-    //const result = crElem.outerHTML;
-    //const form_label = el.column_alias ? `<label for="inp_${key}">${el.column_alias}</label>` : null;
-    //return `<div class="${}">${form_label || ''}${result}</div>`;
   }
+  private put(obj, path, val) {
+    var stringToPath = function (path) {
+      // If the path isn't a string, return it
+      if (typeof path !== 'string') return path;
+      // Create new array
+      var output = [];
+      // Split to an array with dot notation
+      path.split('/').forEach(function (item, index) {
+        // Split to an array with bracket notation
+        item.split(/\[([^}]+)\]/g).forEach(function (key) {
+          // Push to the new array
+          if (key.length > 0) {
+            output.push(key);
+          }
+        });
+      });
+      return output;
+    };
+    // Convert the path to an array if not already
+    path = stringToPath(path);
+    // Cache the path length and current spot in the object
+    var length = path.length;
+    var current = obj;
+    // Loop through the path
+    path.forEach(function (key, index) {
+      // Check if the assigned key shoul be an array
+      var isArray = key.slice(-2) === '[]';
+      // If so, get the true key name by removing the trailing []
+      key = isArray ? key.slice(0, -2) : key;
+      // If the key should be an array and isn't, create an array
+      if (isArray && Object.prototype.toString.call(current[key]) !== '[object Array]') {
+        current[key] = [];
+      }
+      // If this is the last item in the loop, assign the value
+      if (index === length -1) {
+        // If it's an array, push the value
+        // Otherwise, assign it
+        if (isArray) {
+          current[key].push(val);
+        } else {
+          current[key] = val;
+        }
+      }
+      // Otherwise, update the current place in the object
+      else {
+        // If the key doesn't exist, create it
+        if (!current[key]) {
+          current[key] = {};
+        }
+        // Update the current place in the object
+        current = current[key];
+      }
+    });
+  };
   public getValues(formElement = null) {
     const result = {};
     if (!formElement) formElement = document; // TODO: Remove
     const rwInputs = formElement.getElementsByClassName('rwInput');
+
+    const res = {};
 
     for (const element of rwInputs) {
       const inp = <HTMLInputElement>element;
@@ -1578,6 +1640,7 @@ class Form {
       const type = inp.getAttribute('type');
       const path = inp.getAttribute('data-path');
       let value = undefined;
+
       //--- Format different Types
       // Checkbox
       if (type == 'checkbox') {
@@ -1599,6 +1662,10 @@ class Form {
         if (inp.value != '') res = inp.value;
         value = res;
       }
+      // Quill Editor
+      else if (inp.classList.contains('ql-container')) {
+        value = inp.getElementsByClassName('ql-editor')[0].innerHTML;
+      }
       // Every other type
       else {
         value = inp.value;
@@ -1607,14 +1674,13 @@ class Form {
       // Only add to result object if value is valid
       if (!(value == '' && (type == 'number' || type == 'date' || type == 'time' || type == 'datetime')))
         result[key] = value;
+      //==================================
+      //console.log(path, ' -> ', value);
+      this.put(res, path, value);
     }
-    //-- Editors
-    let editors = this.editors;
-    for (const key of Object.keys(editors)) {
-      const edi = editors[key];
-      if (edi['objQuill']) 
-        result[key] = edi['objQuill'].root.innerHTML;
-    }
+
+    console.log(res);
+
     // Output
     return result;
   }
@@ -1635,57 +1701,5 @@ class Form {
     }
     // Result
     return `<form class="formcontent row">${html}</form>`;
-  }
-  public initEditors() {
-    //--- Editors
-    let t = this;
-    let cnt = 0;
-    for (const key of Object.keys(t.editors)) {
-      const options = t.editors[key];
-      //--- Quill.
-      if (options.editor === 'quill') {
-        const QuillOptions = {theme: 'snow'};
-        if (options.mode == 'ro') {
-          QuillOptions['readOnly'] = true;
-          QuillOptions['modules'] = {toolbar: false};
-        }
-        t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
-        t.editors[key]['objQuill'].root.innerHTML = t._formConfig[key].value || '<p></p>';
-        if (cnt === 0) t.editors[key]['objQuill'].focus();
-      }
-      cnt++;
-    }
-    //--- Live-Validate Number Inputs
-    let elements = document.querySelectorAll('input[type=number]');
-    for (let el of elements) {
-      el.addEventListener('keydown', function(e: KeyboardEvent){
-        const kc: number = e.keyCode;
-        // INTEGER
-        // comma 190, period 188, and minus 109, . on keypad
-        // key == 190 || key == 188 || key == 109 || key == 110 ||
-        // Allow: delete, backspace, tab, escape, enter and numeric . (180 = .)
-        if ([46, 8, 9, 27, 13, 109, 110, 173, 190, 188].indexOf(kc) !== -1 ||
-        // Allow: Ctrl+A, Command+A
-        (kc === 65 && (e.ctrlKey === true || e.metaKey === true)) || 
-        (kc === 67 && e.ctrlKey === true ) || // Ctrl + C
-        (kc === 86 && e.ctrlKey === true ) || // Ctrl + V (!)
-        // Allow: home, end, left, right, down, up
-        (kc >= 35 && kc <= 40))           
-          return; // let it happen, don't do anything
-        // Ensure that it is a number and stop the keypress
-        if ((e.shiftKey || (kc < 48 || kc> 57)) && (kc < 96 || kc > 105)) {
-          e.preventDefault();
-        }
-      })
-    }
-    //--- TODO: Do a submit - if on any R/W field return is pressed
-    /*
-    elements = document.querySelectorAll('.rwInput:not(textarea)');
-    for (let el of elements) {
-      el.addEventListener('keydown', function(e: KeyboardEvent){
-        if (e.which == 13) e.preventDefault(); // Prevent Page Reload
-      });
-    }
-    */
   }
 }

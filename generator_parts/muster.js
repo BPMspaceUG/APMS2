@@ -1051,13 +1051,12 @@ class Table extends RawTable {
     }
 }
 class Form {
-    constructor(Table, RowID = null, formConfig, Path = '') {
+    constructor(Table, RowID = null, formConfig, Path = null) {
         this.editors = {};
-        this._path = '';
         this.oTable = Table;
         this.oRowID = RowID;
         this._formConfig = formConfig;
-        this._path = Path;
+        this._path = Path || Table.getTablename();
     }
     getElement(key, el) {
         let v = el.value || '';
@@ -1070,6 +1069,7 @@ class Form {
         if (el.mode_form == 'ro' && el.is_primary)
             return null;
         let crElem = null;
+        const path = this._path + '/' + key;
         if (el.field_type == 'textarea') {
             crElem = document.createElement('textarea');
             crElem.setAttribute('name', key);
@@ -1265,10 +1265,9 @@ class Form {
                 if (tablenameM) {
                     const tblM = new Table(tablenameM);
                     const formConfig = tblM.getFormCreate();
-                    const extForm = new Form(extTable, null, formConfig);
+                    const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM);
                     setTimeout(() => {
                         document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
-                        extForm.initEditors();
                     }, 10);
                 }
             }
@@ -1292,18 +1291,27 @@ class Form {
                         extTable.renderHTML(tmpGUID);
                 });
             }
-            const html = `<div ${isCreate ? 'class="row ml-1" ' : ''}id="${tmpGUID}"><span class="spinner-grow spinner-grow-sm"></span> ${gText[setLang].Loading}</div>`;
             crElem = document.createElement('div');
-            crElem.outerHTML = html;
+            if (isCreate)
+                crElem.setAttribute('class', 'row ml-1');
+            crElem.setAttribute('id', tmpGUID);
+            crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
         }
         else if (el.field_type == 'htmleditor') {
-            crElem = document.createElement('div');
             const newID = DB.getID();
-            const editorWrapper = document.createElement('div');
-            editorWrapper.classList.add('htmleditor');
-            editorWrapper.setAttribute('id', newID);
-            this.editors[key] = { mode: el.mode_form, id: newID, editor: 'quill' };
-            crElem.appendChild(editorWrapper);
+            crElem = document.createElement('div');
+            const cont = document.createElement('div');
+            cont.setAttribute('id', newID);
+            cont.setAttribute('class', 'rwInput');
+            cont.setAttribute('name', key);
+            cont.setAttribute('data-path', path);
+            crElem.appendChild(cont);
+            const options = { theme: 'snow' };
+            if (el.mode_form == 'ro') {
+                options['readOnly'] = true;
+                options['modules'] = { toolbar: false };
+            }
+            setTimeout(() => { new Quill('#' + newID, options); }, 10);
         }
         else if (el.field_type == 'rawhtml') {
             crElem = document.createElement('div');
@@ -1361,15 +1369,56 @@ class Form {
             label.innerText = el.column_alias;
             resWrapper.appendChild(label);
         }
-        crElem.setAttribute('data-path', this._path);
+        crElem.setAttribute('data-path', path);
         resWrapper.appendChild(crElem);
         return resWrapper;
     }
+    put(obj, path, val) {
+        var stringToPath = function (path) {
+            if (typeof path !== 'string')
+                return path;
+            var output = [];
+            path.split('/').forEach(function (item, index) {
+                item.split(/\[([^}]+)\]/g).forEach(function (key) {
+                    if (key.length > 0) {
+                        output.push(key);
+                    }
+                });
+            });
+            return output;
+        };
+        path = stringToPath(path);
+        var length = path.length;
+        var current = obj;
+        path.forEach(function (key, index) {
+            var isArray = key.slice(-2) === '[]';
+            key = isArray ? key.slice(0, -2) : key;
+            if (isArray && Object.prototype.toString.call(current[key]) !== '[object Array]') {
+                current[key] = [];
+            }
+            if (index === length - 1) {
+                if (isArray) {
+                    current[key].push(val);
+                }
+                else {
+                    current[key] = val;
+                }
+            }
+            else {
+                if (!current[key]) {
+                    current[key] = {};
+                }
+                current = current[key];
+            }
+        });
+    }
+    ;
     getValues(formElement = null) {
         const result = {};
         if (!formElement)
             formElement = document;
         const rwInputs = formElement.getElementsByClassName('rwInput');
+        const res = {};
         for (const element of rwInputs) {
             const inp = element;
             const key = inp.getAttribute('name');
@@ -1393,18 +1442,17 @@ class Form {
                     res = inp.value;
                 value = res;
             }
+            else if (inp.classList.contains('ql-container')) {
+                value = inp.getElementsByClassName('ql-editor')[0].innerHTML;
+            }
             else {
                 value = inp.value;
             }
             if (!(value == '' && (type == 'number' || type == 'date' || type == 'time' || type == 'datetime')))
                 result[key] = value;
+            this.put(res, path, value);
         }
-        let editors = this.editors;
-        for (const key of Object.keys(editors)) {
-            const edi = editors[key];
-            if (edi['objQuill'])
-                result[key] = edi['objQuill'].root.innerHTML;
-        }
+        console.log(res);
         return result;
     }
     getHTML() {
@@ -1421,39 +1469,5 @@ class Form {
                 html += element.outerHTML;
         }
         return `<form class="formcontent row">${html}</form>`;
-    }
-    initEditors() {
-        let t = this;
-        let cnt = 0;
-        for (const key of Object.keys(t.editors)) {
-            const options = t.editors[key];
-            if (options.editor === 'quill') {
-                const QuillOptions = { theme: 'snow' };
-                if (options.mode == 'ro') {
-                    QuillOptions['readOnly'] = true;
-                    QuillOptions['modules'] = { toolbar: false };
-                }
-                t.editors[key]['objQuill'] = new Quill('#' + options.id, QuillOptions);
-                t.editors[key]['objQuill'].root.innerHTML = t._formConfig[key].value || '<p></p>';
-                if (cnt === 0)
-                    t.editors[key]['objQuill'].focus();
-            }
-            cnt++;
-        }
-        let elements = document.querySelectorAll('input[type=number]');
-        for (let el of elements) {
-            el.addEventListener('keydown', function (e) {
-                const kc = e.keyCode;
-                if ([46, 8, 9, 27, 13, 109, 110, 173, 190, 188].indexOf(kc) !== -1 ||
-                    (kc === 65 && (e.ctrlKey === true || e.metaKey === true)) ||
-                    (kc === 67 && e.ctrlKey === true) ||
-                    (kc === 86 && e.ctrlKey === true) ||
-                    (kc >= 35 && kc <= 40))
-                    return;
-                if ((e.shiftKey || (kc < 48 || kc > 57)) && (kc < 96 || kc > 105)) {
-                    e.preventDefault();
-                }
-            });
-        }
     }
 }

@@ -144,7 +144,9 @@ export default (props) => {
           SB.setTable(t);
           document.getElementById('actualState').innerHTML = SB.getElement().outerHTML;
         }
-        newForm.initEditors();      
+
+        //newForm.initEditors();
+
         // MAKE Transition
         if (t.SM) {
           // Set Buttons Nextstates
