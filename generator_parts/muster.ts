@@ -909,7 +909,7 @@ class Table extends RawTable {
           th = `<th class="controllcoulm">${ t.ReadOnly ? '' : createBtn }</th>`;
         }
       }
-  }
+    }
     // Loop Columns
     for (const colname of colnames) {
       if (t.Columns[colname].show_in_grid) {
@@ -1231,6 +1231,26 @@ class Form {
     this._formConfig = formConfig;
     this._path = Path || Table.getTablename() + '/0';
   }
+  private put(obj, path, val) {
+    // Convert path to array
+    path = (typeof path !== 'string') ? path : path.split('/');
+    path = path.map(p => !isNaN(p) ? parseInt(p) : p); // Convert numbers
+    const length = path.length;
+    let current = obj;
+    //-------------- Loop through the path
+    path.forEach((key, index) => {
+      // Leaf => last item in the loop, assign the value        
+      if (index === length - 1) {
+        current[key] = val;
+      }
+      else {
+        // Otherwise, update the current place in the object
+        if (!current[key]) // If the key doesn't exist, create it
+          current[key] = [{}];
+        current = current[key]; // Step into
+      }
+    });
+  }
   private getElement(key: string, el): HTMLElement {
     let v = el.value || '';
     if (el.value === 0) v = 0;
@@ -1418,13 +1438,16 @@ class Form {
       }
       //----- Result
       crElem = document.createElement('div');
+
       const hiddenInp = document.createElement('input');
       hiddenInp.setAttribute('type', 'hidden');
       hiddenInp.classList.add('rwInput');
       hiddenInp.setAttribute('name', key);
       hiddenInp.setAttribute('value', v);
+      hiddenInp.setAttribute('data-path', path);
       if (el.show_in_form)
-        hiddenInp.innerHTML = `<div id="${randID}">Loading...</div>`;
+        crElem.innerHTML = `<div id="${randID}">Loading...</div>`;
+
       crElem.appendChild(hiddenInp);
     }
     //--- Reverse Foreign Key
@@ -1443,7 +1466,6 @@ class Form {
         if (tablenameM) {
           const tblM = new Table(tablenameM);
           const formConfig = tblM.getFormCreate();
-          // TODO: Path
           const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
           setTimeout(()=>{
             document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
@@ -1477,7 +1499,7 @@ class Form {
       }
       // Container for Table
       crElem = document.createElement('div');
-      if (isCreate) crElem.setAttribute('class', 'row ml-1');
+      if (isCreate) crElem.setAttribute('class', 'row');
       crElem.setAttribute('id', tmpGUID);
       crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
     }    
@@ -1501,7 +1523,7 @@ class Form {
         // Initialize Quill Editor
         const editor = new Quill('#'+newID, options);
         editor.root.innerHTML = v || '<p></p>';
-        
+
       }, 10);
     }
     //--- Pure HTML
@@ -1577,26 +1599,6 @@ class Form {
     resWrapper.appendChild(crElem);
     return resWrapper;
   }
-  private put(obj, path, val) {
-    // Convert path to array
-    path = (typeof path !== 'string') ? path : path.split('/');
-    path = path.map(p => !isNaN(p) ? parseInt(p) : p); // Convert numbers
-    const length = path.length;
-    let current = obj;
-    //-------------- Loop through the path
-    path.forEach((key, index) => {
-      // Leaf => last item in the loop, assign the value        
-      if (index === length - 1) {
-        current[key] = val;
-      }
-      else {
-        // Otherwise, update the current place in the object
-        if (!current[key]) // If the key doesn't exist, create it
-          current[key] = [{}];
-        current = current[key]; // Step into
-      }
-    });
-  }
   public getValues(formElement = null) {
     const result = {};
     let res = {};
@@ -1644,7 +1646,7 @@ class Form {
     //===> Output
     return res; // result
   }
-  // TODO: Remove this Method!
+  // TODO: Remove this Method! instead use ==> getForm(): HTMLElement
   public getHTML(){
     const conf = this._formConfig;
     // Order by data[key].orderF

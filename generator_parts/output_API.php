@@ -59,8 +59,8 @@
     }
     else if ($ReqMethod === 'PATCH') {
       // [PATCH]
-      $command = 'update'; // TODO: transit
-      $param = isset($bodyData["param"]) ? $bodyData["param"] : null;
+      $command = 'update';
+      $param = property_exists($bodyData, "param") ? $bodyData->param : null;
     }
     else {
       http_response_code(405);

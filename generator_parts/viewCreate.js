@@ -144,8 +144,8 @@ export default (props) => {
     //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
     const elem = document.getElementsByClassName('rwInput')[0];
     if (elem) {
-      const elemLen = elem.value.length;
       if (elem.selectionStart || elem.selectionStart == '0') {
+        const elemLen = elem.value.length;
         elem.selectionStart = elemLen;
         elem.selectionEnd = elemLen;
         elem.focus();

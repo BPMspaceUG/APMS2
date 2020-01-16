@@ -1058,6 +1058,22 @@ class Form {
         this._formConfig = formConfig;
         this._path = Path || Table.getTablename() + '/0';
     }
+    put(obj, path, val) {
+        path = (typeof path !== 'string') ? path : path.split('/');
+        path = path.map(p => !isNaN(p) ? parseInt(p) : p);
+        const length = path.length;
+        let current = obj;
+        path.forEach((key, index) => {
+            if (index === length - 1) {
+                current[key] = val;
+            }
+            else {
+                if (!current[key])
+                    current[key] = [{}];
+                current = current[key];
+            }
+        });
+    }
     getElement(key, el) {
         let v = el.value || '';
         if (el.value === 0)
@@ -1248,8 +1264,9 @@ class Form {
             hiddenInp.classList.add('rwInput');
             hiddenInp.setAttribute('name', key);
             hiddenInp.setAttribute('value', v);
+            hiddenInp.setAttribute('data-path', path);
             if (el.show_in_form)
-                hiddenInp.innerHTML = `<div id="${randID}">Loading...</div>`;
+                crElem.innerHTML = `<div id="${randID}">Loading...</div>`;
             crElem.appendChild(hiddenInp);
         }
         else if (el.field_type == 'reversefk') {
@@ -1293,7 +1310,7 @@ class Form {
             }
             crElem = document.createElement('div');
             if (isCreate)
-                crElem.setAttribute('class', 'row ml-1');
+                crElem.setAttribute('class', 'row');
             crElem.setAttribute('id', tmpGUID);
             crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
         }
@@ -1383,22 +1400,6 @@ class Form {
         crElem.setAttribute('data-path', path);
         resWrapper.appendChild(crElem);
         return resWrapper;
-    }
-    put(obj, path, val) {
-        path = (typeof path !== 'string') ? path : path.split('/');
-        path = path.map(p => !isNaN(p) ? parseInt(p) : p);
-        const length = path.length;
-        let current = obj;
-        path.forEach((key, index) => {
-            if (index === length - 1) {
-                current[key] = val;
-            }
-            else {
-                if (!current[key])
-                    current[key] = [{}];
-                current = current[key];
-            }
-        });
     }
     getValues(formElement = null) {
         const result = {};
