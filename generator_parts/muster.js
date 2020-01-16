@@ -450,6 +450,7 @@ class RawTable {
         t.resetFilter();
     }
     createRow(data, callback) { DB.request('create', { table: this.tablename, row: data }, r => { callback(r); }); }
+    importData(data, callback) { DB.request('import', data, r => callback(r)); }
     updateRow(RowID, new_data, callback) {
         const data = new_data;
         data[this.PriColname] = RowID;
@@ -1052,11 +1053,10 @@ class Table extends RawTable {
 }
 class Form {
     constructor(Table, RowID = null, formConfig, Path = null) {
-        this.editors = {};
         this.oTable = Table;
         this.oRowID = RowID;
         this._formConfig = formConfig;
-        this._path = Path || Table.getTablename();
+        this._path = Path || Table.getTablename() + '/0';
     }
     getElement(key, el) {
         let v = el.value || '';
@@ -1265,7 +1265,7 @@ class Form {
                 if (tablenameM) {
                     const tblM = new Table(tablenameM);
                     const formConfig = tblM.getFormCreate();
-                    const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM);
+                    const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
                     setTimeout(() => {
                         document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
                     }, 10);
@@ -1311,7 +1311,10 @@ class Form {
                 options['readOnly'] = true;
                 options['modules'] = { toolbar: false };
             }
-            setTimeout(() => { new Quill('#' + newID, options); }, 10);
+            setTimeout(() => {
+                const editor = new Quill('#' + newID, options);
+                editor.root.innerHTML = v || '<p></p>';
+            }, 10);
         }
         else if (el.field_type == 'rawhtml') {
             crElem = document.createElement('div');
@@ -1345,21 +1348,29 @@ class Form {
                     crElem.appendChild(opt);
                 }
         }
-        else if (el.field_type == 'switch') {
-            const html = `<div class="custom-control custom-switch mt-1">
-      <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
-      <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
-    </div>`;
-            crElem = document.createElement('div');
-            crElem.outerHTML = html;
-        }
-        else if (el.field_type == 'checkbox') {
-            const html = `<div class="custom-control custom-checkbox mt-1">
-        <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
-        <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
-      </div>`;
-            crElem = document.createElement('div');
-            crElem.outerHTML = html;
+        else if (el.field_type == 'switch' || el.field_type == 'checkbox') {
+            const checkEl = document.createElement('input');
+            checkEl.setAttribute('type', 'checkbox');
+            checkEl.setAttribute('name', key);
+            checkEl.setAttribute('id', 'inp_' + key);
+            checkEl.setAttribute('data-path', path);
+            if (el.mode_form === 'rw')
+                checkEl.classList.add('rwInput');
+            if (el.mode_form === 'ro')
+                checkEl.setAttribute('disabled', 'disabled');
+            if (v == "1")
+                checkEl.setAttribute('checked', 'checked');
+            checkEl.classList.add('custom-control-input');
+            const labelEl = document.createElement('label');
+            labelEl.classList.add('custom-control-label');
+            labelEl.setAttribute('for', 'inp_' + key);
+            labelEl.innerText = el.label || '';
+            const wrapperEl = document.createElement('div');
+            wrapperEl.classList.add('custom-control');
+            wrapperEl.classList.add('custom-' + el.field_type);
+            wrapperEl.appendChild(checkEl);
+            wrapperEl.appendChild(labelEl);
+            crElem = wrapperEl;
         }
         const resWrapper = document.createElement('div');
         resWrapper.setAttribute('class', el.customclass || 'col-12');
@@ -1374,60 +1385,35 @@ class Form {
         return resWrapper;
     }
     put(obj, path, val) {
-        var stringToPath = function (path) {
-            if (typeof path !== 'string')
-                return path;
-            var output = [];
-            path.split('/').forEach(function (item, index) {
-                item.split(/\[([^}]+)\]/g).forEach(function (key) {
-                    if (key.length > 0) {
-                        output.push(key);
-                    }
-                });
-            });
-            return output;
-        };
-        path = stringToPath(path);
-        var length = path.length;
-        var current = obj;
-        path.forEach(function (key, index) {
-            var isArray = key.slice(-2) === '[]';
-            key = isArray ? key.slice(0, -2) : key;
-            if (isArray && Object.prototype.toString.call(current[key]) !== '[object Array]') {
-                current[key] = [];
-            }
+        path = (typeof path !== 'string') ? path : path.split('/');
+        path = path.map(p => !isNaN(p) ? parseInt(p) : p);
+        const length = path.length;
+        let current = obj;
+        path.forEach((key, index) => {
             if (index === length - 1) {
-                if (isArray) {
-                    current[key].push(val);
-                }
-                else {
-                    current[key] = val;
-                }
+                current[key] = val;
             }
             else {
-                if (!current[key]) {
-                    current[key] = {};
-                }
+                if (!current[key])
+                    current[key] = [{}];
                 current = current[key];
             }
         });
     }
-    ;
     getValues(formElement = null) {
         const result = {};
+        let res = {};
         if (!formElement)
             formElement = document;
         const rwInputs = formElement.getElementsByClassName('rwInput');
-        const res = {};
         for (const element of rwInputs) {
             const inp = element;
             const key = inp.getAttribute('name');
             const type = inp.getAttribute('type');
             const path = inp.getAttribute('data-path');
             let value = undefined;
-            if (type == 'checkbox') {
+            if (type == 'checkbox')
                 value = inp.matches(':checked') ? 1 : 0;
-            }
             else if (type == 'text' && inp.classList.contains('inpFloat')) {
                 const input = inp.value.replace(',', '.');
                 value = parseFloat(input);
@@ -1442,18 +1428,15 @@ class Form {
                     res = inp.value;
                 value = res;
             }
-            else if (inp.classList.contains('ql-container')) {
+            else if (inp.classList.contains('ql-container'))
                 value = inp.getElementsByClassName('ql-editor')[0].innerHTML;
-            }
-            else {
+            else
                 value = inp.value;
-            }
             if (!(value == '' && (type == 'number' || type == 'date' || type == 'time' || type == 'datetime')))
                 result[key] = value;
             this.put(res, path, value);
         }
-        console.log(res);
-        return result;
+        return res;
     }
     getHTML() {
         const conf = this._formConfig;

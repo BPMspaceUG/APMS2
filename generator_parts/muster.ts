@@ -507,6 +507,7 @@ class RawTable {
     t.resetFilter();
   }
   public createRow(data: any, callback) { DB.request('create', {table: this.tablename, row: data}, r => { callback(r); }); }
+  public importData(data, callback) { DB.request('import', data, r => callback(r)); }
   public updateRow(RowID: number, new_data: any, callback) {
     const data = new_data;
     data[this.PriColname] = RowID;
@@ -1217,21 +1218,18 @@ class Table extends RawTable {
 // Class: Form
 //==============================================================
 // TODO: No HTML should be generated / returned ...
-// it should return a Single-Form-DOM-Element which can then be placed like at the Table!
-// So then it is possible to create a Form inside a Form
-// Rename this to Form
+// should return a Single-Form-DOM-Element which can then be placed like at the Table!
 class Form {
   private _formConfig: any;
   private oTable: Table;
   private oRowID: number;
-  private editors = {};
   private _path;
 
   constructor(Table: Table, RowID: number = null, formConfig, Path: string = null) {
     this.oTable = Table;
     this.oRowID = RowID;
     this._formConfig = formConfig;
-    this._path = Path || Table.getTablename();
+    this._path = Path || Table.getTablename() + '/0';
   }
   private getElement(key: string, el): HTMLElement {
     let v = el.value || '';
@@ -1351,12 +1349,6 @@ class Form {
       wrapper.appendChild(iTime);
 
       crElem = wrapper;
-      /*
-      result += `<div class="input-group">
-        <input name="${key}" type="date" id="inp_${key}" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" value="${v.split(' ')[0]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
-        <input name="${key}" type="time" id="inp_${key}_time" class="dtm form-control${el.mode_form == 'rw' ? ' rwInput' : ''}" value="${v.split(' ')[1]}"${el.mode_form == 'ro' ? ' readonly' : ''}/>
-      </div>`;
-      */
     }
     //--- Foreignkey
     // TODO: This should be renamed to Table-Element (can be normal, singleselect or mult-select)
@@ -1451,7 +1443,8 @@ class Form {
         if (tablenameM) {
           const tblM = new Table(tablenameM);
           const formConfig = tblM.getFormCreate();
-          const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM );
+          // TODO: Path
+          const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
           setTimeout(()=>{
             document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
           }, 10)
@@ -1504,7 +1497,12 @@ class Form {
         options['readOnly'] = true;
         options['modules'] = {toolbar: false};
       }
-      setTimeout(() => { new Quill('#'+newID, options); }, 10);
+      setTimeout(() => {
+        // Initialize Quill Editor
+        const editor = new Quill('#'+newID, options);
+        editor.root.innerHTML = v || '<p></p>';
+        
+      }, 10);
     }
     //--- Pure HTML
     else if (el.field_type == 'rawhtml') {
@@ -1537,25 +1535,31 @@ class Form {
         crElem.appendChild(opt);
       }
     }
-    //--- Switch / Checkbox TODO: Combine
-    else if (el.field_type == 'switch') {
-      // TODO:
-      const html = `<div class="custom-control custom-switch mt-1">
-      <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
-      <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
-    </div>`;
-      crElem = document.createElement('div');
-      crElem.outerHTML = html;
-    }
-    //--- Checkbox
-    else if (el.field_type == 'checkbox') {
-      // TODO:
-      const html = `<div class="custom-control custom-checkbox mt-1">
-        <input name="${key}" type="checkbox" class="custom-control-input${el.mode_form == 'rw' ? ' rwInput' : ''}" id="inp_${key}"${el.mode_form == 'ro' ? ' disabled' : ''}${v == "1" ? ' checked' : ''}>
-        <label class="custom-control-label" for="inp_${key}">${el.label || ''}</label>
-      </div>`;
-      crElem = document.createElement('div');
-      crElem.outerHTML = html;
+    //--- Switch / Checkbox
+    else if (el.field_type == 'switch' || el.field_type == 'checkbox') {
+      // Checkbox
+      const checkEl = document.createElement('input');      
+      checkEl.setAttribute('type', 'checkbox');
+      checkEl.setAttribute('name', key);
+      checkEl.setAttribute('id', 'inp_' + key);
+      checkEl.setAttribute('data-path', path);
+      if (el.mode_form === 'rw') checkEl.classList.add('rwInput');
+      if (el.mode_form === 'ro') checkEl.setAttribute('disabled', 'disabled');
+      if (v == "1") checkEl.setAttribute('checked', 'checked');
+      checkEl.classList.add('custom-control-input'); // Bootstrap
+      // Label
+      const labelEl = document.createElement('label');
+      labelEl.classList.add('custom-control-label'); // Bootstrap
+      labelEl.setAttribute('for', 'inp_' + key);
+      labelEl.innerText = el.label || '';
+      // Wrapper
+      const wrapperEl = document.createElement('div');
+      wrapperEl.classList.add('custom-control');
+      wrapperEl.classList.add('custom-' + el.field_type); // Switch || Checkbox
+      wrapperEl.appendChild(checkEl);
+      wrapperEl.appendChild(labelEl);
+      // Result
+      crElem = wrapperEl;
     }
     //====================================================
     // Wrapper
@@ -1569,83 +1573,45 @@ class Form {
       resWrapper.appendChild(label);
     }
     // ========> OUTPUT
-    crElem.setAttribute('data-path', path); // TODO: Put in every elem itself
+    crElem.setAttribute('data-path', path); // TODO: REMOVE, Put in every elem itself
     resWrapper.appendChild(crElem);
     return resWrapper;
   }
   private put(obj, path, val) {
-    var stringToPath = function (path) {
-      // If the path isn't a string, return it
-      if (typeof path !== 'string') return path;
-      // Create new array
-      var output = [];
-      // Split to an array with dot notation
-      path.split('/').forEach(function (item, index) {
-        // Split to an array with bracket notation
-        item.split(/\[([^}]+)\]/g).forEach(function (key) {
-          // Push to the new array
-          if (key.length > 0) {
-            output.push(key);
-          }
-        });
-      });
-      return output;
-    };
-    // Convert the path to an array if not already
-    path = stringToPath(path);
-    // Cache the path length and current spot in the object
-    var length = path.length;
-    var current = obj;
-    // Loop through the path
-    path.forEach(function (key, index) {
-      // Check if the assigned key shoul be an array
-      var isArray = key.slice(-2) === '[]';
-      // If so, get the true key name by removing the trailing []
-      key = isArray ? key.slice(0, -2) : key;
-      // If the key should be an array and isn't, create an array
-      if (isArray && Object.prototype.toString.call(current[key]) !== '[object Array]') {
-        current[key] = [];
+    // Convert path to array
+    path = (typeof path !== 'string') ? path : path.split('/');
+    path = path.map(p => !isNaN(p) ? parseInt(p) : p); // Convert numbers
+    const length = path.length;
+    let current = obj;
+    //-------------- Loop through the path
+    path.forEach((key, index) => {
+      // Leaf => last item in the loop, assign the value        
+      if (index === length - 1) {
+        current[key] = val;
       }
-      // If this is the last item in the loop, assign the value
-      if (index === length -1) {
-        // If it's an array, push the value
-        // Otherwise, assign it
-        if (isArray) {
-          current[key].push(val);
-        } else {
-          current[key] = val;
-        }
-      }
-      // Otherwise, update the current place in the object
       else {
-        // If the key doesn't exist, create it
-        if (!current[key]) {
-          current[key] = {};
-        }
-        // Update the current place in the object
-        current = current[key];
+        // Otherwise, update the current place in the object
+        if (!current[key]) // If the key doesn't exist, create it
+          current[key] = [{}];
+        current = current[key]; // Step into
       }
     });
-  };
+  }
   public getValues(formElement = null) {
     const result = {};
+    let res = {};
     if (!formElement) formElement = document; // TODO: Remove
     const rwInputs = formElement.getElementsByClassName('rwInput');
-
-    const res = {};
-
     for (const element of rwInputs) {
       const inp = <HTMLInputElement>element;
       const key = inp.getAttribute('name');
       const type = inp.getAttribute('type');
       const path = inp.getAttribute('data-path');
       let value = undefined;
-
       //--- Format different Types
       // Checkbox
-      if (type == 'checkbox') {
+      if (type == 'checkbox')
         value = inp.matches(':checked') ? 1 : 0;
-      }
       // Float numbers
       else if (type == 'text' && inp.classList.contains('inpFloat')) {
         const input = inp.value.replace(',', '.');
@@ -1653,8 +1619,8 @@ class Form {
       }
       // DateTime
       else if (type == 'time' && inp.classList.contains('dtm')) {
-        if (key in result) // if key exists in result
-          value = result[key] + ' ' + inp.value; // append Time to Date
+        // if key exists in result append Time to Date
+        if (key in result) value = result[key] + ' ' + inp.value;
       }
       // ForeignKey
       else if (type == 'hidden') {
@@ -1663,27 +1629,22 @@ class Form {
         value = res;
       }
       // Quill Editor
-      else if (inp.classList.contains('ql-container')) {
+      else if (inp.classList.contains('ql-container'))
         value = inp.getElementsByClassName('ql-editor')[0].innerHTML;
-      }
       // Every other type
-      else {
+      else 
         value = inp.value;
-      }
       //----
       // Only add to result object if value is valid
       if (!(value == '' && (type == 'number' || type == 'date' || type == 'time' || type == 'datetime')))
         result[key] = value;
       //==================================
-      //console.log(path, ' -> ', value);
       this.put(res, path, value);
     }
-
-    console.log(res);
-
-    // Output
-    return result;
+    //===> Output
+    return res; // result
   }
+  // TODO: Remove this Method!
   public getHTML(){
     const conf = this._formConfig;
     // Order by data[key].orderF

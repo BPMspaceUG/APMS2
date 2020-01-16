@@ -145,8 +145,6 @@ export default (props) => {
           document.getElementById('actualState').innerHTML = SB.getElement().outerHTML;
         }
 
-        //newForm.initEditors();
-
         // MAKE Transition
         if (t.SM) {
           // Set Buttons Nextstates
@@ -161,16 +159,20 @@ export default (props) => {
                 e.preventDefault();
                 const btnText = btn.innerHTML;
                 setFormState(true, btn);
+
                 //------------------------------------
                 // => TRANSITION (with Statemachine)
                 //------------------------------------
                 const newRowData = newForm.getValues();
+                // Is object empty?
+                const data = (Object.keys(newRowData).length === 0 && newRowData.constructor === Object) ? {} : newRowData[t.getTablename()][0];
+
                 DB.setState(resp => {
                   setFormState(false, btn, btnText);
                   // Successful Transition => Refresh the Form
                   if (resp.length === 3) initForm();
                 },
-                t.getTablename(), actRowID, newRowData, state.id);
+                t.getTablename(), actRowID, data, state.id);
               });
               //-- SpecialCase: Save Button
               if (actStateID === state.id) {
@@ -203,11 +205,12 @@ export default (props) => {
   setTimeout(() => {
     const btns = document.getElementsByClassName('btnSave');
     for (const btn of btns) {
-      btn.addEventListener('click', function(e){
+      btn.addEventListener('click', e => {
         e.preventDefault();
         const newRowData = newForm.getValues();
+        const data = newRowData[t.getTablename()][0];
         if (!t.SM) {
-          t.updateRow(actRowID, newRowData, function(resp){
+          t.updateRow(actRowID, data, resp => {
             if (resp == "1") {
               // Jump 1 element outside not to the table itself
               const path = location.hash.split('/');

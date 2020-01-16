@@ -11,12 +11,6 @@ export default (props) => {
   const t = new Table(actTable);
   const textCommand = t.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
 
-  // Possibilities:
-  // 1. /o      -> Create, Create new Object
-  // 2. /---     -> Relate, Create new Relation
-  // 3. o/---    -> Relate, Create new Relation coming from existing Object (fixed Obj)
-  // 4. o/---/o   -> Create & Relate, Create new Object and new Relation coming from an existing Object
-
   //--- Functions
   function setFormState(allDisabled) {
     // Btn
@@ -35,9 +29,6 @@ export default (props) => {
     for (const el of els) {
       allDisabled ? el.setAttribute('disabled', 'disabled') : el.removeAttribute('disabled');
     }
-  }
-  function redirect(toPath) {
-    document.location.assign(toPath);
   }
 
   //--- Set Title
@@ -58,8 +49,6 @@ export default (props) => {
   //===================================================================
   const combinedFormConfig = t.getFormCreate();
   const fCreate = new Form(t, null, combinedFormConfig);
-
-
 
   //=> Case 3
   // is add Relation and Coming from an Object? => then preselect object
@@ -136,170 +125,20 @@ export default (props) => {
   //---------------------------------------------------
   // After HTML is placed in DOM
   setTimeout(() => {
-    //--- HTML Editors
-    //fCreate.initEditors();
-
     //--- Bind Buttonclick
     const btns = document.getElementsByClassName('btnCreate');
     for (const btn of btns) {
       btn.addEventListener('click', e => {
         e.preventDefault();
-
-        //setFormState(true);
-
+        //---------------------- Create
+        setFormState(true);
         // Read out all input fields with {key:value}
         let data = fCreate.getValues();
-
-        // TODO: 1. Get the JSON
-        console.log(data);
-
-
-        // TODO: 2. Send to Import function
-
-
-        // TODO: 3. Profit!
-
-
-
-
-        //---> CREATE
-        /*
-        t.createRow(data, resp => {
+        // Send to Import function
+        t.importData(data, resp => {
           setFormState(false);
-          //===> Show Messages
-          let counter = 0; // 0 = trans, 1 = in -- but only at Create!
-          resp.forEach(msg => {
-            if (msg.show_message) {
-              const stateIDTo = msg['_entry-point-state']['id'];
-              const SB = new StateButton(stateIDTo);
-              SB.setTable(t);
-              const stateTo = SB.getElement().outerHTML;
-              const tmplTitle = 
-                counter === 0 ? `${gText[setLang].Create} &rarr; ${stateTo}` :
-                counter === 1 ? `&rarr; ${stateTo}` :
-                '';
-              // Render a Modal
-              document.getElementById('myModalTitle').innerHTML = tmplTitle;
-              document.getElementById('myModalContent').innerHTML = msg.message;
-              $('#myModal').modal({});
-            }
-          });
-          //===> Element was created!!!
-          if (t.hasStateMachine() && resp.length === 2 && resp[1].element_id && resp[1].element_id > 0) {
-            const newElementID = parseInt(resp[1].element_id);
-            if (path.length > 2) {
-              let objsToCreate = [];
-              let relsToCreate = [];
-              let originID, originTablename = null;
-              // 1. Copy, remove last command (because it was already created) and Reverse path
-              const reversedPath = path.slice();
-              reversedPath.pop();
-              reversedPath.pop()
-              reversedPath.reverse();
-              // 2. Collect a list of commands for all tables [o][r][o][r][o]
-              for (let i=0; i<reversedPath.length/2; i++) {
-                const cmd = reversedPath[2*i];
-                const Tablename = reversedPath[2*i+1];
-                // Until the end of the new path is reached
-                if (cmd != 'create') {
-                  originID = cmd;
-                  originTablename = Tablename;
-                  break;
-                }
-                // Check if relation or object --> correct order
-                const tmpTable = new Table(Tablename);
-                if (tmpTable.getTableType() !== 'obj')
-                  relsToCreate.push(Tablename);
-                else 
-                  objsToCreate.push(Tablename);
-              }
-              // TODO: Modularize and put on the Top!
-              function connectObjects(obj, rels) {
-                // 5. Create all Relations
-                for (let j=0; j<obj.length-1; j++) {
-                  //-----> Create Relations
-                  const tmpRelTable = new Table(rels[j]);
-                  const colnames = Object.keys(tmpRelTable.Columns);
-                  const data = {};
-                  data[colnames[2]] = obj[j].id;
-                  data[colnames[1]] = obj[j+1].id;
-                  DB.request('create', {table: rels[j], row: data}, r => {
-                    rels[j] = {t: rels[j], id: parseInt(r[1].element_id)};
-                    // Last Relation
-                    if (j === rels.length-1) {
-                      // If origin did not exist then set last created Object as origin
-                      if (!originTablename && !originID) {
-                        originTablename = obj[obj.length - 1].t;
-                        originID = obj[obj.length - 1].id;
-                      }
-                      // Jump to last knot
-                      const strOriginalPath = path.join('/');
-                      const strLastKnot = originTablename+'/'+originID;
-                      const indexLastKnotInOgPath = strOriginalPath.lastIndexOf(strLastKnot);                          
-                      if (indexLastKnotInOgPath < 0) {
-                        redirect('#/' + strLastKnot) // Not Found (-> only create/create/create/create)
-                        return;
-                      }
-                      else {
-                        redirect('#/' + strOriginalPath.substr(0, indexLastKnotInOgPath + strLastKnot.length));
-                        return;
-                      }
-                    }
-                  });
-                }
-              }
-              // 3. Create the path
-              if (objsToCreate.length === 0 && relsToCreate.length > 0) {
-                objsToCreate = [{t: t.getTablename(), id: newElementID}];
-                objsToCreate.push({t: originTablename, id: parseInt(originID)});
-                connectObjects(objsToCreate, relsToCreate);
-              }
-              else {
-                for (let i=0; i<objsToCreate.length; i++) {
-                  //-----> Create Objects
-                  DB.request('create', {table: objsToCreate[i], row: {}}, r => {
-                    objsToCreate[i] = {t: objsToCreate[i], id: parseInt(r[1].element_id)};
-                    // Last Element
-                    if (i === objsToCreate.length-1) {
-                      // Insert already created Object at beginning
-                      objsToCreate = [{t: t.getTablename(), id: newElementID}].concat(objsToCreate);
-                      if (originTablename && originID)
-                        objsToCreate.push({t: originTablename, id: parseInt(originID)});
-                      connectObjects(objsToCreate, relsToCreate);
-                    }
-                  });
-                }
-              }
-              // 7. Finish and jump to first Object or knot
-            }
-            //=== Redirect back
-            path[path.length-1] = newElementID; // replace last element
-            // act table is Relation then jump to last object
-            if (t.TableType !== 'obj') {
-              path.pop();
-              path.pop();
-            }
-            redirect('#/' + path.join('/'));
-          }
-          else if (!t.hasStateMachine() && resp.length === 1 && resp[0].element_id && resp[0].element_id > 0) {
-            // Object created from single Foreign Key. ==> redirect one step back
-            if (path.length > 2) {
-              // TODO: maybe update the element before ;)
-              path.pop();
-              path.pop();
-              redirect('#/' + path.join('/'));
-            }
-          }
-          else {
-            // Element was _NOT_ created!
-            console.error("Could not create Element!");
-          }
+          console.log(resp);
         });
-        */
-        // ---/Create
-
-
-
       });
     }
     //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
@@ -314,6 +153,7 @@ export default (props) => {
     }
     //---
   }, 10);  
+  
   //---------------------------------------------------- Path
   const guiPath = [];
   const count = path.length / 2;
