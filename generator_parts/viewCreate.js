@@ -137,7 +137,37 @@ export default (props) => {
         // Send to Import function
         t.importData(data, resp => {
           setFormState(false);
-          console.log(resp);
+          //console.log(resp);
+
+          resp.forEach(answer => {
+            //-------------------------------------------------------------
+            // Handle Transition Feedback
+            let counter = 0;
+            const messages = [];
+            answer.forEach(msg => {
+              console.log(msg)
+              if (msg.errormsg || msg.show_message)
+                messages.push({type: counter, text: msg.errormsg || msg.message}); // for GUI
+              counter++;
+            });
+            // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
+            messages.reverse();
+            // Show all Script-Result Messages
+            const targetStateID = answer[0]['_entry-point-state'].id;
+            const btnTo = new StateButton(targetStateID);
+            btnTo.setTable(t);
+            for (const msg of messages) {
+              let title = '';
+              if (msg.type == 0) title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
+              // Render a Modal
+              document.getElementById('myModalTitle').innerHTML = title;
+              document.getElementById('myModalContent').innerHTML = msg.text;
+              $('#myModal').modal({});
+            }
+            //-------------------------------------------------------------
+          });
+
+
         });
       });
     }

@@ -1074,7 +1074,14 @@ class Form {
             }
         });
     }
-    getElement(key, el) {
+    getNewFormElement(eltype, key, path) {
+        const Elem = document.createElement(eltype);
+        Elem.setAttribute('name', key);
+        Elem.setAttribute('id', 'inp_' + key);
+        Elem.setAttribute('data-path', path);
+        return Elem;
+    }
+    getInput(key, el) {
         let v = el.value || '';
         if (el.value === 0)
             v = 0;
@@ -1087,9 +1094,7 @@ class Form {
         let crElem = null;
         const path = this._path + '/' + key;
         if (el.field_type == 'textarea') {
-            crElem = document.createElement('textarea');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
+            crElem = this.getNewFormElement('textarea', key, path);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1098,10 +1103,8 @@ class Form {
             crElem.innerText = v;
         }
         else if (el.field_type == 'text') {
-            crElem = document.createElement('input');
+            crElem = this.getNewFormElement('input', key, path);
             crElem.setAttribute('type', 'text');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
             if (el.maxlength)
                 crElem.setAttribute('maxlength', el.maxlength);
             if (el.mode_form === 'rw')
@@ -1112,10 +1115,8 @@ class Form {
             crElem.setAttribute('value', DB.escapeHtml(v));
         }
         else if (el.field_type == 'number') {
-            crElem = document.createElement('input');
+            crElem = this.getNewFormElement('input', key, path);
             crElem.setAttribute('type', 'number');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1126,11 +1127,8 @@ class Form {
         else if (el.field_type == 'float') {
             if (el.value)
                 el.value = parseFloat(el.value).toLocaleString('de-DE');
-            crElem = document.createElement('input');
+            crElem = this.getNewFormElement('input', key, path);
             crElem.setAttribute('type', 'text');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
-            crElem.setAttribute('name', key);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1140,10 +1138,8 @@ class Form {
             crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'time') {
-            crElem = document.createElement('input');
+            crElem = this.getNewFormElement('input', key, path);
             crElem.setAttribute('type', 'time');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1152,10 +1148,8 @@ class Form {
             crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'date') {
-            crElem = document.createElement('input');
+            crElem = this.getNewFormElement('input', key, path);
             crElem.setAttribute('type', 'date');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1164,10 +1158,8 @@ class Form {
             crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'password') {
-            crElem = document.createElement('input');
+            crElem = this.getNewFormElement('input', key, path);
             crElem.setAttribute('type', 'password');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1176,20 +1168,17 @@ class Form {
             crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'datetime') {
-            const iDate = document.createElement('input');
-            iDate.setAttribute('name', key);
+            const iDate = this.getNewFormElement('input', key, path);
             iDate.setAttribute('type', 'date');
-            iDate.setAttribute('id', 'inp_' + key);
             iDate.classList.add('dtm', 'form-control');
             iDate.setAttribute('value', v.split(' ')[0]);
             if (el.mode_form === 'rw')
                 iDate.classList.add('rwInput');
             if (el.mode_form === 'ro')
                 iDate.setAttribute('readonly', 'readonly');
-            const iTime = document.createElement('input');
-            iTime.setAttribute('name', key);
-            iTime.setAttribute('type', 'time');
+            const iTime = this.getNewFormElement('input', key, path);
             iTime.setAttribute('id', 'inp_' + key + '_time');
+            iTime.setAttribute('type', 'time');
             iTime.classList.add('dtm', 'form-control');
             iTime.setAttribute('value', v.split(' ')[1]);
             if (el.mode_form === 'rw')
@@ -1315,13 +1304,11 @@ class Form {
             crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
         }
         else if (el.field_type == 'htmleditor') {
-            const newID = DB.getID();
             crElem = document.createElement('div');
-            const cont = document.createElement('div');
+            const newID = DB.getID();
+            const cont = this.getNewFormElement('div', key, path);
             cont.setAttribute('id', newID);
             cont.setAttribute('class', 'rwInput');
-            cont.setAttribute('name', key);
-            cont.setAttribute('data-path', path);
             crElem.appendChild(cont);
             const options = { theme: 'snow' };
             if (el.mode_form == 'ro') {
@@ -1345,9 +1332,7 @@ class Form {
         }
         else if (el.field_type == 'enum') {
             const options = JSON.parse(el.col_options);
-            crElem = document.createElement('select');
-            crElem.setAttribute('name', key);
-            crElem.setAttribute('id', 'inp_' + key);
+            crElem = this.getNewFormElement('select', key, path);
             if (el.maxlength)
                 crElem.setAttribute('maxlength', el.maxlength);
             if (el.mode_form === 'rw')
@@ -1366,11 +1351,8 @@ class Form {
                 }
         }
         else if (el.field_type == 'switch' || el.field_type == 'checkbox') {
-            const checkEl = document.createElement('input');
+            const checkEl = this.getNewFormElement('input', key, path);
             checkEl.setAttribute('type', 'checkbox');
-            checkEl.setAttribute('name', key);
-            checkEl.setAttribute('id', 'inp_' + key);
-            checkEl.setAttribute('data-path', path);
             if (el.mode_form === 'rw')
                 checkEl.classList.add('rwInput');
             if (el.mode_form === 'ro')
@@ -1383,7 +1365,7 @@ class Form {
             labelEl.setAttribute('for', 'inp_' + key);
             labelEl.innerText = el.label || '';
             const wrapperEl = document.createElement('div');
-            wrapperEl.classList.add('custom-control');
+            wrapperEl.classList.add('custom-control', 'mt-2');
             wrapperEl.classList.add('custom-' + el.field_type);
             wrapperEl.appendChild(checkEl);
             wrapperEl.appendChild(labelEl);
@@ -1397,8 +1379,8 @@ class Form {
             label.innerText = el.column_alias;
             resWrapper.appendChild(label);
         }
-        crElem.setAttribute('data-path', path);
-        resWrapper.appendChild(crElem);
+        if (crElem)
+            resWrapper.appendChild(crElem);
         return resWrapper;
     }
     getValues(formElement = null) {
@@ -1440,18 +1422,20 @@ class Form {
         return res;
     }
     getHTML() {
+        const self = this;
         const conf = this._formConfig;
         const sortedKeys = Object.keys(conf).sort((x, y) => {
             const a = parseInt(conf[x].orderF || 0);
             const b = parseInt(conf[y].orderF || 0);
             return a < b ? -1 : (a > b ? 1 : 0);
         });
-        let html = '';
-        for (const key of sortedKeys) {
-            const element = this.getElement(key, conf[key]);
-            if (element)
-                html += element.outerHTML;
-        }
-        return `<form class="formcontent row">${html}</form>`;
+        const frm = document.createElement('form');
+        frm.classList.add('formcontent', 'row');
+        sortedKeys.forEach(key => {
+            const inp = self.getInput(key, conf[key]);
+            if (inp)
+                frm.appendChild(inp);
+        });
+        return frm.outerHTML;
     }
 }

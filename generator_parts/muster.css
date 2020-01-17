@@ -44,7 +44,7 @@ td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50
 #formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 .customfooter {width: 100%;}
 .modal-title span {font-size: .75em;}
-.formcontent label:first-child {font-size: .85em;}
+.formcontent label:first-child {font-size: .85em; margin-top: .5em;}
 
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
