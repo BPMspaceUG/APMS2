@@ -878,7 +878,7 @@
     }
     private function create($table, $row, $pathStr = "") {
       @$pcol = array_keys($row)[0];
-      echo "+ $table\n";
+      //echo "+ $table\n";
       $resp = api(["cmd"=>"create", "param"=>["table"=>$table, "path"=>$pathStr, "row"=>$row]]);
       $res = json_decode($resp, true);
       $this->log[] = $res;
@@ -967,7 +967,7 @@
           $leaf = $k."/create";
           $path[$layer] = $leaf;                    
           $pathStr = implode('/', $path);
-          echo "---> $pathStr\n";
+          //echo "---> $pathStr\n";
           //====> CREATE and relate Object
           $res = $this->createAndRelate(explode('/', $pathStr), $array);
           $objID = $res[2]; // the new ID
