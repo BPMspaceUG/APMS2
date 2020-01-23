@@ -47,8 +47,7 @@ export default (props) => {
   //===================================================================
   // Generate HTML from Form
   //===================================================================
-  const combinedFormConfig = t.getFormCreate();
-  const fCreate = new Form(t, null, combinedFormConfig);
+  const fCreate = new Form(t, null, t.getFormCreate());
 
   //=> Case 3
   // is add Relation and Coming from an Object? => then preselect object
@@ -124,28 +123,24 @@ export default (props) => {
 
   //---------------------------------------------------
   // After HTML is placed in DOM
+  /*
   setTimeout(() => {
     //--- Bind Buttonclick
+    /*
     const btns = document.getElementsByClassName('btnCreate');
     for (const btn of btns) {
       btn.addEventListener('click', e => {
         e.preventDefault();
         //---------------------- Create
         setFormState(true);
-        // Read out all input fields with {key:value}
-        let data = fCreate.getValues();
-        // Send to Import function
+        const data = fCreate.getValues();
         t.importData(data, resp => {
           setFormState(false);
-          //console.log(resp);
-
+          //------------------------------------------------------------- Handle Transition Feedback
           resp.forEach(answer => {
-            //-------------------------------------------------------------
-            // Handle Transition Feedback
             let counter = 0;
             const messages = [];
             answer.forEach(msg => {
-              console.log(msg)
               if (msg.errormsg || msg.show_message)
                 messages.push({type: counter, text: msg.errormsg || msg.message}); // for GUI
               counter++;
@@ -164,25 +159,14 @@ export default (props) => {
               document.getElementById('myModalContent').innerHTML = msg.text;
               $('#myModal').modal({});
             }
-            //-------------------------------------------------------------
           });
-
-
+          //-------------------------------------------------------------
         });
       });
     }
-    //--- FOCUS First Element - TODO: check if is foreignKey || HTMLEditor
-    const elem = document.getElementsByClassName('rwInput')[0];
-    if (elem) {
-      if (elem.selectionStart || elem.selectionStart == '0') {
-        const elemLen = elem.value.length;
-        elem.selectionStart = elemLen;
-        elem.selectionEnd = elemLen;
-        elem.focus();
-      }
-    }
     //---
-  }, 10);  
+  }, 10);
+  */
   
   //---------------------------------------------------- Path
   const guiPath = [];

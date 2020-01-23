@@ -25,16 +25,9 @@ export default (props) => {
   // Generate HTML from Form
   //===================================================================
   function focusFirstElement() {
-    // FOCUS First Element
-    const elem = document.getElementsByClassName('rwInput')[0];
-    if (elem) {
-      const elemLen = elem.value.length;
-      if (elem.selectionStart || elem.selectionStart == '0') {
-        elem.selectionStart = elemLen;
-        elem.selectionEnd = elemLen;
-        elem.focus();
-      }
-    }
+    //--- FOCUS First Element - TODO: foreignKey + HTMLEditor
+    const elem = document.querySelectorAll('.rwInput:not([type="hidden"]):not([disabled])')[0];
+    if (elem) elem.focus();
   }
   function setFormState(allDisabled, btn, textCommand) {
     // Btn
@@ -103,7 +96,7 @@ export default (props) => {
             }
             //- Generate a Modify-Form
             newForm = new Form(t, actRowID, newObj);
-            document.getElementById('formedit').innerHTML = newForm.getHTML();
+            document.getElementById('formedit').replaceWith(newForm.getForm());
             x();
           });
         }
@@ -113,7 +106,7 @@ export default (props) => {
             newObj[key].value = row[key];
           //- Generate a Modify-Form
           newForm = new Form(t, actRowID, newObj);
-          document.getElementById('formedit').innerHTML = newForm.getHTML();
+          document.getElementById('formedit').replaceWith(newForm.getForm());
           x();
         }
       }
@@ -126,7 +119,7 @@ export default (props) => {
           newObj[key].value = row[key];
         //- Generate a Modify-Form
         newForm = new Form(t, actRowID, newObj);
-        document.getElementById('formedit').innerHTML = newForm.getHTML();
+        document.getElementById('formedit').replaceWith(newForm.getForm());
         x();
         focusFirstElement();
       }

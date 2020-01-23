@@ -562,7 +562,7 @@ class Table extends RawTable {
     showControlColumn: true,
     showWorkflowButton: false,
     showCreateButton: false,
-    showSearch: false
+    showSearch: true
   }
   public isExpanded: boolean = true;
   private _callbackSelectionChanged = (resp) => {};
@@ -1033,16 +1033,23 @@ class Table extends RawTable {
       </div>` : ( t.getSearch() != '' ? gText[setLang].noFinds : '') }
     </div>`;
   }
-  // Nice Components (Create, Workflow, Searchbar, Statustext)
-  private getCreateButton() {
+  //------------------------------------------------ Components (Create, Workflow, Searchbar, Statustext)
+  private getCreateButton(table: Table = null, callback = (t)=>{}): HTMLElement {
+    if (!table) table = this;
+    // Create Element
     const createBtnElement = document.createElement('a');
     createBtnElement.classList.add('tbl_createbtn');
-    createBtnElement.setAttribute('href', `#/${this.getTablename()}/create`);
-    createBtnElement.innerText = this.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
+    createBtnElement.setAttribute('href', `javascript:void(0);`);
+    createBtnElement.innerText = (table.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create) + ' ' + table.getTablename();
     createBtnElement.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    createBtnElement.addEventListener('click', () => {
+      // On Create click
+      console.log("Loading Create Form for", table.getTablename());
+      callback(table);
+    })
     return createBtnElement;
   }
-  private getWorkflowButton() {
+  private getWorkflowButton(): HTMLElement {
     const createBtnElement = document.createElement('a');
     createBtnElement.classList.add('tbl_workflowbtn');
     createBtnElement.setAttribute('href', `#/${this.getTablename()}/workflow`);
@@ -1050,7 +1057,7 @@ class Table extends RawTable {
     createBtnElement.classList.add('btn', 'btn-info', 'mr-1', 'mb-1'); // Bootstrap custom classes
     return createBtnElement;
   }
-  private getSearchBar() {
+  private getSearchBar(): HTMLElement {
     const t = this;
     const searchBarElement = document.createElement('input');
     searchBarElement.setAttribute('type', "text");
@@ -1070,7 +1077,7 @@ class Table extends RawTable {
     // Return
     return searchBarElement;
   }
-  private getStatusText() {
+  private getStatusText(): HTMLElement {
     const statusTextElement = document.createElement('span');
     statusTextElement.classList.add('tbl_statustext');
     statusTextElement.innerText = (this.getNrOfRows() > 0 && this.Rows.length > 0) ?
@@ -1184,32 +1191,59 @@ class Table extends RawTable {
       })
     }
   }
-  public async renderHTML(DOM_ID: string) {
+  public async renderHTML(container: HTMLElement = null) {
+    const me = this;
     const content = await this.getContent() + this.getFooter();
-    const el = document.getElementById(DOM_ID);
-    if (el) {
+
+    if (container) {
       // Check if it has entries
       if (this.actRowCount === 0) {
-        // If no entries, then offer to Create a new one
-        el.innerHTML = this.ReadOnly ? gText[setLang].noEntries :
-          `<a class="btn btn-success" href="${location.hash}/create">${gText[setLang].Create}</a>`;
+        // If no entries, then instantlay show Create form
+        const createForm = new Form(me, null, me.getFormCreate());
+        container.replaceWith(createForm.getForm());
+        createForm.focusFirst();
         return;
       }
-      el.innerHTML = content;
+      container.innerHTML = content;
       await this.renderContent();
       await this.renderFooter();
+
+      //====================================
       //--- Header
-      if (this.SM && this.options.showWorkflowButton) {
-        el.prepend(this.getWorkflowButton());
-      }
-      if (!this.ReadOnly && this.options.showCreateButton) {
-        el.prepend(this.getCreateButton());
-      }
+      //====================================
+      const header = document.createElement('div');
+      header.setAttribute('class', 'tbl_header');
+      // Searchbar
       if (this.options.showSearch) {
         const searchBar = this.getSearchBar();
-        el.prepend(searchBar);
+        header.appendChild(searchBar);
         searchBar.focus();
       }
+      // Create Button
+      if (!this.ReadOnly && this.options.showCreateButton) {        
+        header.appendChild(me.getCreateButton(me, () => {
+          const createForm = new Form(me, null, me.getFormCreate());
+          container.replaceWith(createForm.getForm());
+          createForm.focusFirst();
+        }));
+      }
+      // Workflow Button
+      if (this.SM && this.options.showWorkflowButton) {
+        header.appendChild(this.getWorkflowButton());
+      }
+      // Subtypes Buttons
+      const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
+      if (subtypes) {
+        subtypes.map(subtype => {
+          const tmpTable = new Table(subtype);
+          header.appendChild(this.getCreateButton(tmpTable, () => {
+            const subTypeCreateForm = new Form(tmpTable, null, tmpTable.getFormCreate());
+            container.replaceWith(subTypeCreateForm.getForm());
+          }));
+        })
+      }
+      // Append to Element
+      container.prepend(header);
     }
   }
 }
@@ -1217,13 +1251,12 @@ class Table extends RawTable {
 //==============================================================
 // Class: Form
 //==============================================================
-// TODO: No HTML should be generated / returned ...
-// should return a Single-Form-DOM-Element which can then be placed like at the Table!
 class Form {
   private _formConfig: any;
   private oTable: Table;
   private oRowID: number;
   private _path;
+  private formElement: HTMLElement;
 
   constructor(Table: Table, RowID: number = null, formConfig, Path: string = null) {
     this.oTable = Table;
@@ -1390,9 +1423,9 @@ class Form {
             if (el.customfilter.indexOf(pattern) >= 0) {
               // Special:
               const firstCol = Object.keys(rd[colname].value)[0];
-              el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
-              //------ new:
-              //el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), dyn_val);
+              const replaceWith = rd[colname].value[firstCol] || rd[colname].value;
+              //console.log("Found:", pattern, " -> ", replaceWith);
+              el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
             }
           }
           el.customfilter = decodeURI(el.customfilter);
@@ -1401,24 +1434,22 @@ class Form {
         // Update Value when selection happened
         tmpTable.setCallbackSelectionChanged(selRows => {
           let value = "";
-          if (selType === SelectType.Single) {
-            value = tmpTable.getSelectedIDs()[0];
-          }
-          else if (selType === SelectType.Multi) {
-            value = JSON.stringify(tmpTable.getSelectedIDs());
-          }
-          // Set Value to field
+          if (selType === SelectType.Single) value = tmpTable.getSelectedIDs()[0];
+          else if (selType === SelectType.Multi) value = JSON.stringify(tmpTable.getSelectedIDs());
           if (!value) value = "";
+          // Set Value to field
           document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
         });
         //--- Load Rows
         tmpTable.loadRows(rows => {
           if (rows["count"] == 0) {
-            // If no entries, then offer to Create a new one
-            document.getElementById(randID).outerHTML = tmpTable.ReadOnly ? gText[setLang].noEntries :
-              `<a class="btn btn-sm btn-success" href="${location.hash}/${tmpTable.getTablename()}/create">${gText[setLang].Create}</a>`;
+            // If no entries, then offer to Create a new one => Instant Form
+            const frmSettings = tmpTable.getFormCreate();
+            //frmSettings['car_id'].value = {'car_id': 87}; // TODO: 
+            const createForm = new Form(tmpTable, null, frmSettings);
+            document.getElementById(randID).replaceWith(createForm.getForm());
           } else {
-            tmpTable.renderHTML(randID);
+            tmpTable.renderHTML(document.getElementById(randID));
           }
         });
       } else {
@@ -1457,7 +1488,7 @@ class Form {
           const formConfig = tblM.getFormCreate();
           const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
           setTimeout(()=>{
-            document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
+            document.getElementById(tmpGUID).replaceWith(extForm.getForm());
           }, 10)
         }
       }
@@ -1483,7 +1514,7 @@ class Form {
             document.getElementById(tmpGUID).innerHTML = `<span class="text-muted">${gText[setLang].noEntries}</span>`;
           }
           else
-            extTable.renderHTML(tmpGUID);          
+            extTable.renderHTML(document.getElementById(tmpGUID));          
         });
       }
       // Container for Table
@@ -1582,11 +1613,17 @@ class Form {
     return resWrapper;
   }
   //----------------------
-  public getValues(formElement = null) {
+  public focusFirst() {
+    //--- FOCUS First Element - TODO: foreignKey + HTMLEditor
+    const elem = <HTMLScriptElement>document.querySelectorAll('.rwInput:not([type="hidden"]):not([disabled])')[0];
+    if (elem) elem.focus();
+  }
+  public getValues() {
     const result = {};
     let res = {};
-    if (!formElement) formElement = document; // TODO: Remove
-    const rwInputs = formElement.getElementsByClassName('rwInput');
+    // Read inputs from Form-Scope
+    const rwInputs = this.formElement.getElementsByClassName('rwInput');
+    // For every Input
     for (const element of rwInputs) {
       const inp = <HTMLInputElement>element;
       const key = inp.getAttribute('name');
@@ -1629,8 +1666,7 @@ class Form {
     //===> Output
     return res; // result
   }
-  // TODO: Remove this Method! instead use ==> getForm(): HTMLElement
-  public getHTML(){
+  public getForm(): HTMLElement {
     const self = this;
     // Order by data[key].orderF
     const conf = this._formConfig;
@@ -1641,12 +1677,81 @@ class Form {
     });
     // create Form element
     const frm = document.createElement('form');
-    frm.classList.add('formcontent', 'row');
-    // append items if not null
+    frm.classList.add('formcontent', 'row', 'ml-1');
+
+    // append Inputs if not null
     sortedKeys.forEach(key => {
       const inp = self.getInput(key, conf[key]);
-      if (inp) frm.appendChild(inp);
+      if (inp)
+        frm.appendChild(inp);
     })
-    return frm.outerHTML;
+    // Wrapper (Footer)
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('col-12', 'my-4');
+    frm.appendChild(wrapper);
+
+    //--- Add create Button
+    const createBtn = document.createElement('a');
+    createBtn.innerText = gText[setLang].Create;
+    createBtn.setAttribute('href', 'javascript:void(0);');
+    createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    createBtn.addEventListener('click', () => {
+      //===================== Create Command
+      const data = self.getValues();
+      self.oTable.importData(data, resp => {
+        //setFormState(false);
+        //------------------------------------------------------------- Handle Transition Feedback
+        resp.forEach(answer => {
+          let counter = 0;
+          const messages = [];
+          answer.forEach(msg => {
+            if (msg.errormsg || msg.show_message)
+              messages.push({type: counter, text: msg.errormsg || msg.message}); // for GUI
+            counter++;
+          });
+          // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
+          messages.reverse();
+          // Show all Script-Result Messages
+          if (answer[0]['_entry-point-state']) {
+            const targetStateID = answer[0]['_entry-point-state'].id;
+            const btnTo = new StateButton(targetStateID);
+            btnTo.setTable(self.oTable);
+            for (const msg of messages) {
+              let title = '';
+              if (msg.type == 0) title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
+              // Render a Modal
+              document.getElementById('myModalTitle').innerHTML = title;
+              document.getElementById('myModalContent').innerHTML = msg.text;
+              $('#myModal').modal({});
+            }
+          }
+        });
+        //-------------------------------------------------------------
+        // After creating
+        self.oTable.loadRows(()=>{
+          const container = frm.parentElement; // TODO: change
+          self.oTable.renderHTML(container);
+        });
+      });
+    })
+    wrapper.appendChild(createBtn);
+
+    //--- Add Cancel Button
+    const cancelBtn = document.createElement('a');
+    cancelBtn.innerText = gText[setLang].Cancel;
+    cancelBtn.setAttribute('href', 'javascript:void(0);');
+    cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    cancelBtn.addEventListener('click', () => {
+      console.log("Cancel clicked");
+      self.oTable.loadRows(()=>{
+        const container = frm.parentElement; // TODO: change
+        self.oTable.renderHTML(container);
+      });
+    })
+    wrapper.appendChild(cancelBtn);
+    this.formElement = frm;
+    
+    // ===> Output
+    return frm;
   }
 }

@@ -20,7 +20,10 @@ export default (props) => {
   t.options.showSearch = true;
   t.options.showWorkflowButton = true;
   t.options.showCreateButton = true;
-  t.loadRows(()=>{ t.renderHTML('tablecontent'); });
+  t.loadRows(()=>{
+    const container = document.getElementById('tablecontent');
+    t.renderHTML(container);
+  });
 
   //----------------------------
   return `<div>

@@ -509,7 +509,7 @@ class Table extends RawTable {
             showControlColumn: true,
             showWorkflowButton: false,
             showCreateButton: false,
-            showSearch: false
+            showSearch: true
         };
         this.isExpanded = true;
         this._callbackSelectionChanged = (resp) => { };
@@ -890,12 +890,18 @@ class Table extends RawTable {
       </div>` : (t.getSearch() != '' ? gText[setLang].noFinds : '')}
     </div>`;
     }
-    getCreateButton() {
+    getCreateButton(table = null, callback = (t) => { }) {
+        if (!table)
+            table = this;
         const createBtnElement = document.createElement('a');
         createBtnElement.classList.add('tbl_createbtn');
-        createBtnElement.setAttribute('href', `#/${this.getTablename()}/create`);
-        createBtnElement.innerText = this.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create;
+        createBtnElement.setAttribute('href', `javascript:void(0);`);
+        createBtnElement.innerText = (table.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create) + ' ' + table.getTablename();
         createBtnElement.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
+        createBtnElement.addEventListener('click', () => {
+            console.log("Loading Create Form for", table.getTablename());
+            callback(table);
+        });
         return createBtnElement;
     }
     getWorkflowButton() {
@@ -1025,29 +1031,47 @@ class Table extends RawTable {
             });
         }
     }
-    async renderHTML(DOM_ID) {
+    async renderHTML(container = null) {
+        const me = this;
         const content = await this.getContent() + this.getFooter();
-        const el = document.getElementById(DOM_ID);
-        if (el) {
+        if (container) {
             if (this.actRowCount === 0) {
-                el.innerHTML = this.ReadOnly ? gText[setLang].noEntries :
-                    `<a class="btn btn-success" href="${location.hash}/create">${gText[setLang].Create}</a>`;
+                const createForm = new Form(me, null, me.getFormCreate());
+                container.replaceWith(createForm.getForm());
+                createForm.focusFirst();
                 return;
             }
-            el.innerHTML = content;
+            container.innerHTML = content;
             await this.renderContent();
             await this.renderFooter();
-            if (this.SM && this.options.showWorkflowButton) {
-                el.prepend(this.getWorkflowButton());
-            }
-            if (!this.ReadOnly && this.options.showCreateButton) {
-                el.prepend(this.getCreateButton());
-            }
+            const header = document.createElement('div');
+            header.setAttribute('class', 'tbl_header');
             if (this.options.showSearch) {
                 const searchBar = this.getSearchBar();
-                el.prepend(searchBar);
+                header.appendChild(searchBar);
                 searchBar.focus();
             }
+            if (!this.ReadOnly && this.options.showCreateButton) {
+                header.appendChild(me.getCreateButton(me, () => {
+                    const createForm = new Form(me, null, me.getFormCreate());
+                    container.replaceWith(createForm.getForm());
+                    createForm.focusFirst();
+                }));
+            }
+            if (this.SM && this.options.showWorkflowButton) {
+                header.appendChild(this.getWorkflowButton());
+            }
+            const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
+            if (subtypes) {
+                subtypes.map(subtype => {
+                    const tmpTable = new Table(subtype);
+                    header.appendChild(this.getCreateButton(tmpTable, () => {
+                        const subTypeCreateForm = new Form(tmpTable, null, tmpTable.getFormCreate());
+                        container.replaceWith(subTypeCreateForm.getForm());
+                    }));
+                });
+            }
+            container.prepend(header);
         }
     }
 }
@@ -1216,7 +1240,8 @@ class Form {
                         const pattern = '%' + colname + '%';
                         if (el.customfilter.indexOf(pattern) >= 0) {
                             const firstCol = Object.keys(rd[colname].value)[0];
-                            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), rd[colname].value[firstCol]);
+                            const replaceWith = rd[colname].value[firstCol] || rd[colname].value;
+                            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
                         }
                     }
                     el.customfilter = decodeURI(el.customfilter);
@@ -1224,23 +1249,22 @@ class Form {
                 }
                 tmpTable.setCallbackSelectionChanged(selRows => {
                     let value = "";
-                    if (selType === SelectType.Single) {
+                    if (selType === SelectType.Single)
                         value = tmpTable.getSelectedIDs()[0];
-                    }
-                    else if (selType === SelectType.Multi) {
+                    else if (selType === SelectType.Multi)
                         value = JSON.stringify(tmpTable.getSelectedIDs());
-                    }
                     if (!value)
                         value = "";
                     document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
                 });
                 tmpTable.loadRows(rows => {
                     if (rows["count"] == 0) {
-                        document.getElementById(randID).outerHTML = tmpTable.ReadOnly ? gText[setLang].noEntries :
-                            `<a class="btn btn-sm btn-success" href="${location.hash}/${tmpTable.getTablename()}/create">${gText[setLang].Create}</a>`;
+                        const frmSettings = tmpTable.getFormCreate();
+                        const createForm = new Form(tmpTable, null, frmSettings);
+                        document.getElementById(randID).replaceWith(createForm.getForm());
                     }
                     else {
-                        tmpTable.renderHTML(randID);
+                        tmpTable.renderHTML(document.getElementById(randID));
                     }
                 });
             }
@@ -1273,7 +1297,7 @@ class Form {
                     const formConfig = tblM.getFormCreate();
                     const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
                     setTimeout(() => {
-                        document.getElementById(tmpGUID).innerHTML = extForm.getHTML();
+                        document.getElementById(tmpGUID).replaceWith(extForm.getForm());
                     }, 10);
                 }
             }
@@ -1294,7 +1318,7 @@ class Form {
                         document.getElementById(tmpGUID).innerHTML = `<span class="text-muted">${gText[setLang].noEntries}</span>`;
                     }
                     else
-                        extTable.renderHTML(tmpGUID);
+                        extTable.renderHTML(document.getElementById(tmpGUID));
                 });
             }
             crElem = document.createElement('div');
@@ -1383,12 +1407,15 @@ class Form {
             resWrapper.appendChild(crElem);
         return resWrapper;
     }
-    getValues(formElement = null) {
+    focusFirst() {
+        const elem = document.querySelectorAll('.rwInput:not([type="hidden"]):not([disabled])')[0];
+        if (elem)
+            elem.focus();
+    }
+    getValues() {
         const result = {};
         let res = {};
-        if (!formElement)
-            formElement = document;
-        const rwInputs = formElement.getElementsByClassName('rwInput');
+        const rwInputs = this.formElement.getElementsByClassName('rwInput');
         for (const element of rwInputs) {
             const inp = element;
             const key = inp.getAttribute('name');
@@ -1421,7 +1448,7 @@ class Form {
         }
         return res;
     }
-    getHTML() {
+    getForm() {
         const self = this;
         const conf = this._formConfig;
         const sortedKeys = Object.keys(conf).sort((x, y) => {
@@ -1430,12 +1457,65 @@ class Form {
             return a < b ? -1 : (a > b ? 1 : 0);
         });
         const frm = document.createElement('form');
-        frm.classList.add('formcontent', 'row');
+        frm.classList.add('formcontent', 'row', 'ml-1');
         sortedKeys.forEach(key => {
             const inp = self.getInput(key, conf[key]);
             if (inp)
                 frm.appendChild(inp);
         });
-        return frm.outerHTML;
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('col-12', 'my-4');
+        frm.appendChild(wrapper);
+        const createBtn = document.createElement('a');
+        createBtn.innerText = gText[setLang].Create;
+        createBtn.setAttribute('href', 'javascript:void(0);');
+        createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
+        createBtn.addEventListener('click', () => {
+            const data = self.getValues();
+            self.oTable.importData(data, resp => {
+                resp.forEach(answer => {
+                    let counter = 0;
+                    const messages = [];
+                    answer.forEach(msg => {
+                        if (msg.errormsg || msg.show_message)
+                            messages.push({ type: counter, text: msg.errormsg || msg.message });
+                        counter++;
+                    });
+                    messages.reverse();
+                    if (answer[0]['_entry-point-state']) {
+                        const targetStateID = answer[0]['_entry-point-state'].id;
+                        const btnTo = new StateButton(targetStateID);
+                        btnTo.setTable(self.oTable);
+                        for (const msg of messages) {
+                            let title = '';
+                            if (msg.type == 0)
+                                title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
+                            document.getElementById('myModalTitle').innerHTML = title;
+                            document.getElementById('myModalContent').innerHTML = msg.text;
+                            $('#myModal').modal({});
+                        }
+                    }
+                });
+                self.oTable.loadRows(() => {
+                    const container = frm.parentElement;
+                    self.oTable.renderHTML(container);
+                });
+            });
+        });
+        wrapper.appendChild(createBtn);
+        const cancelBtn = document.createElement('a');
+        cancelBtn.innerText = gText[setLang].Cancel;
+        cancelBtn.setAttribute('href', 'javascript:void(0);');
+        cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
+        cancelBtn.addEventListener('click', () => {
+            console.log("Cancel clicked");
+            self.oTable.loadRows(() => {
+                const container = frm.parentElement;
+                self.oTable.renderHTML(container);
+            });
+        });
+        wrapper.appendChild(cancelBtn);
+        this.formElement = frm;
+        return frm;
     }
 }
