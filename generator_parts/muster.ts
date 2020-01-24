@@ -648,7 +648,7 @@ class Table extends RawTable {
     this.loadRows(() => { t.renderContent(); });
   }
   // TODO: Remove this Function
-  private setPageIndex(targetIndex: number) {
+  private xsetPageIndex(targetIndex: number) {
     const me = this
     const lastPageIndex = this.getNrOfPages() - 1
     let newIndex = targetIndex
@@ -1164,7 +1164,11 @@ class Table extends RawTable {
         const pageLinkEl = document.createElement('a');
         pageLinkEl.setAttribute('href', 'javascript:void(0);');
         pageLinkEl.innerText = `${actPage + 1}`;
-        pageLinkEl.addEventListener('click', () => { t.setPageIndex(actPage); });
+        pageLinkEl.addEventListener('click', () => {
+          // Set new PageIndex
+          t.PageIndex = actPage;
+          t.loadRows(() => { t.renderHTML(); });
+        });
         pageLinkEl.classList.add('page-link'); // bootstrap
         // Append
         btn.appendChild(pageLinkEl);
@@ -1307,8 +1311,8 @@ class Table extends RawTable {
 class Form {
   private _formConfig: any;
   private oTable: Table;
-  private oRowData: number;
-  private _path;
+  private oRowData: any;
+  private _path: string;
   private formElement: HTMLElement;
 
   constructor(Table: Table, RowData: any = null, formConfig = null, Path: string = null) {
@@ -1351,6 +1355,7 @@ class Form {
     if (!el.show_in_form && el.field_type != 'foreignkey') return null;
     if (el.mode_form == 'hi') return null;
     if (el.mode_form == 'ro' && el.is_primary) return null;
+    if (!this.oRowData && el.field_type === 'state') return null;
     //====================================================
     // Create Element
     let crElem = null;
@@ -1528,9 +1533,59 @@ class Form {
 
       crElem.appendChild(hiddenInp);
     }
-    //--- Reverse Foreign Key
+    //--- Relation (N:M Table)
     else if (el.field_type == 'reversefk') {
       const tmpGUID = DB.getID();
+
+       // NM-Table
+      const nmTable = new Table(el.revfk_tablename);
+      nmTable.ReadOnly = (el.mode_form == 'ro');
+
+      const hideCol = '`' + el.revfk_tablename + '`.' + el.revfk_colname1;
+      const mTablename = nmTable.Columns[el.revfk_colname2].foreignKey.table;
+      nmTable.setColumnFilter(hideCol, 'null');
+      if (this.oRowData) {
+        // show only OWN relations
+        const RowID = this.oRowData[this.oTable.getPrimaryColname()];
+        nmTable.setColumnFilter(hideCol, RowID);
+        nmTable.Columns[el.revfk_colname1].show_in_grid = false; // Hide self column
+
+        // fix Column from where we come
+        const myCol = nmTable.Columns[el.revfk_colname1].foreignKey.col_id;
+        const fCreate = nmTable.getFormCreateSettingsDiff();
+        fCreate[el.revfk_colname1] = {show_in_form: false};
+        fCreate[el.revfk_colname1]['value'] = {};
+        fCreate[el.revfk_colname1].value[myCol] = RowID;
+      }
+
+      // Load Rows
+      nmTable.loadRows(() => {
+        const container = document.getElementById(tmpGUID);
+        const rows = nmTable.getRows();
+        const mObjs = rows.map(row => row[el.revfk_colname2]);
+        const SelectedStateID = nmTable.getConfig().stateIdSel;
+        const mSelObjs = rows.filter(row => row['state_id'] == SelectedStateID).map(row => row[el.revfk_colname2]);
+        //console.log(mObjs, mSelObjs);
+
+        const mTable = new Table(mTablename, SelectType.Multi);
+        const IDs = mObjs.map(obj => obj[mTable.getPrimaryColname()]);
+        // Load filtered M Table with Multiselect ;P
+        const Filter = '{"in":["' + mTable.getPrimaryColname() + '","' + IDs.join(',') + '"]}';
+        //console.log(Filter);
+        mTable.setFilter(Filter);
+        mTable.setSelectedRows(mSelObjs);
+        mTable.setCallbackSelectionChanged(selRows => {
+          console.log(selRows);
+        })
+        mTable.loadRows(() => {
+          mTable.renderHTML(container);
+        })
+        //mTable.setRows(IDs);
+        //nmTable.renderHTML(container);
+      })
+
+      //return null;
+      /*
       const extTablename = el.revfk_tablename;
       const extTableColSelf = el.revfk_colname1;
       const hideCol = '`' + extTablename + '`.' + extTableColSelf;
@@ -1575,9 +1630,10 @@ class Form {
             extTable.renderHTML(document.getElementById(tmpGUID));          
         });
       }
+      */
       // Container for Table
       crElem = document.createElement('div');
-      if (isCreate) crElem.setAttribute('class', 'row');
+      crElem.setAttribute('class', 'row');
       crElem.setAttribute('id', tmpGUID);
       crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
     }    

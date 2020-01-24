@@ -573,7 +573,7 @@ class Table extends RawTable {
         this.setSort(ColumnName + ',' + SortDir);
         this.loadRows(() => { t.renderContent(); });
     }
-    setPageIndex(targetIndex) {
+    xsetPageIndex(targetIndex) {
         const me = this;
         const lastPageIndex = this.getNrOfPages() - 1;
         let newIndex = targetIndex;
@@ -995,7 +995,10 @@ class Table extends RawTable {
                 const pageLinkEl = document.createElement('a');
                 pageLinkEl.setAttribute('href', 'javascript:void(0);');
                 pageLinkEl.innerText = `${actPage + 1}`;
-                pageLinkEl.addEventListener('click', () => { t.setPageIndex(actPage); });
+                pageLinkEl.addEventListener('click', () => {
+                    t.PageIndex = actPage;
+                    t.loadRows(() => { t.renderHTML(); });
+                });
                 pageLinkEl.classList.add('page-link');
                 btn.appendChild(pageLinkEl);
                 btnList.appendChild(btn);
@@ -1147,6 +1150,8 @@ class Form {
         if (el.mode_form == 'hi')
             return null;
         if (el.mode_form == 'ro' && el.is_primary)
+            return null;
+        if (!this.oRowData && el.field_type === 'state')
             return null;
         let crElem = null;
         const path = this._path + '/' + key;
@@ -1322,46 +1327,41 @@ class Form {
         }
         else if (el.field_type == 'reversefk') {
             const tmpGUID = DB.getID();
-            const extTablename = el.revfk_tablename;
-            const extTableColSelf = el.revfk_colname1;
-            const hideCol = '`' + extTablename + '`.' + extTableColSelf;
-            const extTable = new Table(extTablename);
-            const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table || null;
-            extTable.ReadOnly = (el.mode_form == 'ro');
-            const isCreate = !this.oRowData;
-            if (isCreate) {
-                if (tablenameM) {
-                    const extForm = new Form(extTable, null, null, this._path + '/' + tablenameM + '/0');
-                    setTimeout(() => {
-                        document.getElementById(tmpGUID).replaceWith(extForm.getForm());
-                    }, 10);
-                }
+            const nmTable = new Table(el.revfk_tablename);
+            nmTable.ReadOnly = (el.mode_form == 'ro');
+            const hideCol = '`' + el.revfk_tablename + '`.' + el.revfk_colname1;
+            const mTablename = nmTable.Columns[el.revfk_colname2].foreignKey.table;
+            nmTable.setColumnFilter(hideCol, 'null');
+            if (this.oRowData) {
+                const RowID = this.oRowData[this.oTable.getPrimaryColname()];
+                nmTable.setColumnFilter(hideCol, RowID);
+                nmTable.Columns[el.revfk_colname1].show_in_grid = false;
+                const myCol = nmTable.Columns[el.revfk_colname1].foreignKey.col_id;
+                const fCreate = nmTable.getFormCreateSettingsDiff();
+                fCreate[el.revfk_colname1] = { show_in_form: false };
+                fCreate[el.revfk_colname1]['value'] = {};
+                fCreate[el.revfk_colname1].value[myCol] = RowID;
             }
-            else {
-                if (extTable.isRelationTable()) {
-                    extTable.Columns[extTableColSelf].show_in_grid = false;
-                    extTable.options.showControlColumn = !(el.mode_form == 'ro');
-                    const pcol = extTable.getPrimaryColname();
-                    const RowID = this.oRowData[pcol];
-                    extTable.setColumnFilter(hideCol, RowID);
-                }
-                extTable.loadRows(rows => {
-                    if (!extTable.ReadOnly && rows['count'] == 0) {
-                        const pathOrigin = location.hash + '/' + extTable.getTablename();
-                        document.getElementById(tmpGUID).innerHTML =
-                            `<a class="btn btn-default text-success" href="${pathOrigin}/create/${tablenameM}/create"><i class="fa fa-plus"></i> ${gText[setLang].Create}</a>
-              <a class="btn btn-default text-success" href="${pathOrigin}/create"><i class="fa fa-link"></i> ${gText[setLang].Relate}</a>`;
-                    }
-                    else if (extTable.ReadOnly && rows['count'] == 0) {
-                        document.getElementById(tmpGUID).innerHTML = `<span class="text-muted">${gText[setLang].noEntries}</span>`;
-                    }
-                    else
-                        extTable.renderHTML(document.getElementById(tmpGUID));
+            nmTable.loadRows(() => {
+                const container = document.getElementById(tmpGUID);
+                const rows = nmTable.getRows();
+                const mObjs = rows.map(row => row[el.revfk_colname2]);
+                const SelectedStateID = nmTable.getConfig().stateIdSel;
+                const mSelObjs = rows.filter(row => row['state_id'] == SelectedStateID).map(row => row[el.revfk_colname2]);
+                const mTable = new Table(mTablename, SelectType.Multi);
+                const IDs = mObjs.map(obj => obj[mTable.getPrimaryColname()]);
+                const Filter = '{"in":["' + mTable.getPrimaryColname() + '","' + IDs.join(',') + '"]}';
+                mTable.setFilter(Filter);
+                mTable.setSelectedRows(mSelObjs);
+                mTable.setCallbackSelectionChanged(selRows => {
+                    console.log(selRows);
                 });
-            }
+                mTable.loadRows(() => {
+                    mTable.renderHTML(container);
+                });
+            });
             crElem = document.createElement('div');
-            if (isCreate)
-                crElem.setAttribute('class', 'row');
+            crElem.setAttribute('class', 'row');
             crElem.setAttribute('id', tmpGUID);
             crElem.innerHTML = '<span class="spinner-grow spinner-grow-sm"></span> ' + gText[setLang].Loading;
         }
