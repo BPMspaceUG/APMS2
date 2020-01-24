@@ -201,8 +201,6 @@ export default (props) => {
     <div class="container-fluid my-3" id="formcreate">${ fCreate.getHTML() }</div>
     <div class="text-center pb-3">
       <button class="btn btn-success btnCreate">${textCommand}</button>
-      <span class="mx-3 text-muted"></span>
-      <span><a class="btn btn-light" href="${backPath}">${gText[setLang].Cancel}</a></span>
     </div>
   </div>`;
 }

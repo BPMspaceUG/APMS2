@@ -24,7 +24,7 @@ const gText = {
     noFinds: 'Sorry, nothing found.'
   },
   de: {
-    Create: 'Erstellen',
+    Create: 'Hinzufügen',
     Cancel: 'Abbrechen',
     Search: 'Suchen...',
     Loading: 'Laden...',
@@ -40,7 +40,7 @@ const gText = {
     noFinds: 'Keine Ergebnisse gefunden.'
   }
 }
-const setLang = 'de';
+const setLang = 'en';
 
 //==============================================================
 // Database (Communication via API)
@@ -118,44 +118,11 @@ abstract class DB {
       callback(config);
     });
   }
+  /*
   public static setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id') => {
-    const t = new Table(tablename);
-    const data = {table: tablename, row: {}};
-    data.row = rowData;
-    data.row[t.getPrimaryColname()] = rowID;
-    if (targetStateID)
-      data.row[colname] = targetStateID;
-    DB.request('makeTransition', data, resp => {
-      callback(resp);
-      //----------------------------------------
-      // Handle Transition Feedback
-      let counter: number = 0;
-      const messages = [];
-      resp.forEach(msg => {
-        if (msg.show_message)
-          messages.push({type: counter, text: msg.message}); // for GUI
-        counter++;
-      });
-      // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
-      messages.reverse();
-      // Show all Script-Result Messages
-      const btnFrom = new StateButton(targetStateID); // TODO: actStateID !!
-      const btnTo = new StateButton(targetStateID);
-      btnFrom.setTable(t);
-      btnTo.setTable(t);
-      for (const msg of messages) {
-        let title = '';
-        if (msg.type == 0) title += `${btnFrom.getElement().outerHTML} &rarr;`;
-        if (msg.type == 1) title += `${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}`;
-        if (msg.type == 2) title += `&rarr; ${btnTo.getElement().outerHTML}`;
-        // Render a Modal
-        document.getElementById('myModalTitle').innerHTML = title;
-        document.getElementById('myModalContent').innerHTML = msg.text;
-        $('#myModal').modal({});
-      }
-      //----------------------------------------
-    });
+
   }
+  */
   public static escapeHtml(string: string): string {
     const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
     return String(string).replace(/[&<>"'`=\/]/g, s => entityMap[s]);
@@ -383,21 +350,29 @@ class StateMachine {
 class StateButton {
   private _table = null;
   private _stateID = null;
-  private _rowID = null;
-  private _stateCol = null;
   private _editable: boolean = false;
+  private stateCol: string;
   private _name: string = '';
-  private _callbackStateChange = (resp) => {};
+  private rowData: any = null;
+  private modForm: Form = null;
+  private onSuccess = () => {}
 
-  constructor(stateid, rowid = null, statecol: string = 'state_id') {
-    this._stateID = stateid;
-    this._rowID = rowid;
-    this._stateCol = statecol;
-    this._editable = (stateid && rowid);
+  constructor(rowData: any, statecol: string = 'state_id') {
+    this._stateID = rowData[statecol];
+    this._editable = true;
+    this.rowData = rowData;
+    this.stateCol = statecol;
   }
   public setTable = (table: Table) => {
     this._table = table;
     this._name = this._table.SM.getStateNameById(this._stateID);
+    // Clean RowData (minimum)
+    const RowID = this.rowData[table.getPrimaryColname()];
+    this.rowData = {};
+    this.rowData[table.getPrimaryColname()] = RowID;
+  }
+  public setForm = (modifyForm: Form) => {
+    this.modForm = modifyForm;
   }
   public setName = (name: string) => {
     this._name = name;
@@ -405,8 +380,8 @@ class StateButton {
   public setReadOnly = (readonly: boolean) => {
     this._editable = !readonly;
   }
-  public setCallbackStateChange(callback) {
-    this._callbackStateChange = callback;
+  public setOnSuccess = (callback) => {
+    this.onSuccess = callback;
   }
   //------------------------------- DOM
   private getButton = () => {
@@ -418,6 +393,8 @@ class StateButton {
     return btn;
   }
   public getElement = () => {
+    const self = this;
+
     if (!this._editable) {
       // ReadOnly
       return this.getButton();
@@ -426,8 +403,7 @@ class StateButton {
       const btn = this.getButton();
       const list = document.createElement('div');
       const wrapper = document.createElement('div');
-
-      // Dropdown
+      //--- Dropdown
       btn.classList.remove('btnDisabled');
       btn.classList.add('dropdown-toggle', 'btnEnabled');
       btn.addEventListener('click', e => {
@@ -437,34 +413,78 @@ class StateButton {
         else
           list.classList.add('show');
       });
-      // wrapper
+      //--- wrapper
       wrapper.classList.add('dropdown');
-      // List of next states      
       list.classList.add('dropdown-menu', 'p-0');
-      const t = this._table;
+      //--- List of next states      
       const nextstates = this._table.SM.getNextStates(this._stateID);
       if (nextstates.length > 0) {
         nextstates.map(state => {
           // Create New Button-Element
-          const btn = document.createElement('a');
-          btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
-          btn.setAttribute('href', 'javascript:void(0)');
-          btn.innerText = state.name;
-          btn.addEventListener("click", e => {
+          const nextbtn = document.createElement('a');
+          nextbtn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state'+state.id);
+          nextbtn.setAttribute('href', 'javascript:void(0)');
+          nextbtn.innerText = state.name;
+          nextbtn.addEventListener("click", e => {
             e.preventDefault();
+            btn.innerText = 'Loading...';
+            btn.classList.remove('dropdown-toggle');
+            //=================================== TRANSITION
             //console.log("---transition--->");
-            // setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id')
-            DB.setState(resp => {
-              // State was set
-              //console.log(resp);
-              // TODO: set function dynamically which is called here
-              if (this._callbackStateChange)
-                this._callbackStateChange(resp);
-            },
-            this._table.getTablename(), this._rowID, {}, state.id, this._stateCol);
+            const data = {
+              table: self._table.getTablename(),
+              row: self.rowData
+            };
+            // Merge with new Form Data
+            if (self.modForm) {
+              const newVals = self.modForm.getValues();
+              const newRowDataFromForm = newVals[self._table.getTablename()][0];
+              data.row = DB.mergeDeep({}, data.row, newRowDataFromForm);
+            }
+            // target State
+            data.row[self.stateCol] = state.id;
+            //------------> SEND
+            DB.request('makeTransition', data, resp => {
+              // Reset GUI
+              btn.innerText = self._name;
+              btn.classList.add('dropdown-toggle');
+              // on Success
+              if (resp.length === 3) {
+                self.onSuccess();
+              }
+              //----------------------------------------
+              // Handle Transition Feedback
+              let counter: number = 0;
+              const messages = [];
+              resp.forEach(msg => {
+                if (msg.show_message)
+                  messages.push({type: counter, text: msg.message}); // for GUI
+                counter++;
+              });
+              // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
+              messages.reverse();
+              // Show all Script-Result Messages
+              const btnFrom = new StateButton({state_id: self._stateID});
+              const btnTo = new StateButton({state_id: state.id});
+              btnFrom.setTable(self._table);
+              btnFrom.setReadOnly(true);
+              btnTo.setTable(self._table);
+              btnTo.setReadOnly(true);
+              for (const msg of messages) {
+                let title = '';
+                if (msg.type == 0) title += `${btnFrom.getElement().outerHTML} &rarr;`;
+                if (msg.type == 1) title += `${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}`;
+                if (msg.type == 2) title += `&rarr; ${btnTo.getElement().outerHTML}`;
+                // Render a Modal
+                document.getElementById('myModalTitle').innerHTML = title;
+                document.getElementById('myModalContent').innerHTML = msg.text;
+                $('#myModal').modal({});
+              }
+              //----------------------------------------
+            });
             list.classList.remove('show');
           });
-          list.appendChild(btn);
+          list.appendChild(nextbtn);
         });
       }
       // Assemble
@@ -551,7 +571,7 @@ class RawTable {
 }
 class Table extends RawTable {
   // Variables
-  private GUID: string; // TODO: Remove
+  public GUID: string; // TODO: Remove!!!
   private SM: StateMachine = null;
   private selType: SelectType = SelectType.NoSelect;
   private TableType: TableType = TableType.obj;
@@ -561,11 +581,13 @@ class Table extends RawTable {
     smallestTimeUnitMins: true,
     showControlColumn: true,
     showWorkflowButton: false,
-    showCreateButton: false,
+    showCreateButton: true,
     showSearch: true
   }
   public isExpanded: boolean = true;
   private _callbackSelectionChanged = (resp) => {};
+  private formCreateSettingsDiff: any;
+
   // Methods
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
     super(tablename); // Call parent constructor
@@ -577,12 +599,13 @@ class Table extends RawTable {
     this.ReadOnly = (config.mode == 'ro');
     if (config.se_active)
       this.SM = new StateMachine(config.sm_states, config.sm_rules);
+    this.formCreateSettingsDiff =  JSON.parse(config.formcreate);
   }
   public isRelationTable() { return (this.TableType !== TableType.obj); }
   public getTableType() { return this.TableType; }
 
-  //--- Form
-  private getDefaultForm(): any {
+  //--- Form (Settings)
+  public getFormCreateDefault(): any {
     const me = this
     let FormObj = {};
     // Generate the Form via Config -> Loop all columns from this table
@@ -595,12 +618,27 @@ class Table extends RawTable {
     }
     return FormObj;
   }
-  private getDifferenceForm() { return JSON.parse(this.getConfig().formcreate); }
+  public getFormCreateSettingsDiff(): any {
+    return this.formCreateSettingsDiff;
+  }
   public getFormCreate() { 
-    const defaultForm = this.getDefaultForm();
-    const diffForm = this.getDifferenceForm();
+    const defaultForm = this.getFormCreateDefault();
+    const diffForm = this.formCreateSettingsDiff;
     return DB.mergeDeep({}, defaultForm, diffForm);
   }
+  public getFormModify(row) {
+    const stdForm = this.getFormCreateDefault();
+    let diffFormState = {};
+    let combinedForm = {};
+    //--- Merge/Combine with the difference of Forms
+    if (this.hasStateMachine()) {
+      const actStateID = row['state_id'];
+      diffFormState = this.SM.getFormDiffByState(actStateID);
+    }
+    combinedForm = DB.mergeDeep({}, stdForm, diffFormState);
+    return combinedForm;
+  }
+  //---------
 
   private toggleSort(ColumnName: string): void {
     let t = this;
@@ -609,22 +647,22 @@ class Table extends RawTable {
     // Refresh
     this.loadRows(() => { t.renderContent(); });
   }
-  private async setPageIndex(targetIndex: number) {
-    let me = this
-    var newIndex = targetIndex
-    var lastPageIndex = this.getNrOfPages() - 1
+  // TODO: Remove this Function
+  private setPageIndex(targetIndex: number) {
+    const me = this
+    const lastPageIndex = this.getNrOfPages() - 1
+    let newIndex = targetIndex
     // Check borders
     if (targetIndex < 0) newIndex = 0 // Lower limit
     if (targetIndex > lastPageIndex) newIndex = lastPageIndex // Upper Limit
     // Set new index
-    this.PageIndex = newIndex
+    this.PageIndex = newIndex;
     // Refresh
-    this.loadRows(async function(){
-      await me.renderContent();
-      await me.renderFooter();
-    })
+    me.loadRows(() => { me.renderHTML(); });
   }
-  private getNrOfPages(): number { return Math.ceil(this.getNrOfRows() / this.PageLimit); }
+  private getNrOfPages(): number {
+    return Math.ceil(this.getNrOfRows() / this.PageLimit);
+  }
   private getPaginationButtons(): number[] {
     const MaxNrOfButtons: number = 5
     var NrOfPages: number = this.getNrOfPages()
@@ -694,8 +732,8 @@ class Table extends RawTable {
       if (t.SM) {
         //-------- EDIT-Modal WITH StateMachine
         // What does this code do??? TODO: Remove
+        const defaultFormObj = this.getFormCreateDefault();
         const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
-        const defaultFormObj = this.getDefaultForm();
         const newObj = DB.mergeDeep({}, defaultFormObj, diffJSON);
         // Set default values
         for (const key of Object.keys(TheRow))
@@ -832,16 +870,16 @@ class Table extends RawTable {
     //--- STATE-BUTTON
     else if (t.Columns[col].field_type == 'state') {
       //--- Normal State-Buttons in normal Tables
-      const RowID = row[t.getPrimaryColname()];
       // TODO: Find the RowID when state is from a foreign key
-      const SB = new StateButton(value, RowID, col);
+      const SB = new StateButton(row, col);
       SB.setTable(t);
       SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
-      SB.setCallbackStateChange(resp => {
+      SB.setOnSuccess(() => {
         //console.log("Statechange from Grid!", resp);
         // TODO: When its a foreign key table?
         t.loadRows(() => { t.renderContent(); });
       })
+
       const tmpID = DB.getID();
       // TODO: Remove this:
       setTimeout(()=>{
@@ -855,13 +893,15 @@ class Table extends RawTable {
     }
     else if (col == 'name' && t.getTablename() == 'state') {
       // for the State-Table
-      const SB = new StateButton(row['state_id']);
+      const SB = new StateButton(row);
+      SB.setReadOnly(true);
       SB.setName(value);
       return SB.getElement().outerHTML;
     }
     else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.getTablename() == 'state_rules') {
       // StateRules-Table
-      const SB = new StateButton(value['state_id']);
+      const SB = new StateButton(value);
+      SB.setReadOnly(true);
       SB.setName(value['name']);
       return SB.getElement().outerHTML;
     }
@@ -905,8 +945,7 @@ class Table extends RawTable {
         }
         else {
           // Create
-          const createBtn = `<a href="${location.hash+'/'+t.getTablename()}/create"><i class="fa fa-plus text-success"></i></a>`;
-          th = `<th class="controllcoulm">${ t.ReadOnly ? '' : createBtn }</th>`;
+          th = `<th class="controllcoulm"></th>`;
         }
       }
     }
@@ -1019,7 +1058,7 @@ class Table extends RawTable {
       }
     })
     // ====> Output
-    return `<div class="tbl_content" id="${t.GUID}">
+    return `<div class="tbl_content">
       ${ (t.Rows && t.Rows.length > 0) ?
       `<div class="tablewrapper border table-responsive-md">
         <table class="table table-striped table-hover m-0 table-sm datatbl">
@@ -1034,18 +1073,23 @@ class Table extends RawTable {
     </div>`;
   }
   //------------------------------------------------ Components (Create, Workflow, Searchbar, Statustext)
-  private getCreateButton(table: Table = null, callback = (t)=>{}): HTMLElement {
-    if (!table) table = this;
+  private getCreateButton(table: Table = null): HTMLElement {
+    const self = this;
+    if (!table) table = self;
     // Create Element
     const createBtnElement = document.createElement('a');
     createBtnElement.classList.add('tbl_createbtn');
     createBtnElement.setAttribute('href', `javascript:void(0);`);
-    createBtnElement.innerText = (table.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create) + ' ' + table.getTablename();
-    createBtnElement.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    createBtnElement.innerText = '+ ' + table.getTableAlias();
+    createBtnElement.classList.add('btn', 'btn-success', 'mr-1'); // Bootstrap custom classes
     createBtnElement.addEventListener('click', () => {
       // On Create click
-      console.log("Loading Create Form for", table.getTablename());
-      callback(table);
+      const container = document.getElementById(self.GUID);
+      const createForm = new Form(table);
+      createForm.setNewOriginTable(self);
+      // Place Form
+      container.replaceWith(createForm.getForm());
+      createForm.focusFirst();
     })
     return createBtnElement;
   }
@@ -1054,7 +1098,7 @@ class Table extends RawTable {
     createBtnElement.classList.add('tbl_workflowbtn');
     createBtnElement.setAttribute('href', `#/${this.getTablename()}/workflow`);
     createBtnElement.innerText = gText[setLang].Workflow;
-    createBtnElement.classList.add('btn', 'btn-info', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    createBtnElement.classList.add('btn', 'btn-info', 'mr-1'); // Bootstrap custom classes
     return createBtnElement;
   }
   private getSearchBar(): HTMLElement {
@@ -1064,13 +1108,13 @@ class Table extends RawTable {
     searchBarElement.setAttribute('placeholder', gText[setLang].Search);
     searchBarElement.classList.add('tbl_searchbar');
     // Bootstrap custom classes
-    searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1', 'mb-1');
+    searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1');
     // Events
     const dHandler = DB.debounce(250, ()=>{
       t.setSearch(searchBarElement.value); // Set Filter
       t.loadRows(()=>{
         t.renderContent();
-        t.renderFooter();
+        //t.renderFooter();
       });
     });
     searchBarElement.addEventListener("input", dHandler);
@@ -1091,42 +1135,93 @@ class Table extends RawTable {
       gText[setLang].noEntries;
     return statusTextElement;
   }
-  // TODO: Make Element out of it
-  private getFooter(): string {
+  private getFooter(): HTMLElement {
     const t = this;
     // Create default Footer
     const footerElement = document.createElement('div');
     footerElement.classList.add('tbl_footer');
     // No Rows = No Footer
-    if (!t.Rows || t.Rows.length <= 0) return footerElement.outerHTML;
-    if ((t.selType !== SelectType.NoSelect) && !t.isExpanded) return footerElement.outerHTML;
-    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1) return footerElement.outerHTML;
-    // Pagination
-    const PaginationButtons = t.getPaginationButtons();
-    let pgntn = '';
-    if (PaginationButtons.length > 1) {
-      // Only Display Buttons if more than one Button exists
-      PaginationButtons.forEach(btnIndex => {
-        if (t.PageIndex == t.PageIndex + btnIndex) // Active
-          pgntn += `<li class="page-item active"><span class="page-link">${t.PageIndex + 1 + btnIndex}</span></li>`;
-        else 
-          pgntn += `<li class="page-item"><a href="${window.location}" class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
+    if (!t.Rows || t.Rows.length <= 0) return footerElement;
+    if ((t.selType !== SelectType.NoSelect) && !t.isExpanded) return footerElement;
+    if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1) return footerElement;
+    //--- Pagination    
+    const pageButtons = t.getPaginationButtons();
+    if (pageButtons.length > 1) {
+      // Elements
+      const paginationElement = document.createElement('nav');
+      paginationElement.classList.add('float-right'); // bootstrap
+      const btnList = document.createElement('ul');
+      btnList.classList.add('pagination', 'pagination-sm', 'm-0', 'my-1');
+      paginationElement.appendChild(btnList);
+      // every Button
+      pageButtons.forEach(btnIndex => {
+        const actPage = t.PageIndex + btnIndex;
+        //-- Page Item
+        const btn = document.createElement('li');
+        btn.classList.add('page-item'); // Bootstrap
+        if (t.PageIndex === actPage) btn.classList.add('active');
+        //-- Create Link
+        const pageLinkEl = document.createElement('a');
+        pageLinkEl.setAttribute('href', 'javascript:void(0);');
+        pageLinkEl.innerText = `${actPage + 1}`;
+        pageLinkEl.addEventListener('click', () => { t.setPageIndex(actPage); });
+        pageLinkEl.classList.add('page-link'); // bootstrap
+        // Append
+        btn.appendChild(pageLinkEl);
+        btnList.appendChild(btn);
+      });
+      footerElement.appendChild(paginationElement);
+      //--- StatusText
+      const statusTextElem = t.getStatusText();
+      footerElement.appendChild(statusTextElem);
+    }
+    // Add Clear
+    const clearing = document.createElement('div');
+    clearing.setAttribute('style', 'clear:both;');
+    footerElement.appendChild(clearing);
+    //===> Return
+    return footerElement;
+  }
+  private getHeader(): HTMLElement {
+    const self = this;
+    // create Element
+    const header = document.createElement('div');
+    header.setAttribute('class', 'tbl_header mb-1');
+    // Expanded?
+    //console.log(this.selectedRows.length, this.isExpanded)
+    if (this.selectedRows.length > 0 && !this.isExpanded)
+      return header;
+    // Searchbar
+    if (this.options.showSearch) {
+      const searchBar = this.getSearchBar();
+      header.appendChild(searchBar);
+      searchBar.focus();
+    }
+    // Create Button
+    if (!this.ReadOnly && this.options.showCreateButton) {
+      header.appendChild(self.getCreateButton(self));
+    }
+    // Workflow Button
+    if (this.SM && this.options.showWorkflowButton) {
+      header.appendChild(this.getWorkflowButton());
+    }
+    // Subtypes Buttons (TODO: From Config!!)
+    const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
+    if (subtypes) {
+      subtypes.map(subtype => {
+        const tmpTable = new Table(subtype);
+        const tmpCreateBtn = this.getCreateButton(tmpTable);
+        header.appendChild(tmpCreateBtn);
       })
     }
-    //===> Return
-    return `<div class="tbl_footer">
-        ${ PaginationButtons.length === 1 ? '' : this.getStatusText().outerHTML }
-        <!-- Pagination -->
-        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
-        <div style="clear:both;"></div>
-    </div>`;
+    return header;
   }
   //---------------------------------------- Render
   private async renderContent() {
     let els = null;
     const t = this;
     const output = await t.getContent();
-    const tableEl = document.getElementById(t.GUID); // Find Table-Div
+    const tableEl = document.getElementById(t.GUID).getElementsByClassName('tbl_content')[0]; // Find Table-Div
     tableEl.innerHTML = output; // overwrite content
     //---Events
     // Table-Header - Sort
@@ -1149,8 +1244,7 @@ class Table extends RawTable {
           t.isExpanded = true;
           t.resetFilter();
           t.loadRows(() => {
-            t.renderContent();
-            t.renderFooter();
+            t.renderHTML();
           });
         });
       }
@@ -1177,74 +1271,33 @@ class Table extends RawTable {
       }
     }
   }
-  private renderFooter() {
-    const t = this;
-    const parent = document.getElementById(t.GUID).parentElement;
-    // Replace new HTML
-    parent.getElementsByClassName('tbl_footer')[0].outerHTML = t.getFooter(); 
-    // Pagination Button Events
-    const btns = parent.getElementsByClassName('page-link');
-    for (const btn of btns) {
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        t.setPageIndex(parseInt(btn.innerHTML) - 1);
-      })
-    }
-  }
   public async renderHTML(container: HTMLElement = null) {
     const me = this;
-    const content = await this.getContent() + this.getFooter();
+    const content = await this.getContent(); // TODO: Remove!!
+    if (!container) container = document.getElementById(me.GUID);
 
-    if (container) {
-      // Check if it has entries
-      if (this.actRowCount === 0) {
-        // If no entries, then instantlay show Create form
-        const createForm = new Form(me, null, me.getFormCreate());
-        container.replaceWith(createForm.getForm());
-        createForm.focusFirst();
-        return;
-      }
-      container.innerHTML = content;
-      await this.renderContent();
-      await this.renderFooter();
-
-      //====================================
-      //--- Header
-      //====================================
-      const header = document.createElement('div');
-      header.setAttribute('class', 'tbl_header');
-      // Searchbar
-      if (this.options.showSearch) {
-        const searchBar = this.getSearchBar();
-        header.appendChild(searchBar);
-        searchBar.focus();
-      }
-      // Create Button
-      if (!this.ReadOnly && this.options.showCreateButton) {        
-        header.appendChild(me.getCreateButton(me, () => {
-          const createForm = new Form(me, null, me.getFormCreate());
-          container.replaceWith(createForm.getForm());
-          createForm.focusFirst();
-        }));
-      }
-      // Workflow Button
-      if (this.SM && this.options.showWorkflowButton) {
-        header.appendChild(this.getWorkflowButton());
-      }
-      // Subtypes Buttons
-      const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
-      if (subtypes) {
-        subtypes.map(subtype => {
-          const tmpTable = new Table(subtype);
-          header.appendChild(this.getCreateButton(tmpTable, () => {
-            const subTypeCreateForm = new Form(tmpTable, null, tmpTable.getFormCreate());
-            container.replaceWith(subTypeCreateForm.getForm());
-          }));
-        })
-      }
-      // Append to Element
-      container.prepend(header);
+    //--- No Entries?
+    if (this.actRowCount === 0) {
+      // instantly show Create Form
+      const createForm = new Form(me);
+      container.replaceWith(createForm.getForm());
+      createForm.focusFirst();
+      return;
     }
+
+    //--- Build Form (Header, Content Footer)
+    const tbl = document.createElement('div');
+    tbl.classList.add('tbl');
+    tbl.setAttribute('id', me.GUID);    
+    tbl.innerHTML = content;
+    tbl.prepend(me.getHeader());
+    tbl.appendChild(me.getFooter());
+
+    // Replace Element
+    container.replaceWith(tbl);
+    tbl
+
+    await this.renderContent(); // TODO: Remove!!
   }
 }
 
@@ -1254,14 +1307,14 @@ class Table extends RawTable {
 class Form {
   private _formConfig: any;
   private oTable: Table;
-  private oRowID: number;
+  private oRowData: number;
   private _path;
   private formElement: HTMLElement;
 
-  constructor(Table: Table, RowID: number = null, formConfig, Path: string = null) {
+  constructor(Table: Table, RowData: any = null, formConfig = null, Path: string = null) {
     this.oTable = Table;
-    this.oRowID = RowID;
-    this._formConfig = formConfig;
+    this.oRowData = RowData; // if null => Create Form
+    this._formConfig = formConfig || Table.getFormCreate();
     this._path = Path || Table.getTablename() + '/0';
   }
   private put(obj, path, val) {
@@ -1395,9 +1448,11 @@ class Form {
     //--- Foreignkey
     // TODO: This should be renamed to Table-Element (can be normal, singleselect or mult-select)
     else if (el.field_type == 'foreignkey') {
-      const selType = parseInt(el.seltype) || SelectType.Single;
+      let selType = parseInt(el.seltype);
+      if (!selType && selType !== 0) selType = SelectType.Single;
+
       const tmpTable = new Table(el.fk_table, selType);
-      const randID = DB.getID();
+      const randID = DB.getID(); // TODO: Remove
       tmpTable.ReadOnly = (el.mode_form == 'ro');
       //--- Check if FK already has a value from Server (yes/no)
       const fkIsSet = !Object.values(v).every(o => o === null);
@@ -1414,22 +1469,26 @@ class Form {
         v = "";
       //================================
       if (el.show_in_form) {
+        const rowData = this.oRowData;
         //--- Replace Patterns
-        if (el.customfilter) {        
-          const rd = this._formConfig;
-          const colnames = Object.keys(rd);
-          for (const colname of colnames) {
+        if (el.customfilter) {
+          for (const colname of Object.keys(rowData)) {
             const pattern = '%'+colname+'%';
+            // Replace if found
             if (el.customfilter.indexOf(pattern) >= 0) {
-              // Special:
-              const firstCol = Object.keys(rd[colname].value)[0];
-              const replaceWith = rd[colname].value[firstCol] || rd[colname].value;
-              //console.log("Found:", pattern, " -> ", replaceWith);
+              const replaceWith = rowData[colname];
               el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
             }
           }
           el.customfilter = decodeURI(el.customfilter);
           tmpTable.setFilter(el.customfilter);
+          // Reverse FK (must have set customfilter and value)
+          if (el.revfk_col) {
+            const fCreate = tmpTable.getFormCreateSettingsDiff();
+            fCreate[el.revfk_col] = {}
+            fCreate[el.revfk_col]['value'] = {};
+            fCreate[el.revfk_col].value[el.revfk_col] = rowData[el.revfk_col];
+          }
         }
         // Update Value when selection happened
         tmpTable.setCallbackSelectionChanged(selRows => {
@@ -1438,17 +1497,16 @@ class Form {
           else if (selType === SelectType.Multi) value = JSON.stringify(tmpTable.getSelectedIDs());
           if (!value) value = "";
           // Set Value to field
-          document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
+          document.getElementById(tmpTable.GUID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
         });
         //--- Load Rows
         tmpTable.loadRows(rows => {
           if (rows["count"] == 0) {
-            // If no entries, then offer to Create a new one => Instant Form
-            const frmSettings = tmpTable.getFormCreate();
-            //frmSettings['car_id'].value = {'car_id': 87}; // TODO: 
-            const createForm = new Form(tmpTable, null, frmSettings);
+            // If no entries, Create a new one => Form
+            const createForm = new Form(tmpTable);
             document.getElementById(randID).replaceWith(createForm.getForm());
-          } else {
+          }
+          else {
             tmpTable.renderHTML(document.getElementById(randID));
           }
         });
@@ -1479,14 +1537,12 @@ class Form {
       const extTable = new Table(extTablename);
       const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table || null;
       extTable.ReadOnly = (el.mode_form == 'ro');
-      const isCreate = !this.oRowID;
+      const isCreate = !this.oRowData;
 
       if (isCreate) {
         //--------------> CREATE
         if (tablenameM) {
-          const tblM = new Table(tablenameM);
-          const formConfig = tblM.getFormCreate();
-          const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
+          const extForm = new Form(extTable, null, null, this._path + '/' + tablenameM + '/0');
           setTimeout(()=>{
             document.getElementById(tmpGUID).replaceWith(extForm.getForm());
           }, 10)
@@ -1498,7 +1554,9 @@ class Form {
           // Relation:
           extTable.Columns[extTableColSelf].show_in_grid = false; // Hide self column
           extTable.options.showControlColumn = !(el.mode_form == 'ro');
-          extTable.setColumnFilter(hideCol, this.oRowID.toString()); // show only OWN relations
+          const pcol = extTable.getPrimaryColname();
+          const RowID = this.oRowData[pcol];
+          extTable.setColumnFilter(hideCol, RowID); // show only OWN relations
         }
         // Load Rows
         extTable.loadRows(rows => {
@@ -1551,9 +1609,24 @@ class Form {
     }
     //--- State
     else if (el.field_type == 'state') {
-      const SB = new StateButton(el.value, this.oRowID, key);
+      const self = this;
+      const SB = new StateButton(this.oRowData, key);
       SB.setTable(this.oTable);
-      SB.setCallbackStateChange(resp => { document.location.reload(); }); // TODO: optimize
+      SB.setForm(self);
+      SB.setOnSuccess(() => {
+        const pcol = self.oTable.getPrimaryColname();
+        const RowID = self.oRowData[pcol];
+        self.oTable.loadRow(RowID, row => {
+          const frmSettings = self.oTable.getFormModify(row);
+          // set Values
+          for (const key of Object.keys(row))
+            frmSettings[key].value = row[key];
+          // create Form
+          const newForm = new Form(self.oTable, row, frmSettings);
+          const f = newForm.getForm();
+          self.formElement.replaceWith(f);
+        })
+      });
       crElem = SB.getElement();
     }
     //--- Enum
@@ -1612,6 +1685,73 @@ class Form {
       resWrapper.appendChild(crElem);
     return resWrapper;
   }
+  private getFooter(): HTMLElement {
+    const self = this;
+    const tblCreate = this.oTable;
+    // Wrapper (Footer)
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('col-12', 'my-4');
+    //--- Add create Button (if CreateForm)
+    if (!self.oRowData) {
+      const createBtn = document.createElement('a');
+      createBtn.innerText = gText[setLang].Create;
+      createBtn.setAttribute('href', 'javascript:void(0);');
+      createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
+      createBtn.addEventListener('click', () => {
+        //===================== Create Command
+        const data = self.getValues();
+        tblCreate.importData(data, resp => {
+          //setFormState(false);
+          //------------------------------------------------------------- Handle Transition Feedback
+          resp.forEach(answer => {
+            let counter = 0;
+            const messages = [];
+            answer.forEach(msg => {
+              if (msg.errormsg || msg.show_message)
+                messages.push({type: counter, text: msg.errormsg || msg.message}); // for GUI
+              counter++;
+            });
+            // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
+            messages.reverse();
+            // Show all Script-Result Messages
+            if (answer[0]['_entry-point-state']) {
+              const targetStateID = answer[0]['_entry-point-state'].id;
+              const btnTo = new StateButton({state_id: targetStateID});
+              btnTo.setTable(tblCreate);
+              btnTo.setReadOnly(true);
+              for (const msg of messages) {
+                let title = '';
+                if (msg.type == 0) title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
+                // Render a Modal
+                document.getElementById('myModalTitle').innerHTML = title;
+                document.getElementById('myModalContent').innerHTML = msg.text;
+                $('#myModal').modal({});
+              }
+            }
+          });
+          //-------------------------------------------------------------
+          // After creating
+          self.oTable.loadRows(()=>{
+            self.oTable.renderHTML(self.formElement); // reload
+          });
+        });
+      })
+      wrapper.appendChild(createBtn);      
+    }
+    //--- Add Cancel Button
+    const cancelBtn = document.createElement('a');
+    cancelBtn.innerText = gText[setLang].Cancel;
+    cancelBtn.setAttribute('href', 'javascript:void(0);');
+    cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    cancelBtn.addEventListener('click', () => {
+      self.oTable.loadRows(()=>{
+        self.oTable.renderHTML(self.formElement);
+      });
+    })
+    wrapper.appendChild(cancelBtn);
+    //=====> Output
+    return wrapper;
+  }
   //----------------------
   public focusFirst() {
     //--- FOCUS First Element - TODO: foreignKey + HTMLEditor
@@ -1666,8 +1806,11 @@ class Form {
     //===> Output
     return res; // result
   }
+  public setNewOriginTable(newTable: Table) {
+    this.oTable = newTable;
+  }
   public getForm(): HTMLElement {
-    const self = this;
+    const self = this;    
     // Order by data[key].orderF
     const conf = this._formConfig;
     const sortedKeys = Object.keys(conf).sort((x,y) => {
@@ -1678,79 +1821,14 @@ class Form {
     // create Form element
     const frm = document.createElement('form');
     frm.classList.add('formcontent', 'row', 'ml-1');
-
     // append Inputs if not null
     sortedKeys.forEach(key => {
       const inp = self.getInput(key, conf[key]);
       if (inp)
         frm.appendChild(inp);
     })
-    // Wrapper (Footer)
-    const wrapper = document.createElement('div');
-    wrapper.classList.add('col-12', 'my-4');
-    frm.appendChild(wrapper);
-
-    //--- Add create Button
-    const createBtn = document.createElement('a');
-    createBtn.innerText = gText[setLang].Create;
-    createBtn.setAttribute('href', 'javascript:void(0);');
-    createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
-    createBtn.addEventListener('click', () => {
-      //===================== Create Command
-      const data = self.getValues();
-      self.oTable.importData(data, resp => {
-        //setFormState(false);
-        //------------------------------------------------------------- Handle Transition Feedback
-        resp.forEach(answer => {
-          let counter = 0;
-          const messages = [];
-          answer.forEach(msg => {
-            if (msg.errormsg || msg.show_message)
-              messages.push({type: counter, text: msg.errormsg || msg.message}); // for GUI
-            counter++;
-          });
-          // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
-          messages.reverse();
-          // Show all Script-Result Messages
-          if (answer[0]['_entry-point-state']) {
-            const targetStateID = answer[0]['_entry-point-state'].id;
-            const btnTo = new StateButton(targetStateID);
-            btnTo.setTable(self.oTable);
-            for (const msg of messages) {
-              let title = '';
-              if (msg.type == 0) title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
-              // Render a Modal
-              document.getElementById('myModalTitle').innerHTML = title;
-              document.getElementById('myModalContent').innerHTML = msg.text;
-              $('#myModal').modal({});
-            }
-          }
-        });
-        //-------------------------------------------------------------
-        // After creating
-        self.oTable.loadRows(()=>{
-          const container = frm.parentElement; // TODO: change
-          self.oTable.renderHTML(container);
-        });
-      });
-    })
-    wrapper.appendChild(createBtn);
-
-    //--- Add Cancel Button
-    const cancelBtn = document.createElement('a');
-    cancelBtn.innerText = gText[setLang].Cancel;
-    cancelBtn.setAttribute('href', 'javascript:void(0);');
-    cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1'); // Bootstrap custom classes
-    cancelBtn.addEventListener('click', () => {
-      console.log("Cancel clicked");
-      self.oTable.loadRows(()=>{
-        const container = frm.parentElement; // TODO: change
-        self.oTable.renderHTML(container);
-      });
-    })
-    wrapper.appendChild(cancelBtn);
     this.formElement = frm;
-    
+    frm.appendChild(self.getFooter());
     // ===> Output
     return frm;
   }

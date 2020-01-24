@@ -35,7 +35,7 @@ const gText = {
         noFinds: 'Sorry, nothing found.'
     },
     de: {
-        Create: 'Erstellen',
+        Create: 'Hinzufügen',
         Cancel: 'Abbrechen',
         Search: 'Suchen...',
         Loading: 'Laden...',
@@ -51,7 +51,7 @@ const gText = {
         noFinds: 'Keine Ergebnisse gefunden.'
     }
 };
-const setLang = 'de';
+const setLang = 'en';
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -154,41 +154,6 @@ class DB {
     }
 }
 DB.API_URL = 'api.php';
-DB.setState = (callback, tablename, rowID, rowData = {}, targetStateID = null, colname = 'state_id') => {
-    const t = new Table(tablename);
-    const data = { table: tablename, row: {} };
-    data.row = rowData;
-    data.row[t.getPrimaryColname()] = rowID;
-    if (targetStateID)
-        data.row[colname] = targetStateID;
-    DB.request('makeTransition', data, resp => {
-        callback(resp);
-        let counter = 0;
-        const messages = [];
-        resp.forEach(msg => {
-            if (msg.show_message)
-                messages.push({ type: counter, text: msg.message });
-            counter++;
-        });
-        messages.reverse();
-        const btnFrom = new StateButton(targetStateID);
-        const btnTo = new StateButton(targetStateID);
-        btnFrom.setTable(t);
-        btnTo.setTable(t);
-        for (const msg of messages) {
-            let title = '';
-            if (msg.type == 0)
-                title += `${btnFrom.getElement().outerHTML} &rarr;`;
-            if (msg.type == 1)
-                title += `${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}`;
-            if (msg.type == 2)
-                title += `&rarr; ${btnTo.getElement().outerHTML}`;
-            document.getElementById('myModalTitle').innerHTML = title;
-            document.getElementById('myModalContent').innerHTML = msg.text;
-            $('#myModal').modal({});
-        }
-    });
-};
 DB.getID = () => { const c4 = () => { return Math.random().toString(16).slice(-4); }; return 'i' + c4() + c4() + c4() + c4() + c4() + c4() + c4() + c4(); };
 class StateMachine {
     constructor(states, links) {
@@ -351,23 +316,32 @@ class StateMachine {
     }
 }
 class StateButton {
-    constructor(stateid, rowid = null, statecol = 'state_id') {
+    constructor(rowData, statecol = 'state_id') {
         this._table = null;
         this._stateID = null;
-        this._rowID = null;
-        this._stateCol = null;
         this._editable = false;
         this._name = '';
-        this._callbackStateChange = (resp) => { };
+        this.rowData = null;
+        this.modForm = null;
+        this.onSuccess = () => { };
         this.setTable = (table) => {
             this._table = table;
             this._name = this._table.SM.getStateNameById(this._stateID);
+            const RowID = this.rowData[table.getPrimaryColname()];
+            this.rowData = {};
+            this.rowData[table.getPrimaryColname()] = RowID;
+        };
+        this.setForm = (modifyForm) => {
+            this.modForm = modifyForm;
         };
         this.setName = (name) => {
             this._name = name;
         };
         this.setReadOnly = (readonly) => {
             this._editable = !readonly;
+        };
+        this.setOnSuccess = (callback) => {
+            this.onSuccess = callback;
         };
         this.getButton = () => {
             const btn = document.createElement('button');
@@ -378,6 +352,7 @@ class StateButton {
             return btn;
         };
         this.getElement = () => {
+            const self = this;
             if (!this._editable) {
                 return this.getButton();
             }
@@ -396,23 +371,63 @@ class StateButton {
                 });
                 wrapper.classList.add('dropdown');
                 list.classList.add('dropdown-menu', 'p-0');
-                const t = this._table;
                 const nextstates = this._table.SM.getNextStates(this._stateID);
                 if (nextstates.length > 0) {
                     nextstates.map(state => {
-                        const btn = document.createElement('a');
-                        btn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
-                        btn.setAttribute('href', 'javascript:void(0)');
-                        btn.innerText = state.name;
-                        btn.addEventListener("click", e => {
+                        const nextbtn = document.createElement('a');
+                        nextbtn.classList.add('dropdown-item', 'btnState', 'btnEnabled', 'state' + state.id);
+                        nextbtn.setAttribute('href', 'javascript:void(0)');
+                        nextbtn.innerText = state.name;
+                        nextbtn.addEventListener("click", e => {
                             e.preventDefault();
-                            DB.setState(resp => {
-                                if (this._callbackStateChange)
-                                    this._callbackStateChange(resp);
-                            }, this._table.getTablename(), this._rowID, {}, state.id, this._stateCol);
+                            btn.innerText = 'Loading...';
+                            btn.classList.remove('dropdown-toggle');
+                            const data = {
+                                table: self._table.getTablename(),
+                                row: self.rowData
+                            };
+                            if (self.modForm) {
+                                const newVals = self.modForm.getValues();
+                                const newRowDataFromForm = newVals[self._table.getTablename()][0];
+                                data.row = DB.mergeDeep({}, data.row, newRowDataFromForm);
+                            }
+                            data.row[self.stateCol] = state.id;
+                            DB.request('makeTransition', data, resp => {
+                                btn.innerText = self._name;
+                                btn.classList.add('dropdown-toggle');
+                                if (resp.length === 3) {
+                                    self.onSuccess();
+                                }
+                                let counter = 0;
+                                const messages = [];
+                                resp.forEach(msg => {
+                                    if (msg.show_message)
+                                        messages.push({ type: counter, text: msg.message });
+                                    counter++;
+                                });
+                                messages.reverse();
+                                const btnFrom = new StateButton({ state_id: self._stateID });
+                                const btnTo = new StateButton({ state_id: state.id });
+                                btnFrom.setTable(self._table);
+                                btnFrom.setReadOnly(true);
+                                btnTo.setTable(self._table);
+                                btnTo.setReadOnly(true);
+                                for (const msg of messages) {
+                                    let title = '';
+                                    if (msg.type == 0)
+                                        title += `${btnFrom.getElement().outerHTML} &rarr;`;
+                                    if (msg.type == 1)
+                                        title += `${btnFrom.getElement().outerHTML} &rarr; ${btnTo.getElement().outerHTML}`;
+                                    if (msg.type == 2)
+                                        title += `&rarr; ${btnTo.getElement().outerHTML}`;
+                                    document.getElementById('myModalTitle').innerHTML = title;
+                                    document.getElementById('myModalContent').innerHTML = msg.text;
+                                    $('#myModal').modal({});
+                                }
+                            });
                             list.classList.remove('show');
                         });
-                        list.appendChild(btn);
+                        list.appendChild(nextbtn);
                     });
                 }
                 wrapper.appendChild(btn);
@@ -420,13 +435,10 @@ class StateButton {
                 return wrapper;
             }
         };
-        this._stateID = stateid;
-        this._rowID = rowid;
-        this._stateCol = statecol;
-        this._editable = (stateid && rowid);
-    }
-    setCallbackStateChange(callback) {
-        this._callbackStateChange = callback;
+        this._stateID = rowData[statecol];
+        this._editable = true;
+        this.rowData = rowData;
+        this.stateCol = statecol;
     }
 }
 class RawTable {
@@ -508,7 +520,7 @@ class Table extends RawTable {
             smallestTimeUnitMins: true,
             showControlColumn: true,
             showWorkflowButton: false,
-            showCreateButton: false,
+            showCreateButton: true,
             showSearch: true
         };
         this.isExpanded = true;
@@ -521,10 +533,11 @@ class Table extends RawTable {
         this.ReadOnly = (config.mode == 'ro');
         if (config.se_active)
             this.SM = new StateMachine(config.sm_states, config.sm_rules);
+        this.formCreateSettingsDiff = JSON.parse(config.formcreate);
     }
     isRelationTable() { return (this.TableType !== TableType.obj); }
     getTableType() { return this.TableType; }
-    getDefaultForm() {
+    getFormCreateDefault() {
         const me = this;
         let FormObj = {};
         for (const colname of Object.keys(me.Columns)) {
@@ -535,11 +548,24 @@ class Table extends RawTable {
         }
         return FormObj;
     }
-    getDifferenceForm() { return JSON.parse(this.getConfig().formcreate); }
+    getFormCreateSettingsDiff() {
+        return this.formCreateSettingsDiff;
+    }
     getFormCreate() {
-        const defaultForm = this.getDefaultForm();
-        const diffForm = this.getDifferenceForm();
+        const defaultForm = this.getFormCreateDefault();
+        const diffForm = this.formCreateSettingsDiff;
         return DB.mergeDeep({}, defaultForm, diffForm);
+    }
+    getFormModify(row) {
+        const stdForm = this.getFormCreateDefault();
+        let diffFormState = {};
+        let combinedForm = {};
+        if (this.hasStateMachine()) {
+            const actStateID = row['state_id'];
+            diffFormState = this.SM.getFormDiffByState(actStateID);
+        }
+        combinedForm = DB.mergeDeep({}, stdForm, diffFormState);
+        return combinedForm;
     }
     toggleSort(ColumnName) {
         let t = this;
@@ -547,21 +573,20 @@ class Table extends RawTable {
         this.setSort(ColumnName + ',' + SortDir);
         this.loadRows(() => { t.renderContent(); });
     }
-    async setPageIndex(targetIndex) {
-        let me = this;
-        var newIndex = targetIndex;
-        var lastPageIndex = this.getNrOfPages() - 1;
+    setPageIndex(targetIndex) {
+        const me = this;
+        const lastPageIndex = this.getNrOfPages() - 1;
+        let newIndex = targetIndex;
         if (targetIndex < 0)
             newIndex = 0;
         if (targetIndex > lastPageIndex)
             newIndex = lastPageIndex;
         this.PageIndex = newIndex;
-        this.loadRows(async function () {
-            await me.renderContent();
-            await me.renderFooter();
-        });
+        me.loadRows(() => { me.renderHTML(); });
     }
-    getNrOfPages() { return Math.ceil(this.getNrOfRows() / this.PageLimit); }
+    getNrOfPages() {
+        return Math.ceil(this.getNrOfRows() / this.PageLimit);
+    }
     getPaginationButtons() {
         const MaxNrOfButtons = 5;
         var NrOfPages = this.getNrOfPages();
@@ -619,8 +644,8 @@ class Table extends RawTable {
             this.Rows.forEach(row => { if (row[pcname] == id)
                 TheRow = row; });
             if (t.SM) {
+                const defaultFormObj = this.getFormCreateDefault();
                 const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
-                const defaultFormObj = this.getDefaultForm();
                 const newObj = DB.mergeDeep({}, defaultFormObj, diffJSON);
                 for (const key of Object.keys(TheRow))
                     newObj[key].value = TheRow[key];
@@ -733,11 +758,10 @@ class Table extends RawTable {
             return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>';
         }
         else if (t.Columns[col].field_type == 'state') {
-            const RowID = row[t.getPrimaryColname()];
-            const SB = new StateButton(value, RowID, col);
+            const SB = new StateButton(row, col);
             SB.setTable(t);
             SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
-            SB.setCallbackStateChange(resp => {
+            SB.setOnSuccess(() => {
                 t.loadRows(() => { t.renderContent(); });
             });
             const tmpID = DB.getID();
@@ -751,12 +775,14 @@ class Table extends RawTable {
             return `<div id="${tmpID}"></div>`;
         }
         else if (col == 'name' && t.getTablename() == 'state') {
-            const SB = new StateButton(row['state_id']);
+            const SB = new StateButton(row);
+            SB.setReadOnly(true);
             SB.setName(value);
             return SB.getElement().outerHTML;
         }
         else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.getTablename() == 'state_rules') {
-            const SB = new StateButton(value['state_id']);
+            const SB = new StateButton(value);
+            SB.setReadOnly(true);
             SB.setName(value['name']);
             return SB.getElement().outerHTML;
         }
@@ -791,8 +817,7 @@ class Table extends RawTable {
           </th>`;
                 }
                 else {
-                    const createBtn = `<a href="${location.hash + '/' + t.getTablename()}/create"><i class="fa fa-plus text-success"></i></a>`;
-                    th = `<th class="controllcoulm">${t.ReadOnly ? '' : createBtn}</th>`;
+                    th = `<th class="controllcoulm"></th>`;
                 }
             }
         }
@@ -876,7 +901,7 @@ class Table extends RawTable {
                 }
             }
         });
-        return `<div class="tbl_content" id="${t.GUID}">
+        return `<div class="tbl_content">
       ${(t.Rows && t.Rows.length > 0) ?
             `<div class="tablewrapper border table-responsive-md">
         <table class="table table-striped table-hover m-0 table-sm datatbl">
@@ -890,17 +915,21 @@ class Table extends RawTable {
       </div>` : (t.getSearch() != '' ? gText[setLang].noFinds : '')}
     </div>`;
     }
-    getCreateButton(table = null, callback = (t) => { }) {
+    getCreateButton(table = null) {
+        const self = this;
         if (!table)
-            table = this;
+            table = self;
         const createBtnElement = document.createElement('a');
         createBtnElement.classList.add('tbl_createbtn');
         createBtnElement.setAttribute('href', `javascript:void(0);`);
-        createBtnElement.innerText = (table.TableType !== 'obj' ? gText[setLang].Relate : gText[setLang].Create) + ' ' + table.getTablename();
-        createBtnElement.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
+        createBtnElement.innerText = '+ ' + table.getTableAlias();
+        createBtnElement.classList.add('btn', 'btn-success', 'mr-1');
         createBtnElement.addEventListener('click', () => {
-            console.log("Loading Create Form for", table.getTablename());
-            callback(table);
+            const container = document.getElementById(self.GUID);
+            const createForm = new Form(table);
+            createForm.setNewOriginTable(self);
+            container.replaceWith(createForm.getForm());
+            createForm.focusFirst();
         });
         return createBtnElement;
     }
@@ -909,7 +938,7 @@ class Table extends RawTable {
         createBtnElement.classList.add('tbl_workflowbtn');
         createBtnElement.setAttribute('href', `#/${this.getTablename()}/workflow`);
         createBtnElement.innerText = gText[setLang].Workflow;
-        createBtnElement.classList.add('btn', 'btn-info', 'mr-1', 'mb-1');
+        createBtnElement.classList.add('btn', 'btn-info', 'mr-1');
         return createBtnElement;
     }
     getSearchBar() {
@@ -918,12 +947,11 @@ class Table extends RawTable {
         searchBarElement.setAttribute('type', "text");
         searchBarElement.setAttribute('placeholder', gText[setLang].Search);
         searchBarElement.classList.add('tbl_searchbar');
-        searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1', 'mb-1');
+        searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1');
         const dHandler = DB.debounce(250, () => {
             t.setSearch(searchBarElement.value);
             t.loadRows(() => {
                 t.renderContent();
-                t.renderFooter();
             });
         });
         searchBarElement.addEventListener("input", dHandler);
@@ -946,33 +974,73 @@ class Table extends RawTable {
         const footerElement = document.createElement('div');
         footerElement.classList.add('tbl_footer');
         if (!t.Rows || t.Rows.length <= 0)
-            return footerElement.outerHTML;
+            return footerElement;
         if ((t.selType !== SelectType.NoSelect) && !t.isExpanded)
-            return footerElement.outerHTML;
+            return footerElement;
         if ((t.TableType == TableType.t1_1 || t.TableType == TableType.tn_1) && t.getNrOfRows() === 1)
-            return footerElement.outerHTML;
-        const PaginationButtons = t.getPaginationButtons();
-        let pgntn = '';
-        if (PaginationButtons.length > 1) {
-            PaginationButtons.forEach(btnIndex => {
-                if (t.PageIndex == t.PageIndex + btnIndex)
-                    pgntn += `<li class="page-item active"><span class="page-link">${t.PageIndex + 1 + btnIndex}</span></li>`;
-                else
-                    pgntn += `<li class="page-item"><a href="${window.location}" class="page-link" data-pageindex="${t.PageIndex + btnIndex}">${t.PageIndex + 1 + btnIndex}</a></li>`;
+            return footerElement;
+        const pageButtons = t.getPaginationButtons();
+        if (pageButtons.length > 1) {
+            const paginationElement = document.createElement('nav');
+            paginationElement.classList.add('float-right');
+            const btnList = document.createElement('ul');
+            btnList.classList.add('pagination', 'pagination-sm', 'm-0', 'my-1');
+            paginationElement.appendChild(btnList);
+            pageButtons.forEach(btnIndex => {
+                const actPage = t.PageIndex + btnIndex;
+                const btn = document.createElement('li');
+                btn.classList.add('page-item');
+                if (t.PageIndex === actPage)
+                    btn.classList.add('active');
+                const pageLinkEl = document.createElement('a');
+                pageLinkEl.setAttribute('href', 'javascript:void(0);');
+                pageLinkEl.innerText = `${actPage + 1}`;
+                pageLinkEl.addEventListener('click', () => { t.setPageIndex(actPage); });
+                pageLinkEl.classList.add('page-link');
+                btn.appendChild(pageLinkEl);
+                btnList.appendChild(btn);
+            });
+            footerElement.appendChild(paginationElement);
+            const statusTextElem = t.getStatusText();
+            footerElement.appendChild(statusTextElem);
+        }
+        const clearing = document.createElement('div');
+        clearing.setAttribute('style', 'clear:both;');
+        footerElement.appendChild(clearing);
+        return footerElement;
+    }
+    getHeader() {
+        const self = this;
+        const header = document.createElement('div');
+        header.setAttribute('class', 'tbl_header mb-1');
+        if (this.selectedRows.length > 0 && !this.isExpanded)
+            return header;
+        if (this.options.showSearch) {
+            const searchBar = this.getSearchBar();
+            header.appendChild(searchBar);
+            searchBar.focus();
+        }
+        if (!this.ReadOnly && this.options.showCreateButton) {
+            header.appendChild(self.getCreateButton(self));
+        }
+        if (this.SM && this.options.showWorkflowButton) {
+            header.appendChild(this.getWorkflowButton());
+        }
+        const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
+        if (subtypes) {
+            subtypes.map(subtype => {
+                const tmpTable = new Table(subtype);
+                const tmpCreateBtn = this.getCreateButton(tmpTable);
+                header.appendChild(tmpCreateBtn);
             });
         }
-        return `<div class="tbl_footer">
-        ${PaginationButtons.length === 1 ? '' : this.getStatusText().outerHTML}
-        <!-- Pagination -->
-        <nav class="float-right"><ul class="pagination pagination-sm m-0 my-1">${pgntn}</ul></nav>
-        <div style="clear:both;"></div>
-    </div>`;
+        return header;
     }
     async renderContent() {
         let els = null;
         const t = this;
         const output = await t.getContent();
-        const tableEl = document.getElementById(t.GUID);
+        const tableEl = document.getElementById(t.GUID).getElementsByClassName('tbl_content')[0];
         tableEl.innerHTML = output;
         els = tableEl.getElementsByClassName('datatbl_header');
         if (els) {
@@ -992,8 +1060,7 @@ class Table extends RawTable {
                     t.isExpanded = true;
                     t.resetFilter();
                     t.loadRows(() => {
-                        t.renderContent();
-                        t.renderFooter();
+                        t.renderHTML();
                     });
                 });
             }
@@ -1019,67 +1086,33 @@ class Table extends RawTable {
             }
         }
     }
-    renderFooter() {
-        const t = this;
-        const parent = document.getElementById(t.GUID).parentElement;
-        parent.getElementsByClassName('tbl_footer')[0].outerHTML = t.getFooter();
-        const btns = parent.getElementsByClassName('page-link');
-        for (const btn of btns) {
-            btn.addEventListener('click', e => {
-                e.preventDefault();
-                t.setPageIndex(parseInt(btn.innerHTML) - 1);
-            });
-        }
-    }
     async renderHTML(container = null) {
         const me = this;
-        const content = await this.getContent() + this.getFooter();
-        if (container) {
-            if (this.actRowCount === 0) {
-                const createForm = new Form(me, null, me.getFormCreate());
-                container.replaceWith(createForm.getForm());
-                createForm.focusFirst();
-                return;
-            }
-            container.innerHTML = content;
-            await this.renderContent();
-            await this.renderFooter();
-            const header = document.createElement('div');
-            header.setAttribute('class', 'tbl_header');
-            if (this.options.showSearch) {
-                const searchBar = this.getSearchBar();
-                header.appendChild(searchBar);
-                searchBar.focus();
-            }
-            if (!this.ReadOnly && this.options.showCreateButton) {
-                header.appendChild(me.getCreateButton(me, () => {
-                    const createForm = new Form(me, null, me.getFormCreate());
-                    container.replaceWith(createForm.getForm());
-                    createForm.focusFirst();
-                }));
-            }
-            if (this.SM && this.options.showWorkflowButton) {
-                header.appendChild(this.getWorkflowButton());
-            }
-            const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
-            if (subtypes) {
-                subtypes.map(subtype => {
-                    const tmpTable = new Table(subtype);
-                    header.appendChild(this.getCreateButton(tmpTable, () => {
-                        const subTypeCreateForm = new Form(tmpTable, null, tmpTable.getFormCreate());
-                        container.replaceWith(subTypeCreateForm.getForm());
-                    }));
-                });
-            }
-            container.prepend(header);
+        const content = await this.getContent();
+        if (!container)
+            container = document.getElementById(me.GUID);
+        if (this.actRowCount === 0) {
+            const createForm = new Form(me);
+            container.replaceWith(createForm.getForm());
+            createForm.focusFirst();
+            return;
         }
+        const tbl = document.createElement('div');
+        tbl.classList.add('tbl');
+        tbl.setAttribute('id', me.GUID);
+        tbl.innerHTML = content;
+        tbl.prepend(me.getHeader());
+        tbl.appendChild(me.getFooter());
+        container.replaceWith(tbl);
+        tbl;
+        await this.renderContent();
     }
 }
 class Form {
-    constructor(Table, RowID = null, formConfig, Path = null) {
+    constructor(Table, RowData = null, formConfig = null, Path = null) {
         this.oTable = Table;
-        this.oRowID = RowID;
-        this._formConfig = formConfig;
+        this.oRowData = RowData;
+        this._formConfig = formConfig || Table.getFormCreate();
         this._path = Path || Table.getTablename() + '/0';
     }
     put(obj, path, val) {
@@ -1216,7 +1249,9 @@ class Form {
             crElem = wrapper;
         }
         else if (el.field_type == 'foreignkey') {
-            const selType = parseInt(el.seltype) || SelectType.Single;
+            let selType = parseInt(el.seltype);
+            if (!selType && selType !== 0)
+                selType = SelectType.Single;
             const tmpTable = new Table(el.fk_table, selType);
             const randID = DB.getID();
             tmpTable.ReadOnly = (el.mode_form == 'ro');
@@ -1233,19 +1268,23 @@ class Form {
             else
                 v = "";
             if (el.show_in_form) {
+                const rowData = this.oRowData;
                 if (el.customfilter) {
-                    const rd = this._formConfig;
-                    const colnames = Object.keys(rd);
-                    for (const colname of colnames) {
+                    for (const colname of Object.keys(rowData)) {
                         const pattern = '%' + colname + '%';
                         if (el.customfilter.indexOf(pattern) >= 0) {
-                            const firstCol = Object.keys(rd[colname].value)[0];
-                            const replaceWith = rd[colname].value[firstCol] || rd[colname].value;
+                            const replaceWith = rowData[colname];
                             el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
                         }
                     }
                     el.customfilter = decodeURI(el.customfilter);
                     tmpTable.setFilter(el.customfilter);
+                    if (el.revfk_col) {
+                        const fCreate = tmpTable.getFormCreateSettingsDiff();
+                        fCreate[el.revfk_col] = {};
+                        fCreate[el.revfk_col]['value'] = {};
+                        fCreate[el.revfk_col].value[el.revfk_col] = rowData[el.revfk_col];
+                    }
                 }
                 tmpTable.setCallbackSelectionChanged(selRows => {
                     let value = "";
@@ -1255,12 +1294,11 @@ class Form {
                         value = JSON.stringify(tmpTable.getSelectedIDs());
                     if (!value)
                         value = "";
-                    document.getElementById(randID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
+                    document.getElementById(tmpTable.GUID).parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
                 });
                 tmpTable.loadRows(rows => {
                     if (rows["count"] == 0) {
-                        const frmSettings = tmpTable.getFormCreate();
-                        const createForm = new Form(tmpTable, null, frmSettings);
+                        const createForm = new Form(tmpTable);
                         document.getElementById(randID).replaceWith(createForm.getForm());
                     }
                     else {
@@ -1290,12 +1328,10 @@ class Form {
             const extTable = new Table(extTablename);
             const tablenameM = extTable.Columns[el.revfk_colname2].foreignKey.table || null;
             extTable.ReadOnly = (el.mode_form == 'ro');
-            const isCreate = !this.oRowID;
+            const isCreate = !this.oRowData;
             if (isCreate) {
                 if (tablenameM) {
-                    const tblM = new Table(tablenameM);
-                    const formConfig = tblM.getFormCreate();
-                    const extForm = new Form(extTable, null, formConfig, this._path + '/' + tablenameM + '/0');
+                    const extForm = new Form(extTable, null, null, this._path + '/' + tablenameM + '/0');
                     setTimeout(() => {
                         document.getElementById(tmpGUID).replaceWith(extForm.getForm());
                     }, 10);
@@ -1305,7 +1341,9 @@ class Form {
                 if (extTable.isRelationTable()) {
                     extTable.Columns[extTableColSelf].show_in_grid = false;
                     extTable.options.showControlColumn = !(el.mode_form == 'ro');
-                    extTable.setColumnFilter(hideCol, this.oRowID.toString());
+                    const pcol = extTable.getPrimaryColname();
+                    const RowID = this.oRowData[pcol];
+                    extTable.setColumnFilter(hideCol, RowID);
                 }
                 extTable.loadRows(rows => {
                     if (!extTable.ReadOnly && rows['count'] == 0) {
@@ -1349,9 +1387,22 @@ class Form {
             crElem.innerHTML = el.value;
         }
         else if (el.field_type == 'state') {
-            const SB = new StateButton(el.value, this.oRowID, key);
+            const self = this;
+            const SB = new StateButton(this.oRowData, key);
             SB.setTable(this.oTable);
-            SB.setCallbackStateChange(resp => { document.location.reload(); });
+            SB.setForm(self);
+            SB.setOnSuccess(() => {
+                const pcol = self.oTable.getPrimaryColname();
+                const RowID = self.oRowData[pcol];
+                self.oTable.loadRow(RowID, row => {
+                    const frmSettings = self.oTable.getFormModify(row);
+                    for (const key of Object.keys(row))
+                        frmSettings[key].value = row[key];
+                    const newForm = new Form(self.oTable, row, frmSettings);
+                    const f = newForm.getForm();
+                    self.formElement.replaceWith(f);
+                });
+            });
             crElem = SB.getElement();
         }
         else if (el.field_type == 'enum') {
@@ -1407,6 +1458,62 @@ class Form {
             resWrapper.appendChild(crElem);
         return resWrapper;
     }
+    getFooter() {
+        const self = this;
+        const tblCreate = this.oTable;
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('col-12', 'my-4');
+        if (!self.oRowData) {
+            const createBtn = document.createElement('a');
+            createBtn.innerText = gText[setLang].Create;
+            createBtn.setAttribute('href', 'javascript:void(0);');
+            createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
+            createBtn.addEventListener('click', () => {
+                const data = self.getValues();
+                tblCreate.importData(data, resp => {
+                    resp.forEach(answer => {
+                        let counter = 0;
+                        const messages = [];
+                        answer.forEach(msg => {
+                            if (msg.errormsg || msg.show_message)
+                                messages.push({ type: counter, text: msg.errormsg || msg.message });
+                            counter++;
+                        });
+                        messages.reverse();
+                        if (answer[0]['_entry-point-state']) {
+                            const targetStateID = answer[0]['_entry-point-state'].id;
+                            const btnTo = new StateButton({ state_id: targetStateID });
+                            btnTo.setTable(tblCreate);
+                            btnTo.setReadOnly(true);
+                            for (const msg of messages) {
+                                let title = '';
+                                if (msg.type == 0)
+                                    title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
+                                document.getElementById('myModalTitle').innerHTML = title;
+                                document.getElementById('myModalContent').innerHTML = msg.text;
+                                $('#myModal').modal({});
+                            }
+                        }
+                    });
+                    self.oTable.loadRows(() => {
+                        self.oTable.renderHTML(self.formElement);
+                    });
+                });
+            });
+            wrapper.appendChild(createBtn);
+        }
+        const cancelBtn = document.createElement('a');
+        cancelBtn.innerText = gText[setLang].Cancel;
+        cancelBtn.setAttribute('href', 'javascript:void(0);');
+        cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
+        cancelBtn.addEventListener('click', () => {
+            self.oTable.loadRows(() => {
+                self.oTable.renderHTML(self.formElement);
+            });
+        });
+        wrapper.appendChild(cancelBtn);
+        return wrapper;
+    }
     focusFirst() {
         const elem = document.querySelectorAll('.rwInput:not([type="hidden"]):not([disabled])')[0];
         if (elem)
@@ -1448,6 +1555,9 @@ class Form {
         }
         return res;
     }
+    setNewOriginTable(newTable) {
+        this.oTable = newTable;
+    }
     getForm() {
         const self = this;
         const conf = this._formConfig;
@@ -1463,59 +1573,8 @@ class Form {
             if (inp)
                 frm.appendChild(inp);
         });
-        const wrapper = document.createElement('div');
-        wrapper.classList.add('col-12', 'my-4');
-        frm.appendChild(wrapper);
-        const createBtn = document.createElement('a');
-        createBtn.innerText = gText[setLang].Create;
-        createBtn.setAttribute('href', 'javascript:void(0);');
-        createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
-        createBtn.addEventListener('click', () => {
-            const data = self.getValues();
-            self.oTable.importData(data, resp => {
-                resp.forEach(answer => {
-                    let counter = 0;
-                    const messages = [];
-                    answer.forEach(msg => {
-                        if (msg.errormsg || msg.show_message)
-                            messages.push({ type: counter, text: msg.errormsg || msg.message });
-                        counter++;
-                    });
-                    messages.reverse();
-                    if (answer[0]['_entry-point-state']) {
-                        const targetStateID = answer[0]['_entry-point-state'].id;
-                        const btnTo = new StateButton(targetStateID);
-                        btnTo.setTable(self.oTable);
-                        for (const msg of messages) {
-                            let title = '';
-                            if (msg.type == 0)
-                                title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
-                            document.getElementById('myModalTitle').innerHTML = title;
-                            document.getElementById('myModalContent').innerHTML = msg.text;
-                            $('#myModal').modal({});
-                        }
-                    }
-                });
-                self.oTable.loadRows(() => {
-                    const container = frm.parentElement;
-                    self.oTable.renderHTML(container);
-                });
-            });
-        });
-        wrapper.appendChild(createBtn);
-        const cancelBtn = document.createElement('a');
-        cancelBtn.innerText = gText[setLang].Cancel;
-        cancelBtn.setAttribute('href', 'javascript:void(0);');
-        cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
-        cancelBtn.addEventListener('click', () => {
-            console.log("Cancel clicked");
-            self.oTable.loadRows(() => {
-                const container = frm.parentElement;
-                self.oTable.renderHTML(container);
-            });
-        });
-        wrapper.appendChild(cancelBtn);
         this.formElement = frm;
+        frm.appendChild(self.getFooter());
         return frm;
     }
 }
