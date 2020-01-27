@@ -34,6 +34,11 @@ body {overflow-x: hidden;}
 .datatbl .sorted {color: steelblue; min-width: 40px; white-space: nowrap;}
 .datatbl .editFullRow:hover {cursor: pointer;}
 .external-table input.editable {cursor: pointer;}
+
+
+.col-sel, .col-edit {text-align: center; min-width: 40px; width: 40px; max-width: 40px; vertical-align: middle;}
+
+
 /* --- For the html inside the table --- */
 .datatbl td p, h1, h2, h3, h4, h5, h6 {margin: 0; padding: 0;}
 .datatbl td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
