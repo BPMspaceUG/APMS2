@@ -432,7 +432,7 @@ class StateButton {
             };
             // Merge with new Form Data
             if (self.modForm) {
-              const newVals = self.modForm.getValues();
+              const newVals = self.modForm.getValues(true);
               const newRowDataFromForm = newVals[self._table.getTablename()][0];
               data.row = DB.mergeDeep({}, data.row, newRowDataFromForm);
             }
@@ -511,6 +511,7 @@ class Table {
   private PageIndex: number = 0;
   public Columns: any;
   public ReadOnly: boolean;
+  private Path: string = '';
   // -/Raw
   private DOMContainer: HTMLElement = null;
   private SM: StateMachine = null;
@@ -535,6 +536,7 @@ class Table {
     const self = this;
     self.actRowCount = 0;
     self.tablename = tablename;
+    self.Path = tablename + '/0';
     self.Config = Object.assign({}, DB.Config.tables[tablename]);
     self.Columns = self.Config.columns;
     for (const colname of Object.keys(self.Columns)) {
@@ -604,7 +606,10 @@ class Table {
   public setSort(sortStr: string) { this.Sort = sortStr; }
   public setFilter(filterStr: string) { if (filterStr && filterStr.trim().length > 0) this.Filter = filterStr; }
   public setColumnFilter(columnName: string, filterText: string) { this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}'; }
-  public setRows(ArrOfRows: any) { this.Rows = ArrOfRows; }
+  public setRows(ArrOfRows: any) {
+    this.actRowCount = ArrOfRows.length;
+    this.Rows = ArrOfRows;
+  }
   public resetFilter() { this.Filter = ''; }
   public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
   //--- /Raw Table
@@ -644,6 +649,12 @@ class Table {
     }
     combinedForm = DB.mergeDeep({}, stdForm, diffFormState);
     return combinedForm;
+  }
+  public setPath(newPath: string) {
+    this.Path = newPath;
+  }
+  public getPath(): string {
+    return this.Path;
   }
   //---------
   // TODO: Remove
@@ -1426,7 +1437,7 @@ class Form {
         this._formConfig[key].value = RowData[key];
     }
     if (!Path) this.showFooter = true;
-    this._path = Path || Table.getTablename() + '/0';
+    this._path = Path || Table.getPath();
   }
   private put(obj, path, val) {
     // Convert path to array
@@ -1435,6 +1446,7 @@ class Form {
     const length = path.length;
     let current = obj;
     //-------------- Loop through the path
+    let lastkey = null;
     path.forEach((key, index) => {
       // Leaf => last item in the loop, assign the value        
       if (index === length - 1) {
@@ -1442,9 +1454,20 @@ class Form {
       }
       else {
         // Otherwise, update the current place in the object
-        if (!current[key]) // If the key doesn't exist, create it
-          current[key] = [{}];
+        if (!current[key]) { // If the key doesn't exist, create it
+          if (Number.isInteger(key) && key > 0) {
+            // existing Object
+            const tmp = new Table(lastkey);
+            const newObj = {};
+            newObj[tmp.getPrimaryColname()] = key; // set existing element
+            current[0] = newObj;
+            key = 0;
+          } else
+            current[key] = [{}];
+        }
+        // Step Into
         current = current[key]; // Step into
+        lastkey = key;
       }
     });
   }
@@ -1456,6 +1479,7 @@ class Form {
     return Elem;
   }
   private getInput(key: string, el): HTMLElement {
+    const self = this;
     let v = el.value || '';
     if (el.value === 0) v = 0;
     // Exceptions
@@ -1655,44 +1679,31 @@ class Form {
       //------> MODIFY
       if (!isCreate) {
         const tmpGUID = DB.getID();
-        // show only OWN relations
         const RowID = this.oRowData[this.oTable.getPrimaryColname()];
-        nmTable.setColumnFilter(hideCol, RowID);
-        nmTable.Columns[el.revfk_colname1].show_in_grid = false; // Hide self column
-        // fix Column from where we come
+
+        // fix Column from where I come from
         const myCol = nmTable.Columns[el.revfk_colname1].foreignKey.col_id;
         const fCreate = nmTable.getFormCreateSettingsDiff();
         fCreate[el.revfk_colname1] = {show_in_form: false};
         fCreate[el.revfk_colname1]['value'] = {};
         fCreate[el.revfk_colname1].value[myCol] = RowID;
-        // Load Rows (Relations)
-        nmTable.loadRows(() => {        
+
+        //--- Load Relations
+        nmTable.setColumnFilter(hideCol, RowID);
+        nmTable.resetLimit(); // Unlimit Relations!
+        nmTable.Columns[el.revfk_colname1].show_in_grid = false; // Hide self column
+        nmTable.loadRows(rels => {    
           const container = document.getElementById(tmpGUID);
           const rows = nmTable.getRows();
           const mObjs = rows.map(row => row[el.revfk_colname2]);
-          const SelectedStateID = nmTable.getConfig().stateIdSel;
-          const mSelObjs = rows.filter(row => row['state_id'] == SelectedStateID).map(row => row[el.revfk_colname2]);
-          
-          const IDs = mObjs.map(obj => obj[mTable.getPrimaryColname()]);
-          //console.log(IDs);
-          // Load filtered M Table with Multiselect ;P
-          let Filter = nmTable.ReadOnly ? '{"=":[1,1]}' : '{"=":[1,2]}'; // all or no Rows
-          Filter = IDs.length > 0 ? '{"in":["' + mTable.getPrimaryColname() + '","' + IDs.join(',') + '"]}' : Filter;
-          //console.log(Filter);
-
-          mTable.setFilter(Filter);
-          mTable.setSelectedRows(mSelObjs);
-          mTable.onSelectionChanged(selRows => {
-            console.log(selRows);
-          })
-          mTable.loadRows(() => {
-            mTable.renderHTML(container);
-          })
-          mTable.onCreatedElement(row => {
-            console.log('appended a new Object! -> create a new Relation!');
-          })
-          //mTable.setRows(IDs);
-          //nmTable.renderHTML(container);
+          mTable.setPath(this.oTable.getTablename() + '/'+RowID+'/' + mTable.getTablename() + '/0');
+          mTable.setRows(mObjs);
+          mTable.renderHTML(container);
+          mTable.onCreatedElement(resp => {
+            // Reload Form
+            const newForm = new Form(self.oTable, self.oRowData);
+            self.formElement.replaceWith(newForm.getForm());
+          });
         });
         // Container for Table
         crElem = document.createElement('div');
@@ -1748,14 +1759,8 @@ class Form {
         const pcol = self.oTable.getPrimaryColname();
         const RowID = self.oRowData[pcol];
         self.oTable.loadRow(RowID, row => {
-          //const frmSettings = self.oTable.getFormModify(row);
-          // set Values
-          //for (const key of Object.keys(row))
-          //  frmSettings[key].value = row[key];
-          // create Form
           const newForm = new Form(self.oTable, row);
-          const f = newForm.getForm();
-          self.formElement.replaceWith(f);
+          self.formElement.replaceWith(newForm.getForm());
         })
       });
       crElem = SB.getElement();
@@ -1889,7 +1894,7 @@ class Form {
     const elem = <HTMLScriptElement>document.querySelectorAll('.rwInput:not([type="hidden"]):not([disabled])')[0];
     if (elem) elem.focus();
   }
-  public getValues() {
+  public getValues(onlyLastLayer: boolean = false) {
     const result = {};
     let res = {};
     // Read inputs from Form-Scope
@@ -1899,7 +1904,14 @@ class Form {
       const inp = <HTMLInputElement>element;
       const key = inp.getAttribute('name');
       const type = inp.getAttribute('type');
-      const path = inp.getAttribute('data-path');
+      let path = inp.getAttribute('data-path');
+      if (onlyLastLayer) {
+        console.log(path)
+        const parts = path.split('/');
+        if (parts.length > 3)
+          path = parts.slice(parts.length-3).join('/'); // last table/0/key
+        console.log(path)
+      }        
       let value = undefined;
       //--- Format different Types
       // Checkbox
@@ -1935,6 +1947,7 @@ class Form {
       this.put(res, path, value);
     }
     //===> Output
+    console.log(res);
     return res; // result
   }
   public setNewOriginTable(newTable: Table) {
@@ -1947,7 +1960,7 @@ class Form {
     const sortedKeys = Object.keys(conf).sort((x,y) => {
       const a = parseInt(conf[x].orderF || 0);
       const b = parseInt(conf[y].orderF || 0);
-      return a < b ? -1 : (a > b ? 1 : 0);
+      return Math.sign(a - b);
     });
     // create Form element
     const frm = document.createElement('form');

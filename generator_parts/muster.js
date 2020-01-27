@@ -387,7 +387,7 @@ class StateButton {
                                 row: self.rowData
                             };
                             if (self.modForm) {
-                                const newVals = self.modForm.getValues();
+                                const newVals = self.modForm.getValues(true);
                                 const newRowDataFromForm = newVals[self._table.getTablename()][0];
                                 data.row = DB.mergeDeep({}, data.row, newRowDataFromForm);
                             }
@@ -449,6 +449,7 @@ class Table {
         this.Config = null;
         this.PageLimit = 10;
         this.PageIndex = 0;
+        this.Path = '';
         this.DOMContainer = null;
         this.SM = null;
         this.selType = SelectType.NoSelect;
@@ -468,6 +469,7 @@ class Table {
         const self = this;
         self.actRowCount = 0;
         self.tablename = tablename;
+        self.Path = tablename + '/0';
         self.Config = Object.assign({}, DB.Config.tables[tablename]);
         self.Columns = self.Config.columns;
         for (const colname of Object.keys(self.Columns)) {
@@ -539,7 +541,10 @@ class Table {
     setFilter(filterStr) { if (filterStr && filterStr.trim().length > 0)
         this.Filter = filterStr; }
     setColumnFilter(columnName, filterText) { this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}'; }
-    setRows(ArrOfRows) { this.Rows = ArrOfRows; }
+    setRows(ArrOfRows) {
+        this.actRowCount = ArrOfRows.length;
+        this.Rows = ArrOfRows;
+    }
     resetFilter() { this.Filter = ''; }
     resetLimit() { this.PageIndex = null; this.PageLimit = null; }
     getFormCreateDefault() {
@@ -571,6 +576,12 @@ class Table {
         }
         combinedForm = DB.mergeDeep({}, stdForm, diffFormState);
         return combinedForm;
+    }
+    setPath(newPath) {
+        this.Path = newPath;
+    }
+    getPath() {
+        return this.Path;
     }
     toggleSort(ColumnName) {
         let t = this;
@@ -839,21 +850,32 @@ class Form {
         }
         if (!Path)
             this.showFooter = true;
-        this._path = Path || Table.getTablename() + '/0';
+        this._path = Path || Table.getPath();
     }
     put(obj, path, val) {
         path = (typeof path !== 'string') ? path : path.split('/');
         path = path.map(p => !isNaN(p) ? parseInt(p) : p);
         const length = path.length;
         let current = obj;
+        let lastkey = null;
         path.forEach((key, index) => {
             if (index === length - 1) {
                 current[key] = val;
             }
             else {
-                if (!current[key])
-                    current[key] = [{}];
+                if (!current[key]) {
+                    if (Number.isInteger(key) && key > 0) {
+                        const tmp = new Table(lastkey);
+                        const newObj = {};
+                        newObj[tmp.getPrimaryColname()] = key;
+                        current[0] = newObj;
+                        key = 0;
+                    }
+                    else
+                        current[key] = [{}];
+                }
                 current = current[key];
+                lastkey = key;
             }
         });
     }
@@ -865,6 +887,7 @@ class Form {
         return Elem;
     }
     getInput(key, el) {
+        const self = this;
         let v = el.value || '';
         if (el.value === 0)
             v = 0;
@@ -1059,32 +1082,24 @@ class Form {
             if (!isCreate) {
                 const tmpGUID = DB.getID();
                 const RowID = this.oRowData[this.oTable.getPrimaryColname()];
-                nmTable.setColumnFilter(hideCol, RowID);
-                nmTable.Columns[el.revfk_colname1].show_in_grid = false;
                 const myCol = nmTable.Columns[el.revfk_colname1].foreignKey.col_id;
                 const fCreate = nmTable.getFormCreateSettingsDiff();
                 fCreate[el.revfk_colname1] = { show_in_form: false };
                 fCreate[el.revfk_colname1]['value'] = {};
                 fCreate[el.revfk_colname1].value[myCol] = RowID;
-                nmTable.loadRows(() => {
+                nmTable.setColumnFilter(hideCol, RowID);
+                nmTable.resetLimit();
+                nmTable.Columns[el.revfk_colname1].show_in_grid = false;
+                nmTable.loadRows(rels => {
                     const container = document.getElementById(tmpGUID);
                     const rows = nmTable.getRows();
                     const mObjs = rows.map(row => row[el.revfk_colname2]);
-                    const SelectedStateID = nmTable.getConfig().stateIdSel;
-                    const mSelObjs = rows.filter(row => row['state_id'] == SelectedStateID).map(row => row[el.revfk_colname2]);
-                    const IDs = mObjs.map(obj => obj[mTable.getPrimaryColname()]);
-                    let Filter = nmTable.ReadOnly ? '{"=":[1,1]}' : '{"=":[1,2]}';
-                    Filter = IDs.length > 0 ? '{"in":["' + mTable.getPrimaryColname() + '","' + IDs.join(',') + '"]}' : Filter;
-                    mTable.setFilter(Filter);
-                    mTable.setSelectedRows(mSelObjs);
-                    mTable.onSelectionChanged(selRows => {
-                        console.log(selRows);
-                    });
-                    mTable.loadRows(() => {
-                        mTable.renderHTML(container);
-                    });
-                    mTable.onCreatedElement(row => {
-                        console.log('appended a new Object! -> create a new Relation!');
+                    mTable.setPath(this.oTable.getTablename() + '/' + RowID + '/' + mTable.getTablename() + '/0');
+                    mTable.setRows(mObjs);
+                    mTable.renderHTML(container);
+                    mTable.onCreatedElement(resp => {
+                        const newForm = new Form(self.oTable, self.oRowData);
+                        self.formElement.replaceWith(newForm.getForm());
                     });
                 });
                 crElem = document.createElement('div');
@@ -1132,8 +1147,7 @@ class Form {
                 const RowID = self.oRowData[pcol];
                 self.oTable.loadRow(RowID, row => {
                     const newForm = new Form(self.oTable, row);
-                    const f = newForm.getForm();
-                    self.formElement.replaceWith(f);
+                    self.formElement.replaceWith(newForm.getForm());
                 });
             });
             crElem = SB.getElement();
@@ -1252,7 +1266,7 @@ class Form {
         if (elem)
             elem.focus();
     }
-    getValues() {
+    getValues(onlyLastLayer = false) {
         const result = {};
         let res = {};
         const rwInputs = this.formElement.getElementsByClassName('rwInput');
@@ -1260,7 +1274,14 @@ class Form {
             const inp = element;
             const key = inp.getAttribute('name');
             const type = inp.getAttribute('type');
-            const path = inp.getAttribute('data-path');
+            let path = inp.getAttribute('data-path');
+            if (onlyLastLayer) {
+                console.log(path);
+                const parts = path.split('/');
+                if (parts.length > 3)
+                    path = parts.slice(parts.length - 3).join('/');
+                console.log(path);
+            }
             let value = undefined;
             if (type == 'checkbox')
                 value = inp.matches(':checked') ? 1 : 0;
@@ -1286,6 +1307,7 @@ class Form {
                 result[key] = value;
             this.put(res, path, value);
         }
+        console.log(res);
         return res;
     }
     setNewOriginTable(newTable) {
@@ -1297,7 +1319,7 @@ class Form {
         const sortedKeys = Object.keys(conf).sort((x, y) => {
             const a = parseInt(conf[x].orderF || 0);
             const b = parseInt(conf[y].orderF || 0);
-            return a < b ? -1 : (a > b ? 1 : 0);
+            return Math.sign(a - b);
         });
         const frm = document.createElement('form');
         frm.classList.add('formcontent', 'row');
