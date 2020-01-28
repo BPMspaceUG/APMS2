@@ -1354,8 +1354,7 @@ class Table {
           // Check if it is in selected Rows already
           const pcol = self.getPrimaryColname();
           const inSel = self.selectedRows.filter(r => r[pcol] === row[pcol]);
-          if (inSel.length > 0)
-            cb.setAttribute('checked', 'checked');
+          if (inSel.length > 0) cb.setAttribute('checked', 'checked');
           // On (Un)Select
           cb.addEventListener('click', () => { 
             if (cb.checked) {
