@@ -2,7 +2,6 @@
 declare var vis: any, Quill: any, $: any; // Plugins
 
 // Enums
-enum SortOrder {ASC = 'ASC', DESC = 'DESC'}
 enum SelectType {NoSelect = 0, Single = 1, Multi = 2}
 enum TableType {obj = 'obj', t1_1 = '1_1', t1_n = '1_n', tn_1 = 'n_1', tn_m = 'n_m'}
 
@@ -389,7 +388,6 @@ class StateButton {
   }
   public getElement = () => {
     const self = this;
-
     if (!this._editable) {
       // ReadOnly
       return this.getButton();
@@ -488,10 +486,6 @@ class StateButton {
     }
   }
 }
-
-
-
-
 //==============================================================
 // Class: Table
 //==============================================================
@@ -567,10 +561,8 @@ class Table {
       self.callbackCreatedElement(r);
     });
   }
-  public updateRow(RowID: number, new_data: any, callback) {
-    const data = new_data;
-    data[this.PriColname] = RowID;
-    DB.request('update', {table: this.tablename, row: new_data}, r => { callback(r); });
+  public updateRow(RowData: any, callback) {
+    DB.request('update', {table: this.tablename, row: RowData}, r => { callback(r); });
   }
   public loadRow(RowID: number, callback) {
     const data = {table: this.tablename, limit: 1, filter: '{"=":["'+this.PriColname +'", '+RowID+']}'};
@@ -650,14 +642,6 @@ class Table {
     return this.Path;
   }
   //---------
-  // TODO: Remove
-  private toggleSort(ColumnName: string): void {
-    let t = this;
-    const SortDir = (t.getSortDir() === SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC;
-    this.setSort(ColumnName + ',' + SortDir);
-    // Refresh
-    this.loadRows(() => { t.renderHTML(); });
-  }
   private getPaginationButtons(): number[] {
     const MaxNrOfButtons: number = 5
     var NrOfPages: number = Math.ceil(this.getNrOfRows() / this.PageLimit);
@@ -698,458 +682,6 @@ class Table {
   public onCreatedElement(callback) { this.callbackCreatedElement = callback; }
   public onSelectElement(callback) { this.callbackSelectElement = callback; }
   public onUnselectElement(callback) { this.callbackUnselectElement = callback; }
-
-
-
-  // TODO: Remove this / Convert
-  /*
-  public modifyRow(id: number) {
-    let t = this
-    const pcname = t.getPrimaryColname();
-    // Check Selection-Type
-    if (t.selType !== SelectType.NoSelect) {
-      //------------------------------------ SELECT (0..N)
-      const selRow = t.Rows.filter(el => { return el[pcname] == id; })[0];
-      const isAlreadySeletecd = t.selectedRows.filter(el => { return el[pcname] == id; }).length > 0;
-      if (isAlreadySeletecd) { 
-        // Multi-Select (0..N)       
-        t.selectedRows = t.selectedRows.filter(el => { return el[pcname] != id; }); // del
-      }
-      else {
-        // Single-Select (0..1)
-        if (t.selType === SelectType.Single) t.selectedRows = []; // clear
-        t.selectedRows.push(selRow); // add
-      }
-      // Call Feedback Function if set
-      if (this._callbackSelectionChanged)
-        this._callbackSelectionChanged(t.selectedRows);
-      // Redraw HTML
-      t.renderHTML();
-      return
-    }
-    else {
-      //------------------------------------ EDITABLE / READ-ONLY / NO SELECT
-      // Exit if it is a ReadOnly Table
-      if (t.ReadOnly) {
-        //console.error("Can not modify!\nTable \"" + t.getTablename() + "\" is read-only!");
-        return
-      }
-      // Get Row
-      let TheRow = null;
-      this.Rows.forEach(row => { if (row[pcname] == id) TheRow = row; });
-      // Set Form
-      if (t.SM) {
-        //-------- EDIT-Modal WITH StateMachine
-        // What does this code do??? TODO: Remove
-        const defaultFormObj = this.getFormCreateDefault();
-        const diffJSON = t.SM.getFormDiffByState(TheRow.state_id);
-        const newObj = DB.mergeDeep({}, defaultFormObj, diffJSON);
-        // Set default values
-        for (const key of Object.keys(TheRow))
-          newObj[key].value = TheRow[key];
-      }
-    }
-  }
-  */
-  //---------------------------------------------------- Pure HTML building Functions
-  /*
-  private formatCellFK(colname: string, cellData: any) {
-    const showColumns = this.Columns[colname].foreignKey.col_subst;      
-    // Loop external Table
-    let cols = [];
-    Object.keys(cellData).forEach(c => {
-      // Add to displayed cols
-      if (showColumns === '*' || showColumns.indexOf(c) >= 0) {
-        let subCell = {}
-        subCell[c] = cellData[c];
-        cols.push(subCell);
-      }
-    })
-    return cols;
-  }
-  private formatCell(colname: string, cellContent: any, isHTML: boolean = false, mainRowID: number): string {
-    if (isHTML) return cellContent;
-    // check cell type
-    if (typeof cellContent == 'string') {
-      // String, and longer than X chars
-      if (cellContent.length > this.options.maxCellLength)
-        return DB.escapeHtml(cellContent.substr(0, this.options.maxCellLength) + "\u2026");
-    }
-    else if ((typeof cellContent === "object") && (cellContent !== null)) {
-      //-----------------------
-      // Foreign Key
-      //-----------------------
-      let cols = this.formatCellFK(colname, cellContent);
-      // Build content
-      let content = '';
-      const split = (100 * (1 / cols.length)).toFixed(0);
-      const firstEl = cellContent;
-      const fTablename = this.Columns[colname].foreignKey.table;
-      let rowID = null;
-
-      let fTbl = new Table(fTablename);
-      // TODO: Check if Table exists in config
-      cols.forEach(col => {    
-        let htmlCell = col;
-        if (DB.isObject(col)) {
-          const vals = DB.recflattenObj(col);
-          let v = vals.join(' | ');
-          v = v.length > 55 ? v.substring(0, 55) + "\u2026" : v;
-          htmlCell = v;
-        }
-        if (fTbl) htmlCell = fTbl.renderCell(col, Object.keys(col)[0]);
-        // TODO: Hier zu einem String machen
-        content += '<td class="border-0" style="width: '+ split +'%;">' + htmlCell + '</td>';
-      });
-      // Add Edit Button Prefix -> Only if is not ReadOnly
-      if (fTbl && !fTbl.ReadOnly) {
-        rowID = firstEl[Object.keys(firstEl)[0]];
-        if (rowID) {
-          const path = location.hash.split('/');
-          path.shift(); // remove first element: #
-          if (path.length === 1) path.push(mainRowID.toString()); // Add Primary RowID
-          path.push(fTablename, rowID); 
-          content = `<td style="max-width: 30px; width: 30px;" class="border-0 controllcoulm align-middle">
-            <a href="#/${path.join('/')}"><i class="fas fa-edit"></i></a></td>` + content;
-        }
-      }
-      return `<table class="w-100 h-100 p-0 m-0 border-0" style="white-space: nowrap;"><tr data-rowid="${fTablename}:${rowID}">${content}</tr></table>`;
-    }
-    // Cell is no String and no Object   
-    return DB.escapeHtml(cellContent);
-  }
-  public renderCell(row: any, col: string): string {
-    // TODO: Make inputs like (col, val)
-    const t = this;
-    let value = row[col];
-    // Return if null
-    if (!value) return '&nbsp;';    
-    // Check data type
-    //--- DATE
-    if (t.Columns[col].field_type == 'date') {
-      let tmp = new Date(value)
-      if(!isNaN(tmp.getTime()))
-        value = tmp.toLocaleDateString('de-DE')
-      else
-        value = '';
-      return value;
-    }
-    //--- TIME
-    else if(t.Columns[col].field_type == 'time') {
-      if (t.options.smallestTimeUnitMins) {
-        // Remove seconds from TimeString
-        let timeArr = value.split(':');
-        timeArr.pop();
-        value = timeArr.join(':');
-        return value;
-      }
-    }
-    //--- DATETIME
-    else if (t.Columns[col].field_type == 'datetime') {
-      let tmp = new Date(value)
-      if(!isNaN(tmp.getTime())) {
-        value = tmp.toLocaleString('de-DE')
-        // Remove seconds from TimeString
-        if (t.options.smallestTimeUnitMins) {
-          const timeArr = value.split(':');
-          timeArr.pop();
-          value = timeArr.join(':');
-        }
-      } else
-        value = '';
-      return value;
-    }
-    //--- Raw HTML
-    else if (t.Columns[col].field_type == 'rawhtml') {
-      return value;
-    }
-    //--- INTEGER / Number
-    else if (t.Columns[col].field_type == 'number') {
-      const number = parseInt(value);
-      return number.toString(); //number.toLocaleString('de-DE');
-    }
-    //--- FLOAT
-    else if (t.Columns[col].field_type == 'float') {
-      const number = parseFloat(value);
-      return number.toLocaleString('de-DE');
-    }
-    //--- BOOLEAN
-    else if (t.Columns[col].field_type == 'switch' || t.Columns[col].field_type == 'checkbox') {
-      return parseInt(value) !== 0 ? '<i class="fa fa-check text-success "></i>' : '<i class="fa fa-times text-danger"></i>'
-    }
-    //--- STATE-BUTTON
-    else if (t.Columns[col].field_type == 'state') {
-      //--- Normal State-Buttons in normal Tables
-      // TODO: Find the RowID when state is from a foreign key
-      const SB = new StateButton(row, col);
-      SB.setTable(t);
-      SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
-      SB.setOnSuccess(() => {
-        // TODO: When its a foreign key table?
-        t.loadRows(() => { t.renderHTML(); });
-      })
-
-      const tmpID = DB.getID();
-      // TODO: Remove this:
-      setTimeout(()=>{
-        const el = document.getElementById(tmpID);
-        if (el) {
-          document.getElementById(tmpID).innerHTML = '';
-          document.getElementById(tmpID).appendChild(SB.getElement());
-        }
-      }, 10);
-      return `<div id="${tmpID}"></div>`;
-    }
-    else if (col == 'name' && t.getTablename() == 'state') {
-      // for the State-Table
-      const SB = new StateButton(row);
-      SB.setReadOnly(true);
-      SB.setName(value);
-      return SB.getElement().outerHTML;
-    }
-    else if ((col == 'state_id_FROM' || col == 'state_id_TO') && t.getTablename() == 'state_rules') {
-      // StateRules-Table
-      const SB = new StateButton(value);
-      SB.setReadOnly(true);
-      SB.setName(value['name']);
-      return SB.getElement().outerHTML;
-    }
-    //--- OTHER
-    const isHTML = t.Columns[col].is_virtual || t.Columns[col].field_type == 'htmleditor';
-    value = t.formatCell(col, value, isHTML, row[t.getPrimaryColname()]);
-    return value;
-  }
-  /*
-  private htmlHeaders(colnames) {
-    let t = this;
-    let th = '';
-    // Pre fill with 1 because of selector
-    if (t.options.showControlColumn) {
-      // Standard
-      th = `<th class="controllcoulm"></th>`;
-      // No Object and no Selection
-      if (t.TableType !== TableType.obj && t.selType === SelectType.NoSelect) {
-        // Create || Relate
-        const cols = [];
-        colnames.map(col => {
-          if (t.Columns[col].field_type == 'foreignkey')
-            cols.push(col);
-        })
-        const colM = cols[1];
-        const objTable2 = t.Columns[colM].foreignKey.table;
-        th = `<th class="controllcoulm">
-          <a href="${location.hash+'/'+t.getTablename()+'/create/'+objTable2+'/create'}"><i class="fa fa-plus text-success"></i></a>
-          <a href="${location.hash+'/'+t.getTablename()+'/create'}" class="ml-2"><i class="fa fa-link text-success"></i></a>
-        </th>`;
-      }
-      // Select 1 - N
-      else if (t.TableType === TableType.obj && t.selType !== SelectType.NoSelect) {
-        // FOREIGN KEY
-        if (t.selectedRows.length > 0 && !t.isExpanded) {
-          // Selected
-          th = `<th class="controllcoulm">
-            <a href="javascript:void(0);" class="resetTableFilter">
-              <i class="fas fa-chevron-down"></i>
-            </a>
-          </th>`;
-        }
-        else {
-          // Create
-          th = `<th class="controllcoulm"></th>`;
-        }
-      }
-    }
-    // Loop Columns
-    for (const colname of colnames) {
-      if (t.Columns[colname].show_in_grid) {
-        //--- Alias (+Sorting)
-        const ordercol = t.getSortColname();
-        const orderdir = t.getSortDir();
-        th += `<th data-colname="${colname}" ${
-          (['state_id', 'state_id_FROM', 'state_id_TO'].indexOf(colname) >= 0) ? 'style="max-width:80px;width:80px;" ' : ''
-        }class="border-0 p-0 align-middle datatbl_header${colname == ordercol ? ' sorted' : ''}">`+
-        // Title
-        '<div class="float-left pl-1 pb-1">' + t.Columns[colname].column_alias + '</div>' +
-        // Sorting
-        '<div class="float-right pr-3">' + (colname == ordercol ?
-          '&nbsp;' + (orderdir == SortOrder.ASC ? '<i class="fa fa-sort-up"></i>' : (orderdir == SortOrder.DESC ? '<i class="fa fa-sort-down"></i>' : '')
-        ) + '' : '') +
-        '</div>';
-        //---- Foreign Key Column
-        if (t.Columns[colname].field_type == 'foreignkey') {
-          let cols = {};
-          try {
-            cols = JSON.parse(t.Columns[colname].foreignKey.col_subst);
-          } catch (error) {
-            cols[t.Columns[colname].foreignKey.col_subst] = 1; // only one FK => TODO: No subheader
-          }
-          const colsnames = Object.keys(cols);
-          if (colsnames.length > 1) {
-            // Get the config from the remote table
-            let subheaders: string = '';
-            let tmpTable = new Table(t.Columns[colname].foreignKey.table);
-            const split = (100 * (1 / colsnames.length)).toFixed(0);
-            for (const c of colsnames) {
-              const tmpAlias = tmpTable.Columns[c].column_alias;
-              subheaders += '<td class="border-0 align-middle" style="width: '+ split +'%">' + tmpAlias + '</td>';
-            };
-            th += `<table class="w-100 border-0"><tr>${subheaders}</tr></table>`;
-          }
-          //-------------------
-        }
-        // Clearfix
-        th += '<div class="clearfix"></div>';
-        th += '</th>';
-      }
-    }
-    return th;
-  }
-  */
-  /*
-  private getContent(): string {
-    let t = this
-    let tds: string = '';
-    const pcname = t.getPrimaryColname();
-
-    // Order Headers by col_order
-    function compare(a, b) {
-      a = parseInt(t.Columns[a].col_order);
-      b = parseInt(t.Columns[b].col_order);
-      return a < b ? -1 : (a > b ? 1 : 0);
-    }
-    const sortedColumnNames = Object.keys(t.Columns).sort(compare);
-    const ths = t.htmlHeaders(sortedColumnNames);
-
-    // Loop Rows
-    t.Rows.forEach(row => {
-      const RowID: number = row[pcname];
-      let data_string: string = '';
-      let isSelected: boolean = false;
-      // Check if selected
-      if (t.selectedRows.length > 0) {
-        isSelected = t.selectedRows.filter(el => { return el[pcname] == RowID; }).length > 0;
-      }
-      // [Control Column] is set then Add one before each row
-      if (t.options.showControlColumn) {
-        const path = location.hash.split('/');
-        const loc = (path.length === 2) ? '#' : path.join('/'); // Check if Root-Table
-        data_string = `<td class="controllcoulm">
-          ${ (t.selType !== SelectType.NoSelect ? (
-            // Selector
-            isSelected ? '<i class="modRow fa fa-check-square text-success"></i>' : '<i class="modRow far fa-square text-secondary"></i>'
-          ) : (
-            !t.ReadOnly ? (
-              // Edit
-              t.TableType === TableType.obj ? `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-edit"></i></a>` : `<a href="${loc}/${t.getTablename()}/${RowID}"><i class="fas fa-link"></i></a>`
-            ) : ''
-          )
-        ) }
-        </td>`;
-      }
-      // Generate HTML for Table-Data Cells sorted
-      sortedColumnNames.forEach(col => {
-        // Check if it is displayed
-        if (t.Columns[col].show_in_grid) {
-          data_string += '<td '+(t.Columns[col].field_type === 'foreignkey' ? ' class="p-0 m-0 h-100"' : '')+'>'+
-            t.renderCell(row, col)+
-            '</td>';
-        }
-      })
-      //--------------------------------- ROW
-      // Add row to table
-      if (t.options.showControlColumn) {
-        // Edit via first column
-        tds += `<tr class="${(isSelected ? ' table-info' : (row['gridclass'] ? row['gridclass'] : 'gridrow') )}" data-rowid="${t.getTablename()+':'+row[pcname]}">${data_string}</tr>`;
-      }
-      else {
-        if (t.ReadOnly) {
-          // Edit via click
-          tds += '<tr data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
-        } else {
-          // Edit via click on full Row
-          tds += '<tr class="editFullRow modRow" data-rowid="'+t.getTablename()+':'+row[pcname]+'">'+data_string+'</tr>';
-        }
-      }
-    })
-
-    // ====> Output
-    return `<div class="tbl_content">
-      ${ (t.Rows && t.Rows.length > 0) ?
-      `<div class="tablewrapper border table-responsive-md">
-        <table class="table table-striped table-hover m-0 table-sm datatbl">
-          <thead>
-            <tr>${ths}</tr>
-          </thead>
-          <tbody>
-            ${tds}
-          </tbody>
-        </table>
-      </div>` : ( t.getSearch() != '' ? gText[setLang].noFinds : '') }
-    </div>`;
-  }
-  */
-  //---------------------------------------- Render
-  // TODO: Remove this function
-  /*
-  private async renderContent() {
-    let els = null;
-    const t = this;
-    //const output = await t.getContent();
-    const tableEl = document.getElementById(t.GUID).getElementsByClassName('tbl_content')[0]; // Find Table-Div
-    //tableEl.innerHTML = output; // overwrite content
-    //---Events
-    // Table-Header - Sort
-    els = tableEl.getElementsByClassName('datatbl_header');
-    if (els) {
-      for (const el of els) {
-        el.addEventListener('click', e => {
-          e.preventDefault();
-          const colname = el.getAttribute('data-colname');
-          t.toggleSort(colname)
-        });
-      }
-    }
-    // Table-Header - Expand
-    els = tableEl.getElementsByClassName('resetTableFilter');
-    if (els) {
-      for (const el of els) {
-        el.addEventListener('click', e => {
-          e.preventDefault();
-          t.isExpanded = true;
-          t.resetFilter();
-          t.loadRows(() => {
-            t.renderHTML();
-          });
-        });
-      }
-    }
-    // EditRow / SelectRow
-    /*
-    els = tableEl.getElementsByClassName('modRow');
-    if (els) {
-      for (const el of els) {
-        el.addEventListener('click', e => {
-          e.preventDefault();
-          const RowData = el.parentNode.parentNode.getAttribute('data-rowid').split(':');
-          const Tablename = RowData[0];
-          const ID = RowData[1];
-          if (t.getTablename() !== Tablename) {
-            // External Table
-            const tmpTable = new Table(Tablename);
-            tmpTable.loadRow(ID, Row => {
-              tmpTable.setRows([Row]); // Set Rows with 1 Row
-              tmpTable.modifyRow(ID);
-            })
-          } else 
-            t.modifyRow(ID);
-        });
-      }
-    }
-  }
-  */
-  
-
-
   //------------------------------------------------ Components (Create, Workflow, Searchbar, Statustext)
   private getCreateButton(table: Table = null): HTMLElement {
     const self = this;
@@ -1294,7 +826,7 @@ class Table {
       })
     }
     return header;
-  }
+  } 
   private getTable(): HTMLElement {
     const self = this;
     const wrapper = document.createElement('div');
@@ -1309,33 +841,66 @@ class Table {
     // filter + sort columns
     const allowedCols = Object.keys(self.Columns).filter(col => self.Columns[col].show_in_grid); // only which are shown
     const sortedCols = allowedCols.sort((a,b) => Math.sign(self.Columns[a].col_order - self.Columns[b].col_order)); // sort by col_order
+    const expandedCols = [];
+    const aliasCols = [];
+    sortedCols.map(col => {
+      if (self.Columns[col].field_type === "foreignkey") {
+        // FK
+        const fkTable = new Table(self.Columns[col].foreignKey.table);
+        Object.keys(fkTable.Columns).map(fcol => {
+          if (!fkTable.Columns[fcol].is_virtual && fkTable.Columns[fcol].show_in_grid) {
+            expandedCols.push('`' + self.getTablename() + '/' + col + '`.' + fcol);
+            aliasCols.push(fkTable.Columns[fcol].column_alias);
+          }
+        })
+      } else {
+        // not FK
+        expandedCols.push('`' + self.getTablename()+ '`.' + col);
+        aliasCols.push(self.Columns[col].column_alias);
+      }
+    });
 
-    // Show Edit Column
-    if (!self.ReadOnly)
-      sortedCols.unshift("edit");
-
-    // Show Select Column
-    if (self.selType === SelectType.Single || self.selType === SelectType.Multi)
-      sortedCols.unshift("select");
-
+    //- Show Edit Column
+    if (!self.ReadOnly) {
+      expandedCols.unshift("edit");
+      aliasCols.unshift("Edit");
+    }
+    //- Show Select Column
+    if (self.selType === SelectType.Single || self.selType === SelectType.Multi) {
+      expandedCols.unshift("select");
+      aliasCols.unshift("Select");
+    }
     //--- Head
     const thead = document.createElement('thead');
     const tr = document.createElement('tr');
     thead.appendChild(tr);
     tbl.appendChild(thead);
-    sortedCols.map(colname => {
+    expandedCols.map((colname, index) => {
       const th = document.createElement('th');
-      if (colname === "select") {
-        // Select All
-        //th.innerHTML = '<input type="checkbox">';
-        th.classList.add('col-sel');
+      if (colname === "select") th.classList.add('col-sel');
+      else if (colname === "edit") th.classList.add('col-edit');
+      else {
+        // Column Alias
+        let sortHTML = '<i class="fas fa-sort mr-1 text-muted"></i>';
+        if (colname === self.getSortColname()) {
+          if (self.getSortDir() === 'DESC') sortHTML = '<i class="fas fa-sort-down mr-1"></i>';
+          if (self.getSortDir() === 'ASC') sortHTML = '<i class="fas fa-sort-up mr-1"></i>';
+        }
+        th.innerHTML = sortHTML + aliasCols[index];
+        //- Sorting
+        th.addEventListener('click', () => {
+          let newSortDir = "ASC";
+          if (colname === self.getSortColname()) {
+            newSortDir = (self.getSortDir() === "ASC") ? "DESC" : null;
+          }
+          if (newSortDir)
+            self.setSort(`${colname},${newSortDir}`);
+          else
+            self.setSort('');
+          // Draw GUI again
+          self.loadRows(()=> { self.reRenderRows(); })
+        });
       }
-      else if (colname === "edit") {
-        th.innerHTML = '';
-        th.classList.add('col-edit');
-      }
-      else
-        th.innerText = self.Columns[colname].column_alias;
       tr.appendChild(th);
     });
 
@@ -1344,7 +909,7 @@ class Table {
     tbl.appendChild(tbody);
     self.Rows.map(row => {
       const tr = document.createElement('tr');
-      sortedCols.map(colname => {
+      expandedCols.map(colname => {
         const td = document.createElement('td');
         if (colname === "select") {
           td.classList.add('col-sel');
@@ -1385,20 +950,31 @@ class Table {
           });
           td.appendChild(editBtn);
         }
-        else
-          td.innerText = row[colname];
+        else {
+          const colnames = colname.split('.');
+          if (colnames.length > 1) {
+            const path = colnames[0].slice(1, -1); // Remove the ``
+            const sub = path.split('/').pop(); // Get leaf - 1
+            if (sub === self.getTablename())
+              td.innerText = td.innerText = row[colnames[1]];
+            else
+              td.innerText = row[sub][colnames[1]];
+          }
+        }
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
     });
     //=======================================
     //------------- TODO: Put into render HTML function
+    /*
     if (self.Rows && self.Rows.length > 0) { } else {
       // No Rows
       if (self.getSearch() != '') {
         wrapper.replaceWith('<p>'+gText[setLang].noFinds+'</p>');
       }
     }
+    */
     //------/------
     // ====> Output
     return wrapper;
@@ -1860,6 +1436,7 @@ class Form {
       createBtn.innerText = gText[setLang].Create;
       createBtn.setAttribute('href', 'javascript:void(0);');
       createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
+      wrapper.appendChild(createBtn);
       createBtn.addEventListener('click', () => {
         //===================== Create Command
         const data = self.getValues();
@@ -1899,20 +1476,40 @@ class Form {
             self.oTable.renderHTML(self.formElement); // reload
           });
         });
-      })
-      wrapper.appendChild(createBtn);      
+      });         
     }
+    else {
+      // Save Button
+      const saveBtn = document.createElement('a');
+      saveBtn.innerText = gText[setLang].Save;
+      saveBtn.setAttribute('href', 'javascript:void(0);');
+      saveBtn.classList.add('btn', 'btn-primary', 'mr-1', 'mb-1'); // Bootstrap custom classes
+      wrapper.appendChild(saveBtn);
+      saveBtn.addEventListener('click', () => {
+        console.log("Save button clicked!!!");
+        const data = self.getValues(true);
+        const newRowData = data[self.oTable.getTablename()][0];
+        newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
+        self.oTable.updateRow(newRowData, () => {
+          // Updated!
+          self.oTable.loadRows(()=>{
+            self.oTable.renderHTML(self.formElement);
+          });
+
+        })
+      });
+    } 
     //--- Add Cancel Button
     const cancelBtn = document.createElement('a');
     cancelBtn.innerText = gText[setLang].Cancel;
     cancelBtn.setAttribute('href', 'javascript:void(0);');
     cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1'); // Bootstrap custom classes
+    wrapper.appendChild(cancelBtn);
     cancelBtn.addEventListener('click', () => {
       self.oTable.loadRows(()=>{
         self.oTable.renderHTML(self.formElement);
       });
     })
-    wrapper.appendChild(cancelBtn);
     //=====> Output
     return wrapper;
   }

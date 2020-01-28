@@ -1,8 +1,3 @@
-var SortOrder;
-(function (SortOrder) {
-    SortOrder["ASC"] = "ASC";
-    SortOrder["DESC"] = "DESC";
-})(SortOrder || (SortOrder = {}));
 var SelectType;
 (function (SelectType) {
     SelectType[SelectType["NoSelect"] = 0] = "NoSelect";
@@ -502,10 +497,8 @@ class Table {
             self.callbackCreatedElement(r);
         });
     }
-    updateRow(RowID, new_data, callback) {
-        const data = new_data;
-        data[this.PriColname] = RowID;
-        DB.request('update', { table: this.tablename, row: new_data }, r => { callback(r); });
+    updateRow(RowData, callback) {
+        DB.request('update', { table: this.tablename, row: RowData }, r => { callback(r); });
     }
     loadRow(RowID, callback) {
         const data = { table: this.tablename, limit: 1, filter: '{"=":["' + this.PriColname + '", ' + RowID + ']}' };
@@ -583,12 +576,6 @@ class Table {
     }
     getPath() {
         return this.Path;
-    }
-    toggleSort(ColumnName) {
-        let t = this;
-        const SortDir = (t.getSortDir() === SortOrder.DESC) ? SortOrder.ASC : SortOrder.DESC;
-        this.setSort(ColumnName + ',' + SortDir);
-        this.loadRows(() => { t.renderHTML(); });
     }
     getPaginationButtons() {
         const MaxNrOfButtons = 5;
@@ -762,32 +749,69 @@ class Table {
         wrapper.appendChild(tbl);
         const allowedCols = Object.keys(self.Columns).filter(col => self.Columns[col].show_in_grid);
         const sortedCols = allowedCols.sort((a, b) => Math.sign(self.Columns[a].col_order - self.Columns[b].col_order));
-        if (!self.ReadOnly)
-            sortedCols.unshift("edit");
-        if (self.selType === SelectType.Single || self.selType === SelectType.Multi)
-            sortedCols.unshift("select");
+        const expandedCols = [];
+        const aliasCols = [];
+        sortedCols.map(col => {
+            if (self.Columns[col].field_type === "foreignkey") {
+                const fkTable = new Table(self.Columns[col].foreignKey.table);
+                Object.keys(fkTable.Columns).map(fcol => {
+                    if (!fkTable.Columns[fcol].is_virtual && fkTable.Columns[fcol].show_in_grid) {
+                        expandedCols.push('`' + self.getTablename() + '/' + col + '`.' + fcol);
+                        aliasCols.push(fkTable.Columns[fcol].column_alias);
+                    }
+                });
+            }
+            else {
+                expandedCols.push('`' + self.getTablename() + '`.' + col);
+                aliasCols.push(self.Columns[col].column_alias);
+            }
+        });
+        if (!self.ReadOnly) {
+            expandedCols.unshift("edit");
+            aliasCols.unshift("Edit");
+        }
+        if (self.selType === SelectType.Single || self.selType === SelectType.Multi) {
+            expandedCols.unshift("select");
+            aliasCols.unshift("Select");
+        }
         const thead = document.createElement('thead');
         const tr = document.createElement('tr');
         thead.appendChild(tr);
         tbl.appendChild(thead);
-        sortedCols.map(colname => {
+        expandedCols.map((colname, index) => {
             const th = document.createElement('th');
-            if (colname === "select") {
+            if (colname === "select")
                 th.classList.add('col-sel');
-            }
-            else if (colname === "edit") {
-                th.innerHTML = '';
+            else if (colname === "edit")
                 th.classList.add('col-edit');
+            else {
+                let sortHTML = '<i class="fas fa-sort mr-1 text-muted"></i>';
+                if (colname === self.getSortColname()) {
+                    if (self.getSortDir() === 'DESC')
+                        sortHTML = '<i class="fas fa-sort-down mr-1"></i>';
+                    if (self.getSortDir() === 'ASC')
+                        sortHTML = '<i class="fas fa-sort-up mr-1"></i>';
+                }
+                th.innerHTML = sortHTML + aliasCols[index];
+                th.addEventListener('click', () => {
+                    let newSortDir = "ASC";
+                    if (colname === self.getSortColname()) {
+                        newSortDir = (self.getSortDir() === "ASC") ? "DESC" : null;
+                    }
+                    if (newSortDir)
+                        self.setSort(`${colname},${newSortDir}`);
+                    else
+                        self.setSort('');
+                    self.loadRows(() => { self.reRenderRows(); });
+                });
             }
-            else
-                th.innerText = self.Columns[colname].column_alias;
             tr.appendChild(th);
         });
         const tbody = document.createElement('tbody');
         tbl.appendChild(tbody);
         self.Rows.map(row => {
             const tr = document.createElement('tr');
-            sortedCols.map(colname => {
+            expandedCols.map(colname => {
                 const td = document.createElement('td');
                 if (colname === "select") {
                     td.classList.add('col-sel');
@@ -824,18 +848,21 @@ class Table {
                     });
                     td.appendChild(editBtn);
                 }
-                else
-                    td.innerText = row[colname];
+                else {
+                    const colnames = colname.split('.');
+                    if (colnames.length > 1) {
+                        const path = colnames[0].slice(1, -1);
+                        const sub = path.split('/').pop();
+                        if (sub === self.getTablename())
+                            td.innerText = td.innerText = row[colnames[1]];
+                        else
+                            td.innerText = row[sub][colnames[1]];
+                    }
+                }
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
         });
-        if (self.Rows && self.Rows.length > 0) { }
-        else {
-            if (self.getSearch() != '') {
-                wrapper.replaceWith('<p>' + gText[setLang].noFinds + '</p>');
-            }
-        }
         return wrapper;
     }
     renderHTML(container = null) {
@@ -1251,6 +1278,7 @@ class Form {
             createBtn.innerText = gText[setLang].Create;
             createBtn.setAttribute('href', 'javascript:void(0);');
             createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
+            wrapper.appendChild(createBtn);
             createBtn.addEventListener('click', () => {
                 const data = self.getValues();
                 tblCreate.importData(data, resp => {
@@ -1284,18 +1312,35 @@ class Form {
                     });
                 });
             });
-            wrapper.appendChild(createBtn);
+        }
+        else {
+            const saveBtn = document.createElement('a');
+            saveBtn.innerText = gText[setLang].Save;
+            saveBtn.setAttribute('href', 'javascript:void(0);');
+            saveBtn.classList.add('btn', 'btn-primary', 'mr-1', 'mb-1');
+            wrapper.appendChild(saveBtn);
+            saveBtn.addEventListener('click', () => {
+                console.log("Save button clicked!!!");
+                const data = self.getValues(true);
+                const newRowData = data[self.oTable.getTablename()][0];
+                newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
+                self.oTable.updateRow(newRowData, () => {
+                    self.oTable.loadRows(() => {
+                        self.oTable.renderHTML(self.formElement);
+                    });
+                });
+            });
         }
         const cancelBtn = document.createElement('a');
         cancelBtn.innerText = gText[setLang].Cancel;
         cancelBtn.setAttribute('href', 'javascript:void(0);');
         cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
+        wrapper.appendChild(cancelBtn);
         cancelBtn.addEventListener('click', () => {
             self.oTable.loadRows(() => {
                 self.oTable.renderHTML(self.formElement);
             });
         });
-        wrapper.appendChild(cancelBtn);
         return wrapper;
     }
     focusFirst() {
