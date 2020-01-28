@@ -640,6 +640,7 @@
     }
     // [POST] Creating
     public function create($param) {
+      $param = json_decode(json_encode($param), true); // Hack ==> TODO: Remove!
       // Inputs
       $tablename = $param["table"];
       $row = $param["row"];

@@ -425,7 +425,6 @@ class StateButton {
             btn.innerText = 'Loading...';
             btn.classList.remove('dropdown-toggle');
             //=================================== TRANSITION
-            //console.log("---transition--->");
             const data = {
               table: self._table.getTablename(),
               row: self.rowData
@@ -498,7 +497,6 @@ class StateButton {
 //==============================================================
 // Creates nice HTML Table with logic and Filters / Search / Selection etc.
 class Table {
-  // Raw Table
   private tablename: string;
   private Sort: string = '';
   private Search: string = '';
@@ -509,15 +507,14 @@ class Table {
   private Rows: any;
   private PageLimit: number = 10;
   private PageIndex: number = 0;
-  public Columns: any;
-  public ReadOnly: boolean;
   private Path: string = '';
-  // -/Raw
   private DOMContainer: HTMLElement = null;
   private SM: StateMachine = null;
   private selType: SelectType = SelectType.NoSelect;
   private TableType: TableType = TableType.obj;
   private selectedRows = [];
+  public Columns: any;
+  public ReadOnly: boolean;
   public options = {
     maxCellLength: 50,
     smallestTimeUnitMins: true,
@@ -530,6 +527,8 @@ class Table {
   private formCreateSettingsDiff: any;
   private callbackSelectionChanged = resp => {};
   private callbackCreatedElement = resp => {};
+  private callbackSelectElement = row => {};
+  private callbackUnselectElement = row => {};
 
   // Methods
   constructor(tablename: string, SelType: SelectType = SelectType.NoSelect) {
@@ -557,10 +556,10 @@ class Table {
   public isRelationTable() {
     return (this.TableType !== TableType.obj);
   }
-
   //=====================================
-  //--- Raw Table
-  public createRow(data: any, callback) { DB.request('create', {table: this.tablename, row: data}, r => { callback(r); }); }
+  public createRow(data: any, callback) {
+    DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });
+  }
   public importData(data, callback) {
     const self = this;
     DB.request('import', data, r => {
@@ -606,16 +605,10 @@ class Table {
   public setSort(sortStr: string) { this.Sort = sortStr; }
   public setFilter(filterStr: string) { if (filterStr && filterStr.trim().length > 0) this.Filter = filterStr; }
   public setColumnFilter(columnName: string, filterText: string) { this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}'; }
-  public setRows(ArrOfRows: any) {
-    this.actRowCount = ArrOfRows.length;
-    this.Rows = ArrOfRows;
-  }
+  public setRows(ArrOfRows: any) { this.actRowCount = ArrOfRows.length; this.Rows = ArrOfRows; }
   public resetFilter() { this.Filter = ''; }
   public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
-  //--- /Raw Table
   //=====================================
-
-
   //--- Form (Settings)
   public getFormCreateDefault(): any {
     const me = this
@@ -694,7 +687,6 @@ class Table {
     const pcname = this.getPrimaryColname();
     return this.selectedRows.map(el => { return el[pcname]; });
   }
-  // TODO: ?
   public setSelectedRows(selRowData) {
     this.selectedRows = selRowData;
   }
@@ -704,6 +696,9 @@ class Table {
   // Events
   public onSelectionChanged(callback) { this.callbackSelectionChanged = callback; }
   public onCreatedElement(callback) { this.callbackCreatedElement = callback; }
+  public onSelectElement(callback) { this.callbackSelectElement = callback; }
+  public onUnselectElement(callback) { this.callbackUnselectElement = callback; }
+
 
 
   // TODO: Remove this / Convert
@@ -756,8 +751,6 @@ class Table {
     }
   }
   */
-
-
   //---------------------------------------------------- Pure HTML building Functions
   /*
   private formatCellFK(colname: string, cellData: any) {
@@ -892,7 +885,6 @@ class Table {
       SB.setTable(t);
       SB.setReadOnly(t.ReadOnly || t.SM.isExitNode(value));
       SB.setOnSuccess(() => {
-        //console.log("Statechange from Grid!", resp);
         // TODO: When its a foreign key table?
         t.loadRows(() => { t.renderHTML(); });
       })
@@ -1156,6 +1148,8 @@ class Table {
   }
   */
   
+
+
   //------------------------------------------------ Components (Create, Workflow, Searchbar, Statustext)
   private getCreateButton(table: Table = null): HTMLElement {
     const self = this;
@@ -1274,7 +1268,6 @@ class Table {
     const header = document.createElement('div');
     header.setAttribute('class', 'tbl_header mb-1');
     // Expanded?
-    //console.log(this.selectedRows.length, this.isExpanded)
     if (this.selectedRows.length > 0 && !this.isExpanded)
       return header;
     // Searchbar
@@ -1317,8 +1310,11 @@ class Table {
     const allowedCols = Object.keys(self.Columns).filter(col => self.Columns[col].show_in_grid); // only which are shown
     const sortedCols = allowedCols.sort((a,b) => Math.sign(self.Columns[a].col_order - self.Columns[b].col_order)); // sort by col_order
 
-    // edit and select Columns
-    sortedCols.unshift("edit");
+    // Show Edit Column
+    if (!self.ReadOnly)
+      sortedCols.unshift("edit");
+
+    // Show Select Column
     if (self.selType === SelectType.Single || self.selType === SelectType.Multi)
       sortedCols.unshift("select");
 
@@ -1331,7 +1327,7 @@ class Table {
       const th = document.createElement('th');
       if (colname === "select") {
         // Select All
-        th.innerHTML = '<input type="checkbox">';
+        //th.innerHTML = '<input type="checkbox">';
         th.classList.add('col-sel');
       }
       else if (colname === "edit") {
@@ -1351,8 +1347,32 @@ class Table {
       sortedCols.map(colname => {
         const td = document.createElement('td');
         if (colname === "select") {
-          td.innerHTML = '<input type="checkbox">';
           td.classList.add('col-sel');
+          // Select Checkbox
+          const cb = document.createElement('input');
+          cb.setAttribute('type', 'checkbox');
+          // Check if it is in selected Rows already
+          const pcol = self.getPrimaryColname();
+          const inSel = self.selectedRows.filter(r => r[pcol] === row[pcol]);
+          if (inSel.length > 0)
+            cb.setAttribute('checked', 'checked');
+          // On (Un)Select
+          cb.addEventListener('click', () => { 
+            if (cb.checked) {
+              // Selected -> add Row || @ Single-Select (0..1) clear
+              if (self.selType === SelectType.Single) self.selectedRows = [];
+              self.selectedRows.push(row);
+              self.callbackSelectElement(row);
+            }
+            else {
+              // Unselected -> Remove from selectedRows
+              const pcol = self.getPrimaryColname();
+              self.selectedRows = self.selectedRows.filter(r => r[pcol] !== row[pcol]);
+              self.callbackUnselectElement(row);
+            }
+            self.callbackSelectionChanged(self.selectedRows);
+          });
+          td.appendChild(cb);
         }
         else if (colname === "edit") {
           td.classList.add('col-sel');
@@ -1360,8 +1380,7 @@ class Table {
           const editBtn = document.createElement('a');
           editBtn.innerHTML = '<i class="fas fa-edit"></i>';
           editBtn.setAttribute('href', 'javascript:void(0);');
-          editBtn.addEventListener('click', () => {
-            // On Edit Click
+          editBtn.addEventListener('click', () => { // On Edit Click
             const modForm = new Form(self, row);
             wrapper.parentElement.replaceWith(modForm.getForm());
           });
@@ -1373,8 +1392,6 @@ class Table {
       });
       tbody.appendChild(tr);
     });
-
-
     //=======================================
     //------------- TODO: Put into render HTML function
     if (self.Rows && self.Rows.length > 0) { } else {
@@ -1413,8 +1430,6 @@ class Table {
     self.DOMContainer.getElementsByClassName('tbl_footer')[0].replaceWith( self.getFooter() );
   }
 }
-
-
 
 //==============================================================
 // Class: Form
@@ -1460,12 +1475,12 @@ class Form {
             const tmp = new Table(lastkey);
             const newObj = {};
             newObj[tmp.getPrimaryColname()] = key; // set existing element
-            current[0] = newObj;
+            current[0] = DB.mergeDeep(current[0], newObj);
             key = 0;
-          } else
+          }
+          else
             current[key] = [{}];
         }
-        // Step Into
         current = current[key]; // Step into
         lastkey = key;
       }
@@ -1633,7 +1648,6 @@ class Form {
           else if (selType === SelectType.Multi) value = JSON.stringify(tmpTable.getSelectedIDs());
           if (!value) value = "";
           // Set Value to field
-          // TODO: Improve
           crElem.parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
         });
         //--- Load Rows
@@ -1653,7 +1667,6 @@ class Form {
       }
       //----- Result
       crElem = document.createElement('div');
-
       const hiddenInp = document.createElement('input');
       hiddenInp.setAttribute('type', 'hidden');
       hiddenInp.classList.add('rwInput');
@@ -1662,7 +1675,6 @@ class Form {
       hiddenInp.setAttribute('data-path', path);
       if (el.show_in_form)
         crElem.innerHTML = `<div id="${randID}">Loading...</div>`;
-
       crElem.appendChild(hiddenInp);
     }
     //--- Relation (N:M Table)
@@ -1692,17 +1704,33 @@ class Form {
         nmTable.setColumnFilter(hideCol, RowID);
         nmTable.resetLimit(); // Unlimit Relations!
         nmTable.Columns[el.revfk_colname1].show_in_grid = false; // Hide self column
-        nmTable.loadRows(rels => {    
+        nmTable.loadRows(r => {
           const container = document.getElementById(tmpGUID);
-          const rows = nmTable.getRows();
-          const mObjs = rows.map(row => row[el.revfk_colname2]);
+          const allRels = nmTable.getRows();
+          const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
+          const mObjs = allRels.map(row => row[el.revfk_colname2]);
+          const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
+
           mTable.setPath(this.oTable.getTablename() + '/'+RowID+'/' + mTable.getTablename() + '/0');
           mTable.setRows(mObjs);
+          mTable.setSelectedRows(mObjsSel);
           mTable.renderHTML(container);
           mTable.onCreatedElement(resp => {
             // Reload Form
             const newForm = new Form(self.oTable, self.oRowData);
             self.formElement.replaceWith(newForm.getForm());
+          });
+          mTable.onSelectElement(row => {
+            // Set State and refresh Form
+            const mID = row[mTable.getPrimaryColname()];
+            const data = {table: nmTable.getTablename(), row: {}};
+            data.row[el.revfk_colname1] = RowID;
+            data.row[el.revfk_colname2] = mID;
+            DB.request('create', data, resp => {
+              // Reload Form
+              const newForm = new Form(self.oTable, self.oRowData);
+              self.formElement.replaceWith(newForm.getForm());
+            });
           });
         });
         // Container for Table
@@ -1850,19 +1878,20 @@ class Form {
             // Re-Sort the messages => [1. Out, 2. Transition, 3. In]
             messages.reverse();
             // Show all Script-Result Messages
+            let btnTo = null
             if (answer[0]['_entry-point-state']) {
               const targetStateID = answer[0]['_entry-point-state'].id;
-              const btnTo = new StateButton({state_id: targetStateID});
+              btnTo = new StateButton({state_id: targetStateID});
               btnTo.setTable(tblCreate);
               btnTo.setReadOnly(true);
-              for (const msg of messages) {
-                let title = '';
-                if (msg.type == 0) title += `Create &rarr; ${btnTo.getElement().outerHTML}`;
-                // Render a Modal
-                document.getElementById('myModalTitle').innerHTML = title;
-                document.getElementById('myModalContent').innerHTML = msg.text;
-                $('#myModal').modal({});
-              }
+            }
+            for (const msg of messages) {
+              let title = '';
+              if (msg.type == 0) title += gText[setLang].Create + (btnTo ? ' &rarr;' + btnTo.getElement().outerHTML : '');
+              // Render a Modal
+              document.getElementById('myModalTitle').innerHTML = title;
+              document.getElementById('myModalContent').innerHTML = msg.text;
+              $('#myModal').modal({});
             }
           });
           //-------------------------------------------------------------
@@ -1906,11 +1935,9 @@ class Form {
       const type = inp.getAttribute('type');
       let path = inp.getAttribute('data-path');
       if (onlyLastLayer) {
-        console.log(path)
         const parts = path.split('/');
         if (parts.length > 3)
           path = parts.slice(parts.length-3).join('/'); // last table/0/key
-        console.log(path)
       }        
       let value = undefined;
       //--- Format different Types
@@ -1947,7 +1974,6 @@ class Form {
       this.put(res, path, value);
     }
     //===> Output
-    console.log(res);
     return res; // result
   }
   public setNewOriginTable(newTable: Table) {
