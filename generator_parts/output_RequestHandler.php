@@ -588,7 +588,7 @@
       // Retrieve Number of Entries
       $count = 0;
       $stmtCnt = $pdo->prepare($rq->getCountStmtWOLimits());
-      if ($stmtCnt->execute($rq->getValues(true))) {
+      if ($stmtCnt->execute($rq->getValues())) {
         $row = $stmtCnt->fetch();
         $count = (int)$row[0];
       }

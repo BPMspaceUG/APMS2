@@ -74,7 +74,7 @@ class ReadQuery {
       " FROM `".$this->table."`".
       $this->getJoins(). // has also be in count because of filter on joined Tables
       $this->getFilter().
-      ($forCounting ? '' : $this->getHaving()).
+      $this->getHaving($forCounting).
       ($forCounting ? '' : $this->getSorting()).
       ($forCounting ? '' : $this->getLimit()).
       ';';
@@ -82,14 +82,14 @@ class ReadQuery {
   public function getCountStmtWOLimits() {
     return $this->getStatement(true);
   }
-  public function getValues($forCounting = false) {
+  public function getValues() {
     $valsF = [];
     $valsS = [];
     // Get Values from Filter
     if (!is_null($this->filter))
       self::JsonLogicToSQL($this->filter, $valsF, "f");
     // Get Values from Search
-    if (!is_null($this->having) && !$forCounting)
+    if (!is_null($this->having))
       self::JsonLogicToSQL($this->having, $valsS, "s");  
     $values = array_merge($valsF, $valsS);
     return $values;
@@ -148,10 +148,13 @@ class ReadQuery {
   public function setHaving($strHaving) {
     $this->having = json_decode($strHaving, true);
   }
-  private function getHaving() {
+  private function getHaving($forCounting = false) {
     $emptyArr = [];
     if (is_null($this->having)) return "";
-    return " HAVING ".self::JsonLogicToSQL($this->having, $emptyArr, "s");
+    $result = " HAVING ".self::JsonLogicToSQL($this->having, $emptyArr, "s");
+    if ($forCounting)
+      $result = " AND ".substr($result, 8);
+    return $result;
   }
   //--- Order
   public function setSorting($column, $direction = "ASC") {
