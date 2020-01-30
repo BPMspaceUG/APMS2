@@ -69,12 +69,13 @@ class ReadQuery {
     return null;
   }
   public function getStatement($forCounting = false) {
+    $select = $this->getSelect();
     return "SELECT ".
-      ($forCounting ? 'COUNT(*)' : $this->getSelect()).
+      ($forCounting ? 'COUNT(*)'.($select !== "*" ? ",".substr($this->getSelect(),2) : '') : $this->getSelect()).
       " FROM `".$this->table."`".
       $this->getJoins(). // has also be in count because of filter on joined Tables
       $this->getFilter().
-      $this->getHaving($forCounting).
+      $this->getHaving().
       ($forCounting ? '' : $this->getSorting()).
       ($forCounting ? '' : $this->getLimit()).
       ';';
@@ -148,12 +149,10 @@ class ReadQuery {
   public function setHaving($strHaving) {
     $this->having = json_decode($strHaving, true);
   }
-  private function getHaving($forCounting = false) {
+  private function getHaving() {
     $emptyArr = [];
     if (is_null($this->having)) return "";
     $result = " HAVING ".self::JsonLogicToSQL($this->having, $emptyArr, "s");
-    if ($forCounting)
-      $result = " AND ".substr($result, 8);
     return $result;
   }
   //--- Order

@@ -425,6 +425,8 @@ class StateButton {
                         list.appendChild(nextbtn);
                     });
                 }
+                else
+                    return self.getButton();
                 wrapper.appendChild(btn);
                 wrapper.appendChild(list);
                 return wrapper;
@@ -835,8 +837,7 @@ class Table {
             aliasCols.unshift("Edit");
             optionCols.unshift("Edit");
         }
-        if (self.selType === SelectType.Single
-            || self.selType === SelectType.Multi) {
+        if (self.selType === SelectType.Single || self.selType === SelectType.Multi) {
             expandedCols.unshift("select");
             aliasCols.unshift("Select");
             optionCols.unshift("Select");
@@ -1147,23 +1148,24 @@ class Form {
             else
                 v = "";
             if (el.show_in_form) {
-                const rowData = this.oRowData;
                 if (el.customfilter) {
-                    for (const colname of Object.keys(rowData)) {
-                        const pattern = '%' + colname + '%';
-                        if (el.customfilter.indexOf(pattern) >= 0) {
-                            const replaceWith = rowData[colname];
-                            el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
+                    if (self.oRowData) {
+                        for (const colname of Object.keys(self.oRowData)) {
+                            const pattern = '%' + colname + '%';
+                            if (el.customfilter.indexOf(pattern) >= 0) {
+                                const replaceWith = self.oRowData[colname];
+                                el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
+                            }
+                        }
+                        if (el.revfk_col) {
+                            const fCreate = tmpTable.getFormCreateSettingsDiff();
+                            fCreate[el.revfk_col] = {};
+                            fCreate[el.revfk_col]['value'] = {};
+                            fCreate[el.revfk_col].value[el.revfk_col] = self.oRowData[el.revfk_col];
                         }
                     }
                     el.customfilter = decodeURI(el.customfilter);
                     tmpTable.setFilter(el.customfilter);
-                    if (el.revfk_col) {
-                        const fCreate = tmpTable.getFormCreateSettingsDiff();
-                        fCreate[el.revfk_col] = {};
-                        fCreate[el.revfk_col]['value'] = {};
-                        fCreate[el.revfk_col].value[el.revfk_col] = rowData[el.revfk_col];
-                    }
                 }
                 tmpTable.onSelectionChanged(selRows => {
                     let value = "";

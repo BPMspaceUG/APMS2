@@ -177,7 +177,7 @@
       // Collect only virtual Columns
       foreach ($cols as $colname => $col) {
         if ($col["is_virtual"] && $col["field_type"] != "reversefk")
-          $res[] = $colname;
+          $res[] = '`'.$colname.'`';
       }
       return $res;
     }
@@ -523,25 +523,25 @@
       if (!is_null($stdFilter) && !empty($stdFilter))
       $rq->setFilter($stdFilter); // standard Filter (set serverside!)
       
+
       //--- Search (Having & all columns)
       if (!is_null($search)) {
         $search = "%".$search."%";
-        $els = [];
-        //-- Search real cols + virtCols + joins
-        $cols = array_merge(
-          Config::getColnamesByTablename($tablename),
-          Config::getVirtualColnames($tablename),
-          Config::getJoinedColnames($tablename)
-        );
-        foreach ($cols as $colname) {
-          $els[] = '{"like":["'.$colname.'","'.$search.'"]}';
-        }
-        $term = '{"or":['. implode(',', $els) .']}';
-        $rq->setHaving($term);
+        //-- Search virtCols ===> Having only searches the where results!!
         /*
-        echo $rq->getStatement() . "\n\n";
-        var_dump($rq->getValues());
+        $els = [];
+        $cols = Config::getVirtualColnames($tablename);
+        foreach ($cols as $colname) $els[] = '{"like":["'.$colname.'","'.$search.'"]}';
+        if (count($els) > 0) $rq->setHaving('{"or":['. implode(',', $els) .']}');
         */
+        //---- Filter
+        $els = [];
+        $cols = array_merge(Config::getColnamesByTablename($tablename), Config::getJoinedColnames($tablename));
+        foreach ($cols as $colname) $els[] = '{"like":["'.$colname.'","'.$search.'"]}';
+        if (count($els) > 0) $rq->addFilter('{"or":['. implode(',', $els) .']}');
+        
+        //echo $rq->getStatement() . "\n\n";
+        //var_dump($rq->getValues());        
       }
       //--- add Custom Filter
       if (!is_null($filter))
