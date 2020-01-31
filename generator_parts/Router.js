@@ -1,5 +1,4 @@
 export default class Router {
-
 	constructor(routes = [], renderNode) {
 		this.routes = routes;
 		this.renderNode = renderNode;
@@ -29,11 +28,6 @@ export default class Router {
 			if (last === 'workflow') {
 				// --> Workflow
 				route = this.routes[1];
-				route.setProps({table: prelast, origin: first});
-			}
-			else if (last === 'create') {
-				// --> Create
-				route = this.routes[0];
 				route.setProps({table: prelast, origin: first});
 			}
 			else {

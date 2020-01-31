@@ -348,10 +348,7 @@ class StateButton {
         };
         this.handleTrans = (targetStateID) => {
             const self = this;
-            const data = {
-                table: self._table.getTablename(),
-                row: self.rowData
-            };
+            const data = { table: self._table.getTablename(), row: self.rowData };
             if (self.modForm) {
                 const newVals = self.modForm.getValues(true);
                 const newRowDataFromForm = newVals[self._table.getTablename()][0];
@@ -359,9 +356,8 @@ class StateButton {
             }
             data.row[self.stateCol] = targetStateID;
             DB.request('makeTransition', data, resp => {
-                if (resp.length === 3) {
+                if (resp.length === 3)
                     self.onSuccess();
-                }
                 let counter = 0;
                 const messages = [];
                 resp.forEach(msg => {
@@ -440,9 +436,15 @@ class StateButton {
                 nextstates.map(state => {
                     const nextbtn = document.createElement('a');
                     nextbtn.classList.add('btn', 'mr-1');
-                    nextbtn.classList.add('btnState', 'btnEnabled', 'state' + state.id);
                     nextbtn.setAttribute('href', 'javascript:void(0)');
-                    nextbtn.innerText = state.name;
+                    if (state.id === self._stateID) {
+                        nextbtn.innerText = gText[setLang].Save;
+                        nextbtn.classList.add('btnState', 'btnEnabled', 'btn-primary');
+                    }
+                    else {
+                        nextbtn.innerText = state.name;
+                        nextbtn.classList.add('btnState', 'btnEnabled', 'state' + state.id);
+                    }
                     nextbtn.addEventListener("click", e => {
                         e.preventDefault();
                         self.handleTrans(state.id);
@@ -745,12 +747,6 @@ class Table {
             header.appendChild(searchBar);
             searchBar.focus();
         }
-        if (!this.ReadOnly && this.options.showCreateButton) {
-            header.appendChild(self.getCreateButton(self));
-        }
-        if (this.SM && this.options.showWorkflowButton) {
-            header.appendChild(this.getWorkflowButton());
-        }
         const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
         if (subtypes) {
             subtypes.map(subtype => {
@@ -758,6 +754,14 @@ class Table {
                 const tmpCreateBtn = this.getCreateButton(tmpTable);
                 header.appendChild(tmpCreateBtn);
             });
+        }
+        else {
+            if (!this.ReadOnly && this.options.showCreateButton) {
+                header.appendChild(self.getCreateButton(self));
+            }
+        }
+        if (this.SM && this.options.showWorkflowButton) {
+            header.appendChild(this.getWorkflowButton());
         }
         return header;
     }
@@ -1500,7 +1504,9 @@ class Form {
             return Math.sign(a - b);
         });
         const frm = document.createElement('form');
-        frm.classList.add('formcontent', 'row');
+        frm.classList.add('formcontent', 'row', 'pt-3');
+        if (!self.oRowData)
+            frm.setAttribute('style', 'background-color: #eefdec;');
         sortedKeys.forEach(key => {
             const inp = self.getInput(key, conf[key]);
             if (inp)

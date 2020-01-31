@@ -390,10 +390,7 @@ class StateButton {
   private handleTrans = (targetStateID: number) => {
     const self = this;
     //=================================== TRANSITION
-    const data = {
-      table: self._table.getTablename(),
-      row: self.rowData
-    };
+    const data = {table: self._table.getTablename(), row: self.rowData};
     // Merge with new Form Data
     if (self.modForm) {
       const newVals = self.modForm.getValues(true);
@@ -405,9 +402,8 @@ class StateButton {
     //------------> SEND
     DB.request('makeTransition', data, resp => {
       // on Success
-      if (resp.length === 3) {
+      if (resp.length === 3)
         self.onSuccess();
-      }
       //----------------------------------------
       // Handle Transition Feedback
       let counter: number = 0;
@@ -498,9 +494,14 @@ class StateButton {
         // Create New Button-Element
         const nextbtn = document.createElement('a');
         nextbtn.classList.add('btn', 'mr-1'); // bootstrap
-        nextbtn.classList.add('btnState', 'btnEnabled', 'state'+state.id);
         nextbtn.setAttribute('href', 'javascript:void(0)');
-        nextbtn.innerText = state.name;
+        if (state.id === self._stateID) {
+          nextbtn.innerText = gText[setLang].Save;
+          nextbtn.classList.add('btnState', 'btnEnabled', 'btn-primary');
+        } else {
+          nextbtn.innerText = state.name;
+          nextbtn.classList.add('btnState', 'btnEnabled', 'state'+state.id);
+        }
         nextbtn.addEventListener("click", e => {
           e.preventDefault();
           self.handleTrans(state.id);
@@ -826,28 +827,32 @@ class Table {
     // Expanded?
     if (this.selectedRows.length > 0 && !this.isExpanded) return header;
     if (this.ReadOnly && this.actRowCount < self.PageLimit) return header;
+
     // Searchbar
     if (this.options.showSearch) {
       const searchBar = this.getSearchBar();
       header.appendChild(searchBar);
       searchBar.focus();
     }
-    // Create Button
-    if (!this.ReadOnly && this.options.showCreateButton) {
-      header.appendChild(self.getCreateButton(self));
-    }
-    // Workflow Button
-    if (this.SM && this.options.showWorkflowButton) {
-      header.appendChild(this.getWorkflowButton());
-    }
-    // Subtypes Buttons (TODO: From Config!!)
+    
     const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
+    
+    // Subtypes Buttons (TODO: From Config!!)
     if (subtypes) {
       subtypes.map(subtype => {
         const tmpTable = new Table(subtype);
         const tmpCreateBtn = this.getCreateButton(tmpTable);
         header.appendChild(tmpCreateBtn);
       })
+    } else {
+      // Create Button
+      if (!this.ReadOnly && this.options.showCreateButton) {
+        header.appendChild(self.getCreateButton(self));
+      }
+    }
+    // Workflow Button
+    if (this.SM && this.options.showWorkflowButton) {
+      header.appendChild(this.getWorkflowButton());
     }
     return header;
   }
@@ -1567,7 +1572,6 @@ class Form {
           if (importWasSuccessful) {
             self.oTable.loadRows(()=>{ self.oTable.renderHTML(self.formElement); });
           }
-
         });
       });         
     }
@@ -1607,7 +1611,6 @@ class Form {
         });
       }
     }
-
     //--- Add Cancel Button
     const cancelBtn = document.createElement('a');
     cancelBtn.innerText = gText[setLang].Cancel;
@@ -1684,7 +1687,7 @@ class Form {
     this.oTable = newTable;
   }
   public getForm(): HTMLElement {
-    const self = this;    
+    const self = this;
     // Order by data[key].orderF
     const conf = this._formConfig;
     const sortedKeys = Object.keys(conf).sort((x,y) => {
@@ -1694,7 +1697,11 @@ class Form {
     });
     // create Form element
     const frm = document.createElement('form');
-    frm.classList.add('formcontent', 'row');
+    frm.classList.add('formcontent', 'row', 'pt-3');
+
+    if (!self.oRowData)
+      frm.setAttribute('style', 'background-color: #eefdec;');
+
     // append Inputs if not null
     sortedKeys.forEach(key => {
       const inp = self.getInput(key, conf[key]);

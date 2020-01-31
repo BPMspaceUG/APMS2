@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   DB.loadConfig(config => {
     //==========================================================
     // Set actual User
+    const router = new Router(routes, document.getElementById('app'));
     const elemUser = document.getElementById('username');
     elemUser.innerText = config.user.firstname + ' ' + config.user.lastname;
     elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
@@ -30,13 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (config.tables[tname].in_menu) {
         //--> Create Link
         const tmpBtn = document.createElement('a');
+        document.getElementById('sidebar-links').appendChild(tmpBtn);
         tmpBtn.setAttribute('class', 'list-group-item list-group-item-action link-' + tname);
         tmpBtn.setAttribute('href', '#/' + tname);
         tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
-        document.getElementById('sidebar-links').appendChild(tmpBtn);
       }
     });
-    const router = new Router(routes, document.getElementById('app'));
     //==========================================================
     // Happens after init
     window.addEventListener('hashchange', e => {
@@ -44,6 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
       router.navigate(path);
     });
     //------------------------------- PING (token refresh)
-    setInterval(() => { DB.request('ping', {}, ()=>{}); }, 10000);
+    setInterval(() => { DB.request('ping', {}, ()=>{}); }, 60000); // 1min
   });
 });
