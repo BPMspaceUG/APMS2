@@ -4,9 +4,7 @@ export default class Router {
 		this.renderNode = renderNode;
 		this.navigate(location.hash.substr(1).trim());
 	}
-	addRoutes(routes) {
-		this.routes = [...this.routes, ...routes];
-	}
+	addRoutes(routes) { this.routes = [...this.routes, ...routes]; }
 	navigate(path) {
 		//---> Router Start
 		if (path === '') path = '/'; // Init
@@ -19,20 +17,14 @@ export default class Router {
 		if (pathElems.length === 1) {
 			// --> Read
 			if (last !== "") {
-				route = this.routes[3];
+				route = this.routes[1];
 				route.setProps({table: last, origin: first});
 			}
 		}
-		else if (pathElems.length > 1) {			
-			const prelast = pathElems[pathElems.length - 2];			
+		else if (pathElems.length > 1) {
+			const prelast = pathElems[pathElems.length - 2];
 			if (last === 'workflow') {
-				// --> Workflow
-				route = this.routes[1];
-				route.setProps({table: prelast, origin: first});
-			}
-			else {
-				// --> Modify
-				route = this.routes[2];
+				route = this.routes[0];
 				route.setProps({table: prelast, origin: first});
 			}
 		}

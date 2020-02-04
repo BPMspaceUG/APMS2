@@ -361,9 +361,7 @@
     file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
     // Views
     createSubDirIfNotExists($project_dir."/js/views/");
-    file_put_contents($project_dir."/js/views/create.js", file_get_contents("./viewCreate.js"));
     file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
-    file_put_contents($project_dir."/js/views/modify.js", file_get_contents("./viewModify.js"));
     file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
     // Styles
     file_put_contents($project_dir."/css/main.css", $output_css);

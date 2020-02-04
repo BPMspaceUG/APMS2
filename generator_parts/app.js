@@ -3,15 +3,11 @@ import Router from './router/Router.js';
 
 // Views
 import readView from './views/read.js';
-import createView from './views/create.js';
 import workflowView from './views/workflow.js';
-import modifyView from './views/modify.js';
 
 // The Order is important!!
 const routes = [
-  new Route('create', '/:table/create', createView),
   new Route('workflow', '/:table/workflow', workflowView),
-  new Route('modify', '/:table/:id', modifyView),
   new Route('read', '/:table', readView),
 ];
 
@@ -32,18 +28,23 @@ document.addEventListener('DOMContentLoaded', () => {
         //--> Create Link
         const tmpBtn = document.createElement('a');
         document.getElementById('sidebar-links').appendChild(tmpBtn);
-        tmpBtn.setAttribute('class', 'list-group-item list-group-item-action link-' + tname);
+        tmpBtn.setAttribute('class', 'list-group-item list-group-item-action link-'+tname);
         tmpBtn.setAttribute('href', '#/' + tname);
+        tmpBtn.addEventListener('click', () => {
+          if (tmpBtn.getAttribute('href') === window.location.hash)
+            router.navigate(window.location.hash.substr(1));
+        })
         tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
       }
     });
     //==========================================================
     // Happens after init
     window.addEventListener('hashchange', e => {
-      const path = e.target.location.hash.substr(1);
-      router.navigate(path);
+      router.navigate(e.target.location.hash.substr(1));
     });
     //------------------------------- PING (token refresh)
-    setInterval(() => { DB.request('ping', {}, ()=>{}); }, 60000); // 1min
+    setInterval(() => {
+      DB.request('ping', {}, ()=>{});
+    }, 60000); // 1min
   });
 });

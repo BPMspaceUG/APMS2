@@ -1,8 +1,6 @@
 export default props => {
-
   // Variables
   const t = new Table(props.table);
-
   // Methods
   if (t.SM) {
     //--- Set Title

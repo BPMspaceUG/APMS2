@@ -46,7 +46,7 @@ const gText = {
         noFinds: 'Keine Ergebnisse gefunden.'
     }
 };
-const setLang = 'de';
+const setLang = 'en';
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -267,7 +267,7 @@ class StateMachine {
             edges: {
                 color: { color: '#aaaaaa' },
                 arrows: { 'to': { enabled: true } },
-                selfReferenceSize: 35,
+                selfReference: { size: 30, angle: Math.PI / 4 },
                 smooth: { type: 'continuous', roundness: 0.5 }
             },
             nodes: {
@@ -490,7 +490,7 @@ class Table {
         self.actRowCount = 0;
         self.tablename = tablename;
         self.Path = tablename + '/0';
-        self.Config = Object.assign({}, DB.Config.tables[tablename]);
+        self.Config = JSON.parse(JSON.stringify(DB.Config.tables[tablename]));
         self.Columns = self.Config.columns;
         for (const colname of Object.keys(self.Columns)) {
             if (self.Columns[colname].is_primary) {
@@ -545,6 +545,7 @@ class Table {
             callback(r);
         });
     }
+    getSelectType() { return this.selType; }
     getNrOfRows() { return this.actRowCount; }
     getTablename() { return this.tablename; }
     setSearch(searchText) { this.Search = searchText; }
@@ -630,6 +631,11 @@ class Table {
     }
     setSelectedRows(selRowData) {
         this.selectedRows = selRowData;
+    }
+    addSelectedRow(row) {
+        if (this.selType === SelectType.Single)
+            this.selectedRows = [];
+        this.selectedRows.push(row);
     }
     hasStateMachine() {
         return !!this.SM;
@@ -738,6 +744,8 @@ class Table {
         const self = this;
         const header = document.createElement('div');
         header.setAttribute('class', 'tbl_header mb-1');
+        if (self.selType === SelectType.NoSelect)
+            header.classList.add('mt-3');
         if (this.selectedRows.length > 0 && !this.isExpanded)
             return header;
         if (this.ReadOnly && this.actRowCount < self.PageLimit)
@@ -766,7 +774,7 @@ class Table {
         return header;
     }
     renderGridElement(options, rowID, value) {
-        const element = document.createElement('span');
+        let element = document.createElement('span');
         element.classList.add('datacell');
         if (options.column.field_type === 'switch' || options.column.field_type === 'checkbox') {
             element.innerHTML = value == "1" ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-danger"></i>';
@@ -801,6 +809,16 @@ class Table {
         }
         else if (options.column.field_type === 'datetime') {
         }
+        else if (options.column.field_type === 'float') {
+            if (value) {
+                element = document.createElement('div');
+                element.classList.add('num-float');
+                element.classList.add('text-right');
+                element.innerText = Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            else
+                return element;
+        }
         else
             element.innerText = value;
         return element;
@@ -822,13 +840,19 @@ class Table {
         sortedCols.map(col => {
             if (self.Columns[col].field_type === "foreignkey") {
                 const fkTable = new Table(self.Columns[col].foreignKey.table);
+                let Count = 0;
                 Object.keys(fkTable.Columns).map(fcol => {
                     if (!fkTable.Columns[fcol].is_virtual && fkTable.Columns[fcol].show_in_grid) {
                         expandedCols.push('`' + self.getTablename() + '/' + col + '`.' + fcol);
                         aliasCols.push(fkTable.Columns[fcol].column_alias);
                         optionCols.push({ name: fcol, table: fkTable, column: fkTable.Columns[fcol] });
+                        Count++;
                     }
                 });
+                if (Count === 1) {
+                    aliasCols.pop();
+                    aliasCols.push(self.Columns[col].column_alias);
+                }
             }
             else {
                 expandedCols.push('`' + self.getTablename() + '`.' + col);
@@ -870,16 +894,18 @@ class Table {
                 th.classList.add('col-edit');
             else {
                 let sortHTML = '<i class="fas fa-sort mr-1 text-muted"></i>';
-                if (colname === self.getSortColname()) {
+                if (colname.split('.').pop() === self.getSortColname().split('.').pop()) {
                     if (self.getSortDir() === 'DESC')
                         sortHTML = '<i class="fas fa-sort-down mr-1"></i>';
-                    if (self.getSortDir() === 'ASC')
+                    else if (self.getSortDir() === 'ASC')
                         sortHTML = '<i class="fas fa-sort-up mr-1"></i>';
                 }
+                if (optionCols[index].column.field_type === 'float')
+                    th.classList.add('text-right');
                 th.innerHTML = sortHTML + aliasCols[index];
                 th.addEventListener('click', () => {
                     let newSortDir = "ASC";
-                    if (colname === self.getSortColname()) {
+                    if (colname.split('.').pop() === self.getSortColname().split('.').pop()) {
                         newSortDir = (self.getSortDir() === "ASC") ? "DESC" : null;
                     }
                     if (newSortDir)
@@ -901,14 +927,15 @@ class Table {
                     td.classList.add('col-sel');
                     const cb = document.createElement('input');
                     cb.setAttribute('type', 'checkbox');
-                    const pcol = self.getPrimaryColname();
-                    const inSel = self.selectedRows.filter(r => r[pcol] === row[pcol]);
-                    if (inSel.length > 0)
-                        cb.setAttribute('checked', 'checked');
-                    cb.addEventListener('click', () => {
+                    td.appendChild(cb);
+                    cb.addEventListener('click', e => {
                         if (cb.checked) {
-                            if (self.selType === SelectType.Single)
+                            const allCheckboxes = cb.parentElement.parentElement.parentElement.querySelectorAll('input[type=checkbox]');
+                            if (self.selType === SelectType.Single) {
+                                allCheckboxes.forEach((checkB) => checkB.checked = false);
                                 self.selectedRows = [];
+                            }
+                            cb.checked = true;
                             self.selectedRows.push(row);
                             self.callbackSelectElement(row);
                         }
@@ -919,7 +946,12 @@ class Table {
                         }
                         self.callbackSelectionChanged(self.selectedRows);
                     });
-                    td.appendChild(cb);
+                    const pcol = self.getPrimaryColname();
+                    const inSel = self.selectedRows.filter(r => r[pcol] === row[pcol]);
+                    if (inSel.length > 0) {
+                        cb.checked = true;
+                        self.callbackSelectionChanged(self.selectedRows);
+                    }
                 }
                 else if (colname === "edit") {
                     td.classList.add('col-sel');
@@ -958,6 +990,7 @@ class Table {
             return;
         }
         const comp = document.createElement('div');
+        comp.classList.add('tablecontent');
         comp.appendChild(self.getHeader());
         comp.appendChild(self.getTable());
         comp.appendChild(self.getFooter());
@@ -1133,11 +1166,19 @@ class Form {
             crElem = wrapper;
         }
         else if (el.field_type == 'foreignkey') {
+            const wrapper = document.createElement('div');
+            const tblElement = document.createElement('div');
+            const hiddenInp = document.createElement('input');
+            hiddenInp.setAttribute('type', 'hidden');
+            hiddenInp.classList.add('rwInput');
+            hiddenInp.setAttribute('name', key);
+            hiddenInp.setAttribute('data-path', path);
+            wrapper.appendChild(tblElement);
+            wrapper.appendChild(hiddenInp);
             let selType = parseInt(el.seltype);
             if (!selType && selType !== 0)
                 selType = SelectType.Single;
             const tmpTable = new Table(el.fk_table, selType);
-            const randID = DB.getID();
             tmpTable.ReadOnly = (el.mode_form == 'ro');
             const fkIsSet = !Object.values(v).every(o => o === null);
             if (fkIsSet) {
@@ -1151,6 +1192,7 @@ class Form {
             }
             else
                 v = "";
+            hiddenInp.setAttribute('value', v);
             if (el.show_in_form) {
                 if (el.customfilter) {
                     if (self.oRowData) {
@@ -1179,31 +1221,22 @@ class Form {
                         value = JSON.stringify(tmpTable.getSelectedIDs());
                     if (!value)
                         value = "";
-                    crElem.parentElement.getElementsByClassName('rwInput')[0].setAttribute('value', value);
+                    hiddenInp.setAttribute('value', value);
                 });
                 tmpTable.loadRows(rows => {
                     if (rows["count"] == 0) {
                         const createForm = new Form(tmpTable);
-                        document.getElementById(randID).replaceWith(createForm.getForm());
+                        tblElement.replaceWith(createForm.getForm());
                     }
                     else {
-                        tmpTable.renderHTML(document.getElementById(randID));
+                        tmpTable.renderHTML(tblElement);
                     }
                 });
             }
             else {
                 el.column_alias = null;
             }
-            crElem = document.createElement('div');
-            const hiddenInp = document.createElement('input');
-            hiddenInp.setAttribute('type', 'hidden');
-            hiddenInp.classList.add('rwInput');
-            hiddenInp.setAttribute('name', key);
-            hiddenInp.setAttribute('value', v);
-            hiddenInp.setAttribute('data-path', path);
-            if (el.show_in_form)
-                crElem.innerHTML = `<div id="${randID}">Loading...</div>`;
-            crElem.appendChild(hiddenInp);
+            crElem = wrapper;
         }
         else if (el.field_type == 'reversefk') {
             const isCreate = !this.oRowData;
@@ -1231,6 +1264,7 @@ class Form {
                     const mObjs = allRels.map(row => row[el.revfk_colname2]);
                     const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
                     mTable.setPath(this.oTable.getTablename() + '/' + RowID + '/' + mTable.getTablename() + '/0');
+                    mTable.options.showSearch = false;
                     mTable.setRows(mObjs);
                     mTable.setSelectedRows(mObjsSel);
                     mTable.renderHTML(container);
@@ -1244,6 +1278,20 @@ class Form {
                         data.row[el.revfk_colname1] = RowID;
                         data.row[el.revfk_colname2] = mID;
                         DB.request('create', data, resp => {
+                            const newForm = new Form(self.oTable, self.oRowData);
+                            self.formElement.replaceWith(newForm.getForm());
+                        });
+                    });
+                    mTable.onUnselectElement(row => {
+                        const links = connRels.filter(rels => {
+                            if (rels[el.revfk_colname2][mTable.getPrimaryColname()] === row[mTable.getPrimaryColname()])
+                                return rels;
+                        });
+                        const primID = links[0][nmTable.getPrimaryColname()];
+                        const data = { table: nmTable.getTablename(), row: {} };
+                        data.row[nmTable.getPrimaryColname()] = primID;
+                        data.row['state_id'] = parseInt(nmTable.getConfig().stateIdSel) + 1;
+                        DB.request('makeTransition', data, resp => {
                             const newForm = new Form(self.oTable, self.oRowData);
                             self.formElement.replaceWith(newForm.getForm());
                         });
@@ -1265,6 +1313,7 @@ class Form {
         }
         else if (el.field_type == 'htmleditor') {
             crElem = document.createElement('div');
+            crElem.classList.add('htmleditor');
             const newID = DB.getID();
             const cont = this.getNewFormElement('div', key, path);
             cont.setAttribute('id', newID);
@@ -1366,6 +1415,7 @@ class Form {
             wrapper.appendChild(createBtn);
             createBtn.addEventListener('click', () => {
                 const data = self.getValues();
+                let newRowID = null;
                 tblCreate.importData(data, resp => {
                     let importWasSuccessful = true;
                     resp.forEach(answer => {
@@ -1394,9 +1444,19 @@ class Form {
                         }
                         if (answer.length != 2)
                             importWasSuccessful = false;
+                        else
+                            newRowID = parseInt(answer[1]['element_id']);
                     });
                     if (importWasSuccessful) {
-                        self.oTable.loadRows(() => { self.oTable.renderHTML(self.formElement); });
+                        self.oTable.loadRows(rows => {
+                            if (self.oTable.getSelectType() >= 1) {
+                                rows.records.map(row => {
+                                    if (row[self.oTable.getPrimaryColname()] === newRowID)
+                                        self.oTable.addSelectedRow(row);
+                                });
+                            }
+                            self.oTable.renderHTML(self.formElement);
+                        });
                     }
                 });
             });
@@ -1434,16 +1494,18 @@ class Form {
                 });
             }
         }
-        const cancelBtn = document.createElement('a');
-        cancelBtn.innerText = gText[setLang].Cancel;
-        cancelBtn.setAttribute('href', 'javascript:void(0);');
-        cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
-        wrapper.appendChild(cancelBtn);
-        cancelBtn.addEventListener('click', () => {
-            self.oTable.loadRows(() => {
-                self.oTable.renderHTML(self.formElement);
+        if (this.oTable.getNrOfRows() > 0) {
+            const cancelBtn = document.createElement('a');
+            cancelBtn.innerText = gText[setLang].Cancel;
+            cancelBtn.setAttribute('href', 'javascript:void(0);');
+            cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
+            wrapper.appendChild(cancelBtn);
+            cancelBtn.addEventListener('click', () => {
+                self.oTable.loadRows(() => {
+                    self.oTable.renderHTML(self.formElement);
+                });
             });
-        });
+        }
         return wrapper;
     }
     focusFirst() {
@@ -1504,9 +1566,9 @@ class Form {
             return Math.sign(a - b);
         });
         const frm = document.createElement('form');
-        frm.classList.add('formcontent', 'row', 'pt-3');
+        frm.classList.add('formcontent', 'row');
         if (!self.oRowData)
-            frm.setAttribute('style', 'background-color: #eefdec;');
+            frm.classList.add('frm-create');
         sortedKeys.forEach(key => {
             const inp = self.getInput(key, conf[key]);
             if (inp)
