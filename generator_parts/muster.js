@@ -481,7 +481,7 @@ class Table {
             showCreateButton: true,
             showSearch: true
         };
-        this.isExpanded = true;
+        this.isExpanded = false;
         this.callbackSelectionChanged = resp => { };
         this.callbackCreatedElement = resp => { };
         this.callbackSelectElement = row => { };
@@ -878,11 +878,10 @@ class Table {
             const th = document.createElement('th');
             if (colname === "select") {
                 th.classList.add('col-sel');
-                if (self.selectedRows.length > 0) {
-                    th.innerHTML = '<i class="fas fa-unlink text-primary"></i>';
+                if (!self.isExpanded) {
+                    th.innerHTML = '<i class="fas fa-chevron-down text-primary"></i>';
                     th.addEventListener('click', () => {
                         self.resetFilter();
-                        self.setSelectedRows([]);
                         self.isExpanded = true;
                         self.loadRows(() => {
                             self.renderHTML();
@@ -983,7 +982,7 @@ class Table {
     renderHTML(container = null) {
         const self = this;
         container = container || self.DOMContainer;
-        if (this.actRowCount === 0) {
+        if (this.actRowCount === 0 && !this.ReadOnly) {
             const createForm = new Form(self);
             container.replaceWith(createForm.getForm());
             createForm.focusFirst();
@@ -1247,7 +1246,6 @@ class Form {
             nmTable.ReadOnly = (el.mode_form == 'ro');
             nmTable.setColumnFilter(hideCol, 'null');
             if (!isCreate) {
-                const tmpGUID = DB.getID();
                 const RowID = this.oRowData[this.oTable.getPrimaryColname()];
                 const myCol = nmTable.Columns[el.revfk_colname1].foreignKey.col_id;
                 const fCreate = nmTable.getFormCreateSettingsDiff();
@@ -1258,16 +1256,18 @@ class Form {
                 nmTable.resetLimit();
                 nmTable.Columns[el.revfk_colname1].show_in_grid = false;
                 nmTable.loadRows(r => {
-                    const container = document.getElementById(tmpGUID);
                     const allRels = nmTable.getRows();
                     const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
                     const mObjs = allRels.map(row => row[el.revfk_colname2]);
                     const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
+                    const mFilter = '{"in":["' + mTable.getPrimaryColname() + '","' + mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',') + '"]}';
+                    mTable.setFilter(mFilter);
                     mTable.setPath(this.oTable.getTablename() + '/' + RowID + '/' + mTable.getTablename() + '/0');
-                    mTable.options.showSearch = false;
+                    mTable.options.showSearch = true;
+                    mTable.ReadOnly = nmTable.ReadOnly;
                     mTable.setRows(mObjs);
                     mTable.setSelectedRows(mObjsSel);
-                    mTable.renderHTML(container);
+                    mTable.renderHTML(crElem);
                     mTable.onCreatedElement(resp => {
                         const newForm = new Form(self.oTable, self.oRowData);
                         self.formElement.replaceWith(newForm.getForm());
@@ -1297,9 +1297,7 @@ class Form {
                         });
                     });
                 });
-                crElem = document.createElement('div');
-                crElem.setAttribute('class', 'row');
-                crElem.setAttribute('id', tmpGUID);
+                crElem = document.createElement('p');
                 crElem.innerText = gText[setLang].Loading;
             }
             else {
