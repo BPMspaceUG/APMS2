@@ -46,7 +46,7 @@ const gText = {
         noFinds: 'Keine Ergebnisse gefunden.'
     }
 };
-const setLang = 'en';
+const setLang = 'de';
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -828,6 +828,8 @@ class Table {
         const wrapper = document.createElement('div');
         wrapper.classList.add('tbl_content');
         wrapper.classList.add('table-responsive-md');
+        if (!self.isExpanded && self.selectedRows.length === 0 && self.Search === "" && self.selType > 0)
+            return wrapper;
         const tbl = document.createElement('table');
         tbl.classList.add('datatbl');
         tbl.classList.add('table', 'table-striped', 'table-hover', 'table-sm', 'm-0', 'border');
@@ -1007,11 +1009,11 @@ class Form {
         this.showFooter = false;
         this.oTable = Table;
         this.oRowData = RowData;
-        this._formConfig = Table.getFormCreate();
+        this.formConf = Table.getFormCreate();
         if (RowData) {
-            this._formConfig = Table.getFormModify(RowData);
+            this.formConf = Table.getFormModify(RowData);
             for (const key of Object.keys(RowData))
-                this._formConfig[key].value = RowData[key];
+                this.formConf[key].value = RowData[key];
         }
         if (!Path)
             this.showFooter = true;
@@ -1099,16 +1101,29 @@ class Form {
         }
         else if (el.field_type == 'float') {
             if (el.value)
-                el.value = parseFloat(el.value).toLocaleString('de-DE');
-            crElem = this.getNewFormElement('input', key, path);
-            crElem.setAttribute('type', 'text');
+                el.value = parseFloat(el.value).toLocaleString();
+            const inp = this.getNewFormElement('input', key, path);
+            inp.setAttribute('type', 'text');
+            inp.classList.add('inpFloat');
+            inp.classList.add('form-control', 'col-10');
             if (el.mode_form === 'rw')
-                crElem.classList.add('rwInput');
-            if (el.mode_form === 'ro')
-                crElem.setAttribute('readonly', 'readonly');
-            crElem.classList.add('inpFloat');
-            crElem.classList.add('form-control');
-            crElem.setAttribute('value', v);
+                inp.classList.add('rwInput');
+            if (el.mode_form === 'ro') {
+                inp.setAttribute('readonly', 'readonly');
+                inp.classList.replace('form-control', 'form-control-plaintext');
+                v = Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            inp.classList.add('num-float');
+            inp.classList.add('text-right');
+            inp.setAttribute('value', v);
+            const div2 = document.createElement('div');
+            div2.classList.add('col-2', 'p-0');
+            div2.setAttribute('style', 'padding-top: 0.4em !important;');
+            div2.innerHTML = "&#8203;";
+            crElem = document.createElement('div');
+            crElem.classList.add('row');
+            crElem.appendChild(inp);
+            crElem.appendChild(div2);
         }
         else if (el.field_type == 'time') {
             crElem = this.getNewFormElement('input', key, path);
@@ -1557,20 +1572,32 @@ class Form {
     }
     getForm() {
         const self = this;
-        const conf = this._formConfig;
-        const sortedKeys = Object.keys(conf).sort((x, y) => {
-            const a = parseInt(conf[x].orderF || 0);
-            const b = parseInt(conf[y].orderF || 0);
-            return Math.sign(a - b);
-        });
+        const sortedKeys = Object.keys(self.formConf).sort((x, y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
         const frm = document.createElement('form');
         frm.classList.add('formcontent', 'row');
         if (!self.oRowData)
             frm.classList.add('frm-create');
-        sortedKeys.forEach(key => {
-            const inp = self.getInput(key, conf[key]);
-            if (inp)
-                frm.appendChild(inp);
+        const cols = [];
+        sortedKeys.map(key => {
+            const actCol = self.formConf[key].col || 0;
+            const inp = self.getInput(key, self.formConf[key]);
+            if (inp) {
+                if (actCol > 0) {
+                    if (!cols[actCol]) {
+                        const c = document.createElement('div');
+                        c.classList.add('col');
+                        const row = document.createElement('div');
+                        row.classList.add('row');
+                        c.appendChild(row);
+                        cols[actCol] = c;
+                        frm.appendChild(c);
+                    }
+                    cols[actCol].firstChild.appendChild(inp);
+                }
+                else {
+                    frm.appendChild(inp);
+                }
+            }
         });
         this.formElement = frm;
         if (self.showFooter)

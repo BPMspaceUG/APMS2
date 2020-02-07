@@ -39,7 +39,7 @@ const gText = {
     noFinds: 'Keine Ergebnisse gefunden.'
   }
 }
-const setLang = 'en';
+const setLang = 'de';
 //==============================================================
 // Database (Communication via API)
 //==============================================================
@@ -916,6 +916,11 @@ class Table {
     wrapper.classList.add('tbl_content');
     wrapper.classList.add('table-responsive-md'); // bootstrap
 
+
+    // Checks
+    if (!self.isExpanded && self.selectedRows.length === 0 && self.Search === "" && self.selType > 0) return wrapper;
+
+
     const tbl = document.createElement('table');
     tbl.classList.add('datatbl');
     tbl.classList.add('table', 'table-striped', 'table-hover', 'table-sm', 'm-0', 'border'); // bootstrap
@@ -1124,7 +1129,7 @@ class Table {
 // Class: Form
 //==============================================================
 class Form {
-  private _formConfig: any;
+  private formConf: any;
   private oTable: Table;
   private oRowData: any;
   private _path: string;
@@ -1134,11 +1139,11 @@ class Form {
   constructor(Table: Table, RowData: any = null, Path: string = null) {
     this.oTable = Table;
     this.oRowData = RowData; // if null => Create Form
-    this._formConfig = Table.getFormCreate();
+    this.formConf = Table.getFormCreate();
     if (RowData) {
-      this._formConfig = Table.getFormModify(RowData);
+      this.formConf = Table.getFormModify(RowData);
       for (const key of Object.keys(RowData))
-        this._formConfig[key].value = RowData[key];
+        this.formConf[key].value = RowData[key];
     }
     if (!Path) this.showFooter = true;
     this._path = Path || Table.getPath();
@@ -1193,7 +1198,7 @@ class Form {
     if (!this.oRowData && el.field_type === 'state') return null;
     //====================================================
     // Create Element
-    let crElem = null;
+    let crElem: HTMLElement = null;
     const path = this._path + '/' + key;
     //--- Textarea
     if (el.field_type == 'textarea') {
@@ -1224,14 +1229,31 @@ class Form {
     }
     //--- Float
     else if (el.field_type == 'float') {
-      if (el.value) el.value = parseFloat(el.value).toLocaleString('de-DE');
-      crElem = this.getNewFormElement('input', key, path);
-      crElem.setAttribute('type', 'text');
-      if (el.mode_form === 'rw') crElem.classList.add('rwInput');
-      if (el.mode_form === 'ro') crElem.setAttribute('readonly', 'readonly')
-      crElem.classList.add('inpFloat');
-      crElem.classList.add('form-control'); // Bootstrap
-      crElem.setAttribute('value', v);
+      if (el.value) el.value = parseFloat(el.value).toLocaleString();
+
+      const inp = this.getNewFormElement('input', key, path);
+      inp.setAttribute('type', 'text');
+      inp.classList.add('inpFloat');
+      inp.classList.add('form-control', 'col-10'); // Bootstrap
+      if (el.mode_form === 'rw') inp.classList.add('rwInput');
+      if (el.mode_form === 'ro') {
+        inp.setAttribute('readonly', 'readonly');
+        inp.classList.replace('form-control', 'form-control-plaintext');
+        v = Number(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      }
+      inp.classList.add('num-float');
+      inp.classList.add('text-right');
+      inp.setAttribute('value', v);
+
+      const div2 = document.createElement('div');
+      div2.classList.add('col-2', 'p-0');
+      div2.setAttribute('style', 'padding-top: 0.4em !important;');
+      div2.innerHTML = "&#8203;";
+      
+      crElem = document.createElement('div');
+      crElem.classList.add('row');
+      crElem.appendChild(inp);
+      crElem.appendChild(div2);
     }
     //--- Time
     else if (el.field_type == 'time') {
@@ -1746,25 +1768,41 @@ class Form {
   }
   public getForm(): HTMLElement {
     const self = this;
-    // Order by data[key].orderF
-    const conf = this._formConfig;
-    const sortedKeys = Object.keys(conf).sort((x,y) => {
-      const a = parseInt(conf[x].orderF || 0);
-      const b = parseInt(conf[y].orderF || 0);
-      return Math.sign(a - b);
-    });
+    // Order by config[key].orderF
+    const sortedKeys = Object.keys(self.formConf).sort((x,y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
     // create Form element
     const frm = document.createElement('form');
     frm.classList.add('formcontent', 'row');
     if (!self.oRowData) frm.classList.add('frm-create');
+
+    const cols = [];
     // append Inputs if not null
-    sortedKeys.forEach(key => {
-      const inp = self.getInput(key, conf[key]);
-      if (inp)
-        frm.appendChild(inp);
-    })
+    sortedKeys.map(key => {
+      const actCol = self.formConf[key].col || 0;
+      const inp = self.getInput(key, self.formConf[key]);
+      if (inp) {
+        // Append to Form
+        if (actCol > 0) {
+          if (!cols[actCol]) {
+            // Create Col
+            const c = document.createElement('div');
+            c.classList.add('col');
+            const row = document.createElement('div');
+            row.classList.add('row');
+            c.appendChild(row);
+            cols[actCol] = c;
+            frm.appendChild(c);
+          }
+          cols[actCol].firstChild.appendChild(inp);
+        } else {
+          // Append normal to form
+          frm.appendChild(inp);
+        }
+      }
+    });
+
+    // Save
     this.formElement = frm;
-    // Footer?
     if (self.showFooter)
       frm.appendChild(self.getFooter());
     // ===> Output
