@@ -531,6 +531,7 @@ class Table {
   private selType: SelectType = SelectType.NoSelect;
   private TableType: TableType = TableType.obj;
   private selectedRows = [];
+  private superTypeOf = null;
   public Columns: any;
   public ReadOnly: boolean;
   public options = {
@@ -572,6 +573,9 @@ class Table {
   }
   public isRelationTable() {
     return (this.TableType !== TableType.obj);
+  }
+  public setStuperTypeOf(...tablenames) {
+    this.superTypeOf = tablenames;
   }
   //=====================================
   public createRow(data: any, callback) {
@@ -833,19 +837,15 @@ class Table {
     // Expanded?
     if (this.selectedRows.length > 0 && !this.isExpanded) return header;
     if (this.ReadOnly && this.actRowCount < self.PageLimit) return header;
-
     // Searchbar
     if (this.options.showSearch) {
       const searchBar = this.getSearchBar();
       header.appendChild(searchBar);
       searchBar.focus();
-    }
-    
-    const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
-    
+    }   
     // Subtypes Buttons (TODO: From Config!!)
-    if (subtypes) {
-      subtypes.map(subtype => {
+    if (this.superTypeOf) {
+      this.superTypeOf.map(subtype => {
         const tmpTable = new Table(subtype);
         const tmpCreateBtn = this.getCreateButton(tmpTable);
         header.appendChild(tmpCreateBtn);
@@ -1101,8 +1101,12 @@ class Table {
   public renderHTML(container: HTMLElement = null) {
     const self = this;
     container = container || self.DOMContainer;
+
+    if (this.getTablename() == 'partner')
+      this.setStuperTypeOf('person', 'organization');
+
     //--- No Entries?
-    if (this.actRowCount === 0 && !this.ReadOnly) {
+    if (this.actRowCount === 0 && !this.ReadOnly && !this.superTypeOf) {
       // instantly show Create Form
       const createForm = new Form(self);
       container.replaceWith(createForm.getForm());
@@ -1251,7 +1255,7 @@ class Form {
       div2.innerHTML = "&#8203;";
       
       crElem = document.createElement('div');
-      crElem.classList.add('row');
+      crElem.classList.add('row', 'container');
       crElem.appendChild(inp);
       crElem.appendChild(div2);
     }

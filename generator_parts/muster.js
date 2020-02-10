@@ -474,6 +474,7 @@ class Table {
         this.selType = SelectType.NoSelect;
         this.TableType = TableType.obj;
         this.selectedRows = [];
+        this.superTypeOf = null;
         this.options = {
             smallestTimeUnitMins: true,
             showControlColumn: true,
@@ -509,6 +510,9 @@ class Table {
     }
     isRelationTable() {
         return (this.TableType !== TableType.obj);
+    }
+    setStuperTypeOf(...tablenames) {
+        this.superTypeOf = tablenames;
     }
     createRow(data, callback) {
         DB.request('create', { table: this.tablename, row: data }, r => { callback(r); });
@@ -755,9 +759,8 @@ class Table {
             header.appendChild(searchBar);
             searchBar.focus();
         }
-        const subtypes = (this.getTablename() == 'partner') ? ['person', 'organization'] : null;
-        if (subtypes) {
-            subtypes.map(subtype => {
+        if (this.superTypeOf) {
+            this.superTypeOf.map(subtype => {
                 const tmpTable = new Table(subtype);
                 const tmpCreateBtn = this.getCreateButton(tmpTable);
                 header.appendChild(tmpCreateBtn);
@@ -984,7 +987,9 @@ class Table {
     renderHTML(container = null) {
         const self = this;
         container = container || self.DOMContainer;
-        if (this.actRowCount === 0 && !this.ReadOnly) {
+        if (this.getTablename() == 'partner')
+            this.setStuperTypeOf('person', 'organization');
+        if (this.actRowCount === 0 && !this.ReadOnly && !this.superTypeOf) {
             const createForm = new Form(self);
             container.replaceWith(createForm.getForm());
             createForm.focusFirst();
@@ -1121,7 +1126,7 @@ class Form {
             div2.setAttribute('style', 'padding-top: 0.4em !important;');
             div2.innerHTML = "&#8203;";
             crElem = document.createElement('div');
-            crElem.classList.add('row');
+            crElem.classList.add('row', 'container');
             crElem.appendChild(inp);
             crElem.appendChild(div2);
         }
