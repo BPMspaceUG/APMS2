@@ -203,7 +203,7 @@
                       </td>
                       <!-- Type -->
                       <td class="align-middle">
-                        <select class="custom-select custom-select-sm" ng-if="!(col.is_primary || colname == 'state_id')" ng-model="col.field_type">
+                        <select class="custom-select custom-select-sm" ng-if="!col.is_primary" ng-model="col.field_type">
                           <optgroup label="Strings">
                             <option value="text">Text</option>
                             <option value="textarea">Textarea</option>
@@ -223,9 +223,10 @@
                             <option value="datetime">DateTime</option>
                           </optgroup>
                           <optgroup label="Special">
-                            <option value="enum">Enum</option>
-                            <option value="foreignkey">ForeignKey</option>
-                            <option value="reversefk">Virtual-Table</option>
+                            <option value="state">State</option>
+                            <option value="enum">Select-Menu</option>
+                            <option value="foreignkey">Table</option>
+                            <option value="reversefk">NM-Table</option>
                             <option value="htmleditor">HTML-Editor</option>
                             <option value="rawhtml">Raw HTML</option>
                           </optgroup>
@@ -237,7 +238,7 @@
                       </td>
                       <!-- Mode -->
                       <td class="align-middle">
-                        <select class="custom-select custom-select-sm" ng-model="col.mode_form" ng-if="!col.is_primary && colname != 'state_id'">
+                        <select class="custom-select custom-select-sm" ng-model="col.mode_form" ng-if="!col.is_primary">
                           <option value="rw">RW</option>
                           <option value="ro">RO</option>
                           <option value="wo">WO</option>
@@ -263,7 +264,7 @@
                         </div>
                         <!-- Enum -->
                         <div ng-if="col.field_type == 'enum'">
-                            <input class="form-control form-control-sm" type="text" ng-model="col.col_options" style="width: 400px" placeholder='i.e.: [{"name": "male", "value": "M"}]'>
+                          <input class="form-control form-control-sm" type="text" ng-model="col.col_options" style="width: 400px" placeholder='i.e.: [{"name": "male", "value": "M"}] or Colname'>
                         </div>
                       </td>
                       <!-- VIRTUAL GRID COLUMN -->

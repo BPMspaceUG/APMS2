@@ -27,7 +27,8 @@ const gText = {
         titleWorkflow: 'Workflow of {alias}',
         noEntries: 'No Entries',
         entriesStats: 'Entries {lim_from}-{lim_to} of {count}',
-        noFinds: 'Sorry, nothing found.'
+        noFinds: 'Sorry, nothing found.',
+        PleaseChoose: 'Please choose...'
     },
     de: {
         Create: 'Erstellen',
@@ -43,7 +44,8 @@ const gText = {
         titleWorkflow: 'Workflow von {alias}',
         noEntries: 'Keine Einträge',
         entriesStats: 'Einträge {lim_from}-{lim_to} von {count}',
-        noFinds: 'Keine Ergebnisse gefunden.'
+        noFinds: 'Keine Ergebnisse gefunden.',
+        PleaseChoose: 'Bitte wählen...'
     }
 };
 const setLang = 'de';
@@ -963,8 +965,24 @@ class Table {
                     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
                     editBtn.setAttribute('href', 'javascript:void(0);');
                     editBtn.addEventListener('click', () => {
-                        const modForm = new Form(self, row);
-                        wrapper.parentElement.replaceWith(modForm.getForm());
+                        if (!self.superTypeOf) {
+                            const modForm = new Form(self, row);
+                            wrapper.parentElement.replaceWith(modForm.getForm());
+                        }
+                        else {
+                            const SuperTableRowID = row[self.getPrimaryColname()];
+                            self.superTypeOf.map(subTableName => {
+                                const tmpTable = new Table(subTableName);
+                                tmpTable.setFilter('{"=":["`' + tmpTable.getTablename() + '`.' + self.tablename + '_id",' + SuperTableRowID + ']}');
+                                tmpTable.loadRows(rows => {
+                                    if (rows.count > 0) {
+                                        const modForm = new Form(tmpTable, rows.records[0]);
+                                        wrapper.parentElement.replaceWith(modForm.getForm());
+                                        modForm.setNewOriginTable(self);
+                                    }
+                                });
+                            });
+                        }
                     });
                     td.appendChild(editBtn);
                 }
@@ -987,7 +1005,9 @@ class Table {
     renderHTML(container = null) {
         const self = this;
         container = container || self.DOMContainer;
-        if (this.getTablename() == 'partner')
+        if (!container)
+            return;
+        if (this.getTablename() === 'partner')
             this.setStuperTypeOf('person', 'organization');
         if (this.actRowCount === 0 && !this.ReadOnly && !this.superTypeOf) {
             const createForm = new Form(self);
@@ -1368,24 +1388,57 @@ class Form {
             crElem = SB.getElement();
         }
         else if (el.field_type == 'enum') {
-            const options = JSON.parse(el.col_options);
             crElem = this.getNewFormElement('select', key, path);
-            if (el.maxlength)
-                crElem.setAttribute('maxlength', el.maxlength);
             if (el.mode_form === 'rw')
                 crElem.classList.add('rwInput');
             if (el.mode_form === 'ro')
                 crElem.setAttribute('disabled', 'disabled');
             crElem.classList.add('custom-select');
-            if (el.col_options)
-                for (const o of options) {
-                    const opt = document.createElement('option');
-                    opt.setAttribute('value', o.value);
-                    opt.innerText = o.name;
-                    if (el.value == o.value)
-                        opt.setAttribute('selected', 'selected');
-                    crElem.appendChild(opt);
+            try {
+                const options = JSON.parse(el.col_options);
+                if (options)
+                    for (const o of options) {
+                        const opt = document.createElement('option');
+                        opt.setAttribute('value', o.value);
+                        opt.innerText = o.name;
+                        if (el.value == o.value)
+                            opt.setAttribute('selected', 'selected');
+                        crElem.appendChild(opt);
+                    }
+            }
+            catch (error) {
+                if (el.foreignKey) {
+                    const tblOptions = new Table(el.foreignKey.table);
+                    tblOptions.resetLimit();
+                    tblOptions.resetFilter();
+                    if (el.customfilter)
+                        tblOptions.setFilter(el.customfilter);
+                    if (el.onchange)
+                        crElem.addEventListener('change', () => {
+                            eval(el.onchange);
+                        });
+                    const fkIsSet = !Object.values(v).every(o => o === null);
+                    if (fkIsSet) {
+                        if (DB.isObject(v)) {
+                            const key = Object.keys(v)[0];
+                            v = v[key];
+                        }
+                    }
+                    else
+                        v = "";
+                    tblOptions.loadRows(rows => {
+                        rows.records.map(row => {
+                            const opt = document.createElement('option');
+                            const val = row[tblOptions.getPrimaryColname()];
+                            opt.setAttribute('value', val);
+                            opt.innerText = row[el.col_options];
+                            if (v == val)
+                                opt.setAttribute('selected', 'selected');
+                            crElem.appendChild(opt);
+                        });
+                    });
                 }
+            }
         }
         else if (el.field_type == 'switch' || el.field_type == 'checkbox') {
             const checkEl = this.getNewFormElement('input', key, path);
@@ -1422,7 +1475,7 @@ class Form {
     }
     getFooter() {
         const self = this;
-        const tblCreate = this.oTable;
+        const tblSaved = this.oTable;
         const wrapper = document.createElement('div');
         wrapper.classList.add('col-12', 'my-4');
         if (!self.oRowData) {
@@ -1434,7 +1487,7 @@ class Form {
             createBtn.addEventListener('click', () => {
                 const data = self.getValues();
                 let newRowID = null;
-                tblCreate.importData(data, resp => {
+                tblSaved.importData(data, resp => {
                     let importWasSuccessful = true;
                     resp.forEach(answer => {
                         let counter = 0;
@@ -1449,7 +1502,7 @@ class Form {
                         if (answer[0]['_entry-point-state']) {
                             const targetStateID = answer[0]['_entry-point-state'].id;
                             btnTo = new StateButton({ state_id: targetStateID });
-                            btnTo.setTable(tblCreate);
+                            btnTo.setTable(tblSaved);
                             btnTo.setReadOnly(true);
                         }
                         for (const msg of messages) {
@@ -1480,15 +1533,15 @@ class Form {
             });
         }
         else {
-            if (self.oTable.hasStateMachine()) {
+            if (tblSaved.hasStateMachine()) {
                 const S = new StateButton(self.oRowData);
-                S.setTable(self.oTable);
+                S.setTable(tblSaved);
                 S.setForm(self);
                 const nextStateBtns = S.getTransButtons();
                 S.setOnSuccess(() => {
-                    const RowID = self.oRowData[self.oTable.getPrimaryColname()];
-                    self.oTable.loadRow(RowID, row => {
-                        const F = new Form(self.oTable, row);
+                    const RowID = self.oRowData[tblSaved.getPrimaryColname()];
+                    tblSaved.loadRow(RowID, row => {
+                        const F = new Form(tblSaved, row);
                         self.formElement.replaceWith(F.getForm());
                     });
                 });
@@ -1502,11 +1555,11 @@ class Form {
                 wrapper.appendChild(saveBtn);
                 saveBtn.addEventListener('click', () => {
                     const data = self.getValues(true);
-                    const newRowData = data[self.oTable.getTablename()][0];
-                    newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
-                    self.oTable.updateRow(newRowData, () => {
-                        self.oTable.loadRows(() => {
-                            self.oTable.renderHTML(self.formElement);
+                    const newRowData = data[tblSaved.getTablename()][0];
+                    newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
+                    tblSaved.updateRow(newRowData, () => {
+                        this.oTable.loadRows(() => {
+                            this.oTable.renderHTML(self.formElement);
                         });
                     });
                 });

@@ -115,7 +115,7 @@
           $column_info = $row2;
           $column_name = $row2["COLUMN_NAME"];
           $col_datatype = $row2["DATA_TYPE"];
-          $col_type_enums = $row2["COLUMN_TYPE"];
+          $col_type = $row2["COLUMN_TYPE"];
           $col_isPrimary = ($row2['EXTRA'] == 'auto_increment');
           if ($col_isPrimary) {
             $sort_col = $column_name.",DESC";
@@ -161,25 +161,25 @@
             "col_order" => (int)$column_counter,
             "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'ro' : 'rw',
             "field_type" => $fieldtype,
+            "col_options" => ""
           ];
           // Append FK-Settings
           if ($fk["table"] != '') {
             $additional_info["foreignKey"] = $fk;
           }
           // Append Enum-Settings
-          if ($fieldtype == 'enum') {
-            // Get Enum-Fields from DB            
-            preg_match("/^enum\(\'(.*)\'\)$/", $col_type_enums, $matches);
+          if ($fieldtype === 'enum' && $additional_info["col_options"] === "") {
+            // Get Enum-Fields from DB
+            preg_match("/^enum\(\'(.*)\'\)$/", $col_type, $matches);
             $enum_vals = explode("','", $matches[1]);
+            // Append each option
             $enums = [];
-            foreach ($enum_vals as $val) {
-              // Append each option
-              $enums[] = [
-                "name" => ucfirst($val),
-                "value" => $val
-              ];
-            }
-            $additional_info["col_options"] = json_encode($enums);
+            foreach ($enum_vals as $val)
+              $enums[] = ["name" => ucfirst($val), "value" => $val];
+            // Overwrite
+            $enum_data = json_encode($enums);
+            if ($enum_data)
+              $additional_info["col_options"] = $enum_data;
           }          
           // Save Info
           $columns[$column_name] = $additional_info;
