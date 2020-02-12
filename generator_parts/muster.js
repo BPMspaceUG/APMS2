@@ -353,7 +353,7 @@ class StateButton {
             const data = { table: self._table.getTablename(), row: self.rowData };
             if (self.modForm) {
                 const newVals = self.modForm.getValues(true);
-                const newRowDataFromForm = newVals[self._table.getTablename()][0];
+                const newRowDataFromForm = (Object.keys(newVals).length === 0 && newVals.constructor === Object) ? {} : newVals[self._table.getTablename()][0];
                 data.row = DB.mergeDeep({}, data.row, newRowDataFromForm);
             }
             data.row[self.stateCol] = targetStateID;
@@ -1285,6 +1285,7 @@ class Form {
             const mTable = new Table(mTablename, SelectType.Multi);
             nmTable.ReadOnly = (el.mode_form == 'ro');
             nmTable.setColumnFilter(hideCol, 'null');
+            console.log('nm', isCreate);
             if (!isCreate) {
                 const RowID = this.oRowData[this.oTable.getPrimaryColname()];
                 const myCol = nmTable.Columns[el.revfk_colname1].foreignKey.col_id;
@@ -1296,18 +1297,23 @@ class Form {
                 nmTable.resetLimit();
                 nmTable.Columns[el.revfk_colname1].show_in_grid = false;
                 nmTable.loadRows(r => {
-                    const allRels = nmTable.getRows();
-                    const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
-                    const mObjs = allRels.map(row => row[el.revfk_colname2]);
-                    const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
-                    const mFilter = '{"in":["' + mTable.getPrimaryColname() + '","' + mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',') + '"]}';
-                    mTable.setFilter(mFilter);
                     mTable.setPath(this.oTable.getTablename() + '/' + RowID + '/' + mTable.getTablename() + '/0');
                     mTable.options.showSearch = true;
                     mTable.ReadOnly = nmTable.ReadOnly;
-                    mTable.setRows(mObjs);
-                    mTable.setSelectedRows(mObjsSel);
-                    mTable.renderHTML(crElem);
+                    const allRels = nmTable.getRows();
+                    const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
+                    if (r.count > 0) {
+                        const mObjs = allRels.map(row => row[el.revfk_colname2]);
+                        const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
+                        const mFilter = '{"in":["' + mTable.getPrimaryColname() + '","' + mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',') + '"]}';
+                        mTable.setFilter(mFilter);
+                        mTable.setRows(mObjs);
+                        mTable.setSelectedRows(mObjsSel);
+                        mTable.renderHTML(crElem);
+                    }
+                    else {
+                        mTable.loadRows(rows => { mTable.renderHTML(crElem); });
+                    }
                     mTable.onCreatedElement(resp => {
                         const newForm = new Form(self.oTable, self.oRowData);
                         self.formElement.replaceWith(newForm.getForm());

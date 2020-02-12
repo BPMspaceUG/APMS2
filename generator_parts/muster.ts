@@ -344,7 +344,7 @@ class StateMachine {
 }
 // TODO: Rename to State
 class StateButton {
-  private _table = null;
+  private _table: Table = null;
   private _stateID = null;
   private _editable: boolean = false;
   private stateCol: string;
@@ -395,7 +395,8 @@ class StateButton {
     // Merge with new Form Data
     if (self.modForm) {
       const newVals = self.modForm.getValues(true);
-      const newRowDataFromForm = newVals[self._table.getTablename()][0];
+      // check if object is empty
+      const newRowDataFromForm = (Object.keys(newVals).length === 0 && newVals.constructor === Object) ? {} : newVals[self._table.getTablename()][0];
       data.row = DB.mergeDeep({}, data.row, newRowDataFromForm);
     }
     // target State
@@ -1434,6 +1435,7 @@ class Form {
       const mTable = new Table(mTablename, SelectType.Multi);
       nmTable.ReadOnly = (el.mode_form == 'ro');
       nmTable.setColumnFilter(hideCol, 'null');
+      console.log('nm', isCreate);
       //------> MODIFY
       if (!isCreate) {
         const RowID = this.oRowData[this.oTable.getPrimaryColname()];
@@ -1447,19 +1449,29 @@ class Form {
         nmTable.setColumnFilter(hideCol, RowID);
         nmTable.resetLimit(); // Unlimit Relations!
         nmTable.Columns[el.revfk_colname1].show_in_grid = false; // Hide self column
+        
         nmTable.loadRows(r => {
-          const allRels = nmTable.getRows();
-          const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
-          const mObjs = allRels.map(row => row[el.revfk_colname2]);
-          const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
-          const mFilter = '{"in":["'+mTable.getPrimaryColname()+'","'+mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',')+'"]}';
-          mTable.setFilter(mFilter);
+          // Standard Settings
           mTable.setPath(this.oTable.getTablename() + '/'+RowID+'/' + mTable.getTablename() + '/0');
           mTable.options.showSearch = true;
           mTable.ReadOnly = nmTable.ReadOnly;
-          mTable.setRows(mObjs);
-          mTable.setSelectedRows(mObjsSel);
-          mTable.renderHTML(crElem);
+          // Check if there are Relations
+          const allRels = nmTable.getRows();
+          const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
+          if (r.count > 0) {
+            // has Relations
+            const mObjs = allRels.map(row => row[el.revfk_colname2]);
+            const mObjsSel = connRels.map(row => row[el.revfk_colname2]);          
+            const mFilter = '{"in":["'+mTable.getPrimaryColname()+'","'+mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',')+'"]}';
+            mTable.setFilter(mFilter);
+            mTable.setRows(mObjs);
+            mTable.setSelectedRows(mObjsSel);
+            mTable.renderHTML(crElem);
+          }
+          else {
+            // has _NO_ Relations
+            mTable.loadRows(rows => { mTable.renderHTML(crElem); });
+          }          
           mTable.onCreatedElement(resp => {
             // Reload Form
             const newForm = new Form(self.oTable, self.oRowData);
@@ -1491,8 +1503,9 @@ class Form {
               const newForm = new Form(self.oTable, self.oRowData);
               self.formElement.replaceWith(newForm.getForm());
             });
-          })
-        });
+          });
+
+        });    
         // Container for Table
         crElem = document.createElement('p');
         crElem.innerText = gText[setLang].Loading;
