@@ -14,7 +14,7 @@ const gText = {
     Save: 'Save',
     Relate: 'Relate',
     Workflow: 'Workflow',
-    titleCreate: 'Create {alias}',
+    titleCreate: 'Create new {alias}',
     titleRelate: 'Relate {alias}',
     titleModify: 'Modify {alias} {id}',
     titleWorkflow: 'Workflow of {alias}',
@@ -31,7 +31,7 @@ const gText = {
     Save: 'Speichern',
     Relate: 'Verbinden',
     Workflow: 'Workflow',
-    titleCreate: 'Neu {alias}',
+    titleCreate: '{alias} anlegen',
     titleRelate: 'Verbinden {alias}',
     titleModify: 'Ändern {alias} {id}',
     titleWorkflow: 'Workflow von {alias}',
@@ -41,7 +41,8 @@ const gText = {
     PleaseChoose: 'Bitte wählen...'
   }
 }
-const setLang = 'de';
+
+let setLang = 'en'; // default Language
 
 //==============================================================
 // Database (Communication via API)
@@ -345,7 +346,7 @@ class StateMachine {
 // TODO: Rename to State
 class StateButton {
   private _table: Table = null;
-  private _stateID = null;
+  private _stateID: number = null;
   private _editable: boolean = false;
   private stateCol: string;
   private _name: string = '';
@@ -361,7 +362,7 @@ class StateButton {
   }
   public setTable = (table: Table) => {
     this._table = table;
-    this._name = this._table.SM.getStateNameById(this._stateID);
+    this._name = this._table.getStateMachine().getStateNameById(this._stateID);
     // Clean RowData (minimum)
     const RowID = this.rowData[table.getPrimaryColname()];
     this.rowData = {};
@@ -462,7 +463,7 @@ class StateButton {
       wrapper.classList.add('dropdown');
       list.classList.add('dropdown-menu', 'p-0');
       //--- List of next states      
-      const nextstates = this._table.SM.getNextStates(this._stateID);
+      const nextstates = this._table.getStateMachine().getNextStates(this._stateID);
       if (nextstates.length > 0) {
         nextstates.map(state => {
           // Create New Button-Element
@@ -490,7 +491,7 @@ class StateButton {
     const self = this;
     const wrapper = document.createElement('span');
     //--- List of next states      
-    const nextstates = this._table.SM.getNextStates(this._stateID);
+    const nextstates = this._table.getStateMachine().getNextStates(this._stateID);
     if (nextstates.length > 0) {
       nextstates.map(state => {
         // Create New Button-Element
@@ -630,8 +631,9 @@ class Table {
   public setFilter(filterStr: string) { if (filterStr && filterStr.trim().length > 0) this.Filter = filterStr; }
   public setColumnFilter(columnName: string, filterText: string) { this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}'; }
   public setRows(ArrOfRows: any) { this.actRowCount = ArrOfRows.length; this.Rows = ArrOfRows; }
-  public resetFilter() { this.Filter = ''; }
-  public resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+  public resetFilter(){ this.Filter = ''; }
+  public resetLimit(){ this.PageIndex = null; this.PageLimit = null; }
+  public getStateMachine(): StateMachine { return this.SM; }
   //=====================================
   //--- Form (Settings)
   public getFormCreateDefault(): any {
@@ -1159,6 +1161,7 @@ class Form {
   private formConf: any;
   private oTable: Table;
   private oRowData: any;
+  private oldTable: Table = null;
   private _path: string;
   private formElement: HTMLElement;
   private showFooter: boolean = false;
@@ -1659,7 +1662,7 @@ class Form {
     //====================================================
     // Wrapper
     const resWrapper = document.createElement('div');
-    resWrapper.setAttribute('class', el.customclass || 'col-12');
+    resWrapper.setAttribute('class', (el.customclassF !== "" ? el.customclassF : null) || el.customclass || 'col-12');
     // Label
     if (el.column_alias) {
       const label = document.createElement('label');
@@ -1772,9 +1775,16 @@ class Form {
           newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
           tblSaved.updateRow(newRowData, () => {
             // Updated!
-            this.oTable.loadRows(()=>{
-              this.oTable.renderHTML(self.formElement);
-            });  
+            if (this.oTable) this.oTable.loadRows(()=>{ this.oTable.renderHTML(self.formElement); });
+            else {
+              document.location.reload();
+              /*
+              tblSaved.loadRow(self.oRowData[tblSaved.getPrimaryColname()], row => {                
+                const F = new Form(tblSaved, row);
+                self.formElement.replaceWith(F.getForm());
+              });
+              */
+            }
           })
         });
       }
@@ -1854,17 +1864,27 @@ class Form {
     return res; // result
   }
   public setNewOriginTable(newTable: Table) {
+    this.oldTable = this.oTable;
     this.oTable = newTable;
   }
   public getForm(): HTMLElement {
     const self = this;
+    const table = self.oldTable || self.oTable;
     // Order by config[key].orderF
     const sortedKeys = Object.keys(self.formConf).sort((x,y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
     // create Form element
     const frm = document.createElement('form');
     frm.classList.add('formcontent', 'row');
-    if (!self.oRowData) frm.classList.add('frm-create');
-
+    if (!self.oRowData) {
+      frm.classList.add('frm-create');
+      const titleElement = document.createElement('p');
+      titleElement.classList.add('text-success', 'font-weight-bold', 'col-12', 'm-0', 'pt-2'); // classes
+      titleElement.innerText = gText[setLang].titleCreate.replace('{alias}', table.getTableAlias());
+      frm.appendChild(titleElement);
+    }
+    else {
+      frm.classList.add('frm-edit');
+    }
     const cols = [];
     // append Inputs if not null
     sortedKeys.map(key => {
@@ -1890,7 +1910,6 @@ class Form {
         }
       }
     });
-
     // Save
     this.formElement = frm;
     if (self.showFooter)

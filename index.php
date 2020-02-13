@@ -200,6 +200,7 @@
                       <!-- Name -->
                       <td class="align-middle">
                         <div style="font-size: .9em;">{{colname}}</div>
+                        <input type="text" class="form-control form-control-sm" ng-model="col.customclassF">
                       </td>
                       <!-- Type -->
                       <td class="align-middle">

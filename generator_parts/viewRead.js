@@ -2,12 +2,6 @@ export default (props) => {
   const t = new Table(props.table);
   //--- Set Title
   window.document.title = t.getTableAlias();
-  //--- Mark actual Link
-  document.querySelectorAll('#sidebar-links .list-group-item').forEach(link => {
-    link.classList.remove('active');
-    if (link.getAttribute('href') === '#/'+t.getTablename())
-      link.classList.add('active');
-  });
   // Execute Javascript if its a virtual Page (i.e. Dashboard)
   if (t.Config.is_virtual)
     return eval('(function() {' + t.Config.virtualcontent + '}())') || '';

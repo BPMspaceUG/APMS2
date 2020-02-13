@@ -161,7 +161,8 @@
             "col_order" => (int)$column_counter,
             "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'ro' : 'rw',
             "field_type" => $fieldtype,
-            "col_options" => ""
+            "col_options" => "",
+            "customclassF" => ""
           ];
           // Append FK-Settings
           if ($fk["table"] != '') {

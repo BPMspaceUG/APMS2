@@ -37,12 +37,14 @@ th.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50
 td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; vertical-align: middle;}
 .tbl_statustext {font-size: .8em; color: grey;}
 /* Forms */
-#formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
+/*#formcreate .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 #formedit .form-group {margin: 0; padding: 0; padding-bottom: 5px;}
 .customfooter {width: 100%;}
 .modal-title span {font-size: .75em;}
-.formcontent label:first-child {font-size: .85em; margin-top: .75em; margin-right: 1em;}
-.formcontent.frm-create {background-color: rgba(0, 255, 0, 0.15);}
+*/
+.formcontent label:first-child {font-size: .85em; margin-top: .75em; margin-right: 1em; }
+.formcontent.frm-create { background-color: #42f74530; border: 1px solid #72df91; }
+.formcontent.frm-edit {}
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
 .btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; width: 100%; min-width: 80px; max-width: 140px; }

@@ -21,7 +21,7 @@ const gText = {
         Save: 'Save',
         Relate: 'Relate',
         Workflow: 'Workflow',
-        titleCreate: 'Create {alias}',
+        titleCreate: 'Create new {alias}',
         titleRelate: 'Relate {alias}',
         titleModify: 'Modify {alias} {id}',
         titleWorkflow: 'Workflow of {alias}',
@@ -38,7 +38,7 @@ const gText = {
         Save: 'Speichern',
         Relate: 'Verbinden',
         Workflow: 'Workflow',
-        titleCreate: 'Neu {alias}',
+        titleCreate: '{alias} anlegen',
         titleRelate: 'Verbinden {alias}',
         titleModify: 'Ändern {alias} {id}',
         titleWorkflow: 'Workflow von {alias}',
@@ -48,7 +48,7 @@ const gText = {
         PleaseChoose: 'Bitte wählen...'
     }
 };
-const setLang = 'de';
+let setLang = 'en';
 class DB {
     static request(command, params, callback) {
         let me = this;
@@ -323,7 +323,7 @@ class StateButton {
         this.onSuccess = () => { };
         this.setTable = (table) => {
             this._table = table;
-            this._name = this._table.SM.getStateNameById(this._stateID);
+            this._name = this._table.getStateMachine().getStateNameById(this._stateID);
             const RowID = this.rowData[table.getPrimaryColname()];
             this.rowData = {};
             this.rowData[table.getPrimaryColname()] = RowID;
@@ -408,7 +408,7 @@ class StateButton {
                 });
                 wrapper.classList.add('dropdown');
                 list.classList.add('dropdown-menu', 'p-0');
-                const nextstates = this._table.SM.getNextStates(this._stateID);
+                const nextstates = this._table.getStateMachine().getNextStates(this._stateID);
                 if (nextstates.length > 0) {
                     nextstates.map(state => {
                         const nextbtn = document.createElement('a');
@@ -433,7 +433,7 @@ class StateButton {
         this.getTransButtons = () => {
             const self = this;
             const wrapper = document.createElement('span');
-            const nextstates = this._table.SM.getNextStates(this._stateID);
+            const nextstates = this._table.getStateMachine().getNextStates(this._stateID);
             if (nextstates.length > 0) {
                 nextstates.map(state => {
                     const nextbtn = document.createElement('a');
@@ -571,6 +571,7 @@ class Table {
     setRows(ArrOfRows) { this.actRowCount = ArrOfRows.length; this.Rows = ArrOfRows; }
     resetFilter() { this.Filter = ''; }
     resetLimit() { this.PageIndex = null; this.PageLimit = null; }
+    getStateMachine() { return this.SM; }
     getFormCreateDefault() {
         const me = this;
         let FormObj = {};
@@ -1031,6 +1032,7 @@ class Table {
 }
 class Form {
     constructor(Table, RowData = null, Path = null) {
+        this.oldTable = null;
         this.showFooter = false;
         this.oTable = Table;
         this.oRowData = RowData;
@@ -1468,7 +1470,7 @@ class Form {
             crElem = wrapperEl;
         }
         const resWrapper = document.createElement('div');
-        resWrapper.setAttribute('class', el.customclass || 'col-12');
+        resWrapper.setAttribute('class', (el.customclassF !== "" ? el.customclassF : null) || el.customclass || 'col-12');
         if (el.column_alias) {
             const label = document.createElement('label');
             label.setAttribute('for', 'inp_' + key);
@@ -1564,9 +1566,11 @@ class Form {
                     const newRowData = data[tblSaved.getTablename()][0];
                     newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
                     tblSaved.updateRow(newRowData, () => {
-                        this.oTable.loadRows(() => {
-                            this.oTable.renderHTML(self.formElement);
-                        });
+                        if (this.oTable)
+                            this.oTable.loadRows(() => { this.oTable.renderHTML(self.formElement); });
+                        else {
+                            document.location.reload();
+                        }
                     });
                 });
             }
@@ -1632,15 +1636,25 @@ class Form {
         return res;
     }
     setNewOriginTable(newTable) {
+        this.oldTable = this.oTable;
         this.oTable = newTable;
     }
     getForm() {
         const self = this;
+        const table = self.oldTable || self.oTable;
         const sortedKeys = Object.keys(self.formConf).sort((x, y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
         const frm = document.createElement('form');
         frm.classList.add('formcontent', 'row');
-        if (!self.oRowData)
+        if (!self.oRowData) {
             frm.classList.add('frm-create');
+            const titleElement = document.createElement('p');
+            titleElement.classList.add('text-success', 'font-weight-bold', 'col-12', 'm-0', 'pt-2');
+            titleElement.innerText = gText[setLang].titleCreate.replace('{alias}', table.getTableAlias());
+            frm.appendChild(titleElement);
+        }
+        else {
+            frm.classList.add('frm-edit');
+        }
         const cols = [];
         sortedKeys.map(key => {
             const actCol = self.formConf[key].col || 0;

@@ -15,12 +15,13 @@ const routes = [
 document.addEventListener('DOMContentLoaded', () => {
   // Load Configuration
   DB.loadConfig(config => {
-    //==========================================================
-    // Set actual User
     const router = new Router(routes, document.getElementById('app'));
+    //==========================================================
+    // Set actual User (TODO: Ask userdata from system)
     const elemUser = document.getElementById('username');
     elemUser.innerText = config.user.firstname + ' ' + config.user.lastname;
     elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
+
     // Set Table Links
     Object.keys(config.tables).forEach(tname => {
       // Render only if in Menu
@@ -28,23 +29,20 @@ document.addEventListener('DOMContentLoaded', () => {
         //--> Create Link
         const tmpBtn = document.createElement('a');
         document.getElementById('sidebar-links').appendChild(tmpBtn);
-        tmpBtn.setAttribute('class', 'list-group-item list-group-item-action link-'+tname);
         tmpBtn.setAttribute('href', '#/' + tname);
-        tmpBtn.addEventListener('click', () => {
-          if (tmpBtn.getAttribute('href') === window.location.hash)
-            router.navigate(window.location.hash.substr(1));
-        })
+        tmpBtn.classList.add('list-group-item', 'list-group-item-action', 'link-'+tname); // bootstrap
+        if (tname === location.hash.substr(2))
+          tmpBtn.classList.add('active');
         tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
       }
     });
     //==========================================================
     // Happens after init
     window.addEventListener('hashchange', e => {
+      console.log('hashchanged');
       router.navigate(e.target.location.hash.substr(1));
     });
     //------------------------------- PING (token refresh)
-    setInterval(() => {
-      DB.request('ping', {}, ()=>{});
-    }, 60000); // 1min
+    setInterval(()=>{ DB.request('ping', {}, ()=>{}); }, 60000); // ping every 1 min
   });
 });
