@@ -30,8 +30,19 @@
     return ((int)$a['order']) - ((int)$b['order']);
   }
   function writeFileIfNotExist($filename, $content) {
+    if (!file_exists($filename)) file_put_contents($filename, $content);
+  }
+  function writeFileIfNotExistOrEmpty($filename, $content) {
     if (!file_exists($filename))
       file_put_contents($filename, $content);
+    else {
+      // check if file is empty
+      $fcont = file_get_contents($filename);
+      if (strlen(trim($fcont)) === 0) {
+        echo "File exists and empty!\n";
+        file_put_contents($filename, $content);
+      }
+    }
   }
 
   //========================== DEFINITIONS
@@ -209,7 +220,6 @@
         $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
 
       //--- T R A N S I T I O N S (only need functions)
-      $count = 0;
       $scriptPath = $project_dir."/_state_rules/";
       createSubDirIfNotExists($project_dir."/_state_rules");
       foreach ($SM->getTransitions() as $trans) {
@@ -219,11 +229,10 @@
           $SM->setTransitionScript($transID, "include_once(__DIR__.'/../_state_rules/$transID.php');");
         //--- [Relation]
         if ($table_type != 'obj') {
-          $customRelationScript = $SM->getCustomRelationScript(file_get_contents("./../template_scripts/".$table_type.".php"));
-          writeFileIfNotExist($project_dir."/_state_machines/$SM_ID/create.php", $customRelationScript);          
-          if ($count == 0) // Only Transaction [UNSELECTED -> SELECTED]
-            writeFileIfNotExist($scriptPath.$transID.'.php', $customRelationScript);
-          $count++;
+          $tmplScript = $SM->getCustomRelationScript(file_get_contents(__DIR__.'/../template_scripts/'.$table_type.'.php'));
+          //echo "---> $project_dir/_state_machines/$SM_ID/create.php ---\n";
+          writeFileIfNotExistOrEmpty("$project_dir/_state_machines/$SM_ID/create.php", $tmplScript);
+          writeFileIfNotExistOrEmpty("$project_dir/_state_rules/$transID.php", $tmplScript);
         }
         else {
           //--- Create the default Transition-Script
@@ -231,7 +240,7 @@
         }
       }
 
-      // S T A T E S (only need Forms)
+      // S T A T E S (only needs Forms)
       $scriptPath = $project_dir."/_state/";
       createSubDirIfNotExists($project_dir."/_state");
       foreach ($SM->getStates() as $state) {
