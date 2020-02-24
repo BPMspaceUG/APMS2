@@ -44,19 +44,20 @@
       <!-- DB Configuration -->
 		  <div ng-if="dbNames">
 
-        <!-- 1. Select Database -->
+        <!-- 1. Select Filepath -->
         <div class="card mb-3">
           <div class="card-header">
-            <span class="badge badge-success mr-2">1</span> Select a Database
+            <span class="badge badge-success mr-2">1</span> Select Project Path
           </div>
-          <div class="card-body">
-            <div class="input-group">
-              <select class="custom-select" id="repeatSelect" name="repeatSelect" ng-model="dbNames.model" ng-change="changeSelection()">
-                <option ng-repeat="name in dbNames.names" value="{{name}}">{{name}}</option>
-              </select>
-              <div class="input-group-append">
-                <button class="btn btn-outline-secondary" ng-click="changeSelection()" type="button"><i class="fas fa-sync"></i> Load DB</button>
-              </div>
+          <div class="card-body row">
+            <div class="col-8">
+              <!-- Path -->
+              <!--<label for="inpProjectFilepath">Path</label>-->
+              <input class="form-control" type="text" placeholder="for example: ./APMS_test/project1/" ng-model="meta.pathProject"/>
+            </div>
+            <div class="col-4">
+              <p>{{meta.pathProject}}</p>
+              <button class="btn btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="changeSelection()">Confirm</button>
             </div>
           </div>
         </div>
@@ -370,6 +371,7 @@
           </div>
 
         </div>
+
       </div>
     </div>
   </div>

@@ -1,30 +1,28 @@
 <?php
-  // Check if Request Method is POST
-  if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST)) {
-    $_POST = json_decode(file_get_contents('php://input'), true);
-  }
-  $params = $_POST;
+  //=====================================================
+  // CREATE A BASIC CONFIG FROM THE DATABASE
+  //=====================================================
+
+  if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
+    $params = json_decode(file_get_contents('php://input'), true);
   
-  // Correctly fetch params
+  //--- Params
   $host = isset($params['host']) ? $params['host'] : null;
   $port = isset($params['port']) ? $params['port'] : null;
   $user = isset($params['user']) ? $params['user'] : null;
   $pwd = isset($params['pwd']) ? $params['pwd'] : null;
-  $x_table = isset($params['x_table']) ? $params['x_table'] : null;
+  $dbname  = isset($params['dbname']) ? $params['dbname'] : null;
 
-
-  // If all relevant params are available
+  //--- Load Data
   if (isset($host) && isset($user) && isset($pwd)) {
-    // Connect to DB
     $con = new mysqli($host, $user, $pwd, "", $port);
     // Connection Error ?
-    if ($con->connect_error) {
+    if ($con->connect_error)
       die("\n\nCould not connect: ERROR NO. " . $con->connect_errno . " : " . $con->connect_error);
-    }
     else {
-      if (!is_null($x_table)) {
+      if (!is_null($dbname)) {
         // Return output [Tables, Specific Schema/DB]
-        $json = getTables($con, $x_table);
+        $json = getTables($con, $dbname);
       }
       else {
         // Return output [Schemata/Databases]
@@ -35,7 +33,7 @@
     }
   }
 
-  //===================================================================
+  //====================
 
   function getData($con) {
     $res = array();
@@ -44,14 +42,8 @@
     while ($row = $result->fetch_assoc()) {
       $dbName = $row['Database'];
       // Filter information_schema to save resources
-      if (strtolower($dbName) != "information_schema") {
-        //var_dump($dbName);
-        array_push($res, array(
-            "database" => $dbName,
-            "tables" => array() //getTables($con, $dbName)
-          )
-        );
-      }
+      if (strtolower($dbName) != "information_schema")
+        array_push($res, array("database" => $dbName, "tables" => []));
     }
     return $res;
   }
@@ -242,7 +234,6 @@
       //------------------------------
       $table_counter++;
     }
-
     // ===> Output Basic Structure!
     return $res;
   }

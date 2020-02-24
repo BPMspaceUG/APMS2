@@ -65,6 +65,7 @@
   $redirectToLoginURL = $_REQUEST['redirectToLogin'];
   $loginURL = $_REQUEST['login_URL'];
   $secretKey = $_REQUEST['secret_KEY']; 
+  $pathProject = $_REQUEST['pathProject'];
   
 
   define('DB_HOST', $db_server);
@@ -73,11 +74,14 @@
   define('DB_PASS', $db_pass);
 
   // Define ProjectPath
+  $APMS_Path = __DIR__.'/../';
+  $project_dir = $APMS_Path . $pathProject; //$Path_APMS_test.'/'.$db_name;
+  echo "======> $project_dir\n\n";
   $Path_APMS_test = __DIR__ . "/../../APMS_test";
+
   $APMS_gitPath = __DIR__."/../.git/refs/heads/master";
   $actAPMSvers = trim(@file_get_contents($APMS_gitPath));
   $act_version_link = "https://github.com/BPMspaceUG/APMS2/tree/".$actAPMSvers;
-  $project_dir = $Path_APMS_test.'/'.$db_name;
 
   // Required files
   require_once("output_DatabaseHandler.php");
@@ -346,61 +350,60 @@
   // ===> Write Project to FileSystem
   //----------------------------------------------
 
-	// check if APMS test exists
-  if (is_dir($Path_APMS_test)) {
+  // Create Project directories
 
-    // Create Project directories
-    createSubDirIfNotExists($project_dir);
-    createSubDirIfNotExists($project_dir."/css");
-    createSubDirIfNotExists($project_dir."/js");
-    createSubDirIfNotExists($project_dir."/src");
-    // Statemachines
-    createSubDirIfNotExists($project_dir."/_state");
-    createSubDirIfNotExists($project_dir."/_state_machines");
-    createSubDirIfNotExists($project_dir."/_state_rules");
+  die();
 
-    //---- Put Files
-    //========================= FRONTEND
-    // JavaScript
-    file_put_contents($project_dir."/js/main.js", file_get_contents("./muster.js"));
-    file_put_contents($project_dir."/js/app.js", file_get_contents("./app.js"));
-    if (!file_exists($project_dir."/js/custom.js"))
-      file_put_contents($project_dir."/js/custom.js", "/* Custom Scripts */\nsetLang = 'en';");
-    // Router
-    createSubDirIfNotExists($project_dir."/js/router/");
-    file_put_contents($project_dir."/js/router/Route.js", file_get_contents("./Route.js"));
-    file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
-    // Views
-    createSubDirIfNotExists($project_dir."/js/views/");
-    file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
-    file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
-    // Styles
-    file_put_contents($project_dir."/css/main.css", $output_css);
-    if (!file_exists($project_dir."/css/custom.css"))
-      file_put_contents($project_dir."/css/custom.css", "/* Custom Styles */\n");
-    //========================= BACKEND
-    // Serverside-Scripts
-    file_put_contents($project_dir."/src/RequestHandler.inc.php", file_get_contents("./output_RequestHandler.php"));
-    file_put_contents($project_dir."/src/StateMachine.inc.php", file_get_contents("./output_StateEngine.php"));
-    file_put_contents($project_dir."/src/DatabaseHandler.inc.php", file_get_contents("./output_DatabaseHandler.php"));
-    file_put_contents($project_dir."/src/AuthHandler.inc.php", file_get_contents("./output_AuthHandler.php"));
-    file_put_contents($project_dir."/src/ReadQuery.inc.php", file_get_contents("./output_ReadQuery.php"));
-    // Main Directory
-    file_put_contents($project_dir."/api.php", file_get_contents("./output_API.php"));
-    file_put_contents($project_dir."/index.php", file_get_contents("./output_index.php"));
-    file_put_contents($project_dir."/content.inc.html", $output_content);
-    // Configuration
-    // If file exists, load config
-    if (file_exists($project_dir."/config.SECRET.inc.php"))
-      @require_once($project_dir."/config.SECRET.inc.php"); // @ because const are redefined
-    file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey, URL_CHANGEPW, URL_MANAGEPROFILE));
-    file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
-    file_put_contents($project_dir."/config.inc.json", $json);
-    // GitIgnore for Secret Files
-    if (!file_exists($project_dir."/.gitignore"))
-      file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
-      
-    //------> Output information
-    echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
-    echo $queries;
-  }
+  createSubDirIfNotExists($project_dir);
+  createSubDirIfNotExists($project_dir."/css");
+  createSubDirIfNotExists($project_dir."/js");
+  createSubDirIfNotExists($project_dir."/src");
+  // Statemachines
+  createSubDirIfNotExists($project_dir."/_state");
+  createSubDirIfNotExists($project_dir."/_state_machines");
+  createSubDirIfNotExists($project_dir."/_state_rules");
+
+  //---- Put Files
+  //========================= FRONTEND
+  // JavaScript
+  file_put_contents($project_dir."/js/main.js", file_get_contents("./muster.js"));
+  file_put_contents($project_dir."/js/app.js", file_get_contents("./app.js"));
+  if (!file_exists($project_dir."/js/custom.js"))
+    file_put_contents($project_dir."/js/custom.js", "/* Custom Scripts */\nsetLang = 'en';");
+  // Router
+  createSubDirIfNotExists($project_dir."/js/router/");
+  file_put_contents($project_dir."/js/router/Route.js", file_get_contents("./Route.js"));
+  file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
+  // Views
+  createSubDirIfNotExists($project_dir."/js/views/");
+  file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
+  file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
+  // Styles
+  file_put_contents($project_dir."/css/main.css", $output_css);
+  if (!file_exists($project_dir."/css/custom.css"))
+    file_put_contents($project_dir."/css/custom.css", "/* Custom Styles */\n");
+  //========================= BACKEND
+  // Serverside-Scripts
+  file_put_contents($project_dir."/src/RequestHandler.inc.php", file_get_contents("./output_RequestHandler.php"));
+  file_put_contents($project_dir."/src/StateMachine.inc.php", file_get_contents("./output_StateEngine.php"));
+  file_put_contents($project_dir."/src/DatabaseHandler.inc.php", file_get_contents("./output_DatabaseHandler.php"));
+  file_put_contents($project_dir."/src/AuthHandler.inc.php", file_get_contents("./output_AuthHandler.php"));
+  file_put_contents($project_dir."/src/ReadQuery.inc.php", file_get_contents("./output_ReadQuery.php"));
+  // Main Directory
+  file_put_contents($project_dir."/api.php", file_get_contents("./output_API.php"));
+  file_put_contents($project_dir."/index.php", file_get_contents("./output_index.php"));
+  file_put_contents($project_dir."/content.inc.html", $output_content);
+  // Configuration
+  // If file exists, load config
+  if (file_exists($project_dir."/config.SECRET.inc.php"))
+    @require_once($project_dir."/config.SECRET.inc.php"); // @ because const are redefined
+  file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey, URL_CHANGEPW, URL_MANAGEPROFILE));
+  file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
+  file_put_contents($project_dir."/config.inc.json", $json);
+  // GitIgnore for Secret Files
+  if (!file_exists($project_dir."/.gitignore"))
+    file_put_contents($project_dir."/.gitignore", "*.secret.*\n*.SECRET.*\n");
+    
+  //------> Output information
+  echo "Generating-Time: ".date("Y-m-d H:i:s")."\n\n";
+  echo $queries;

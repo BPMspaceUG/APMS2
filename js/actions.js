@@ -1,10 +1,9 @@
 // AngularJS Module
 let APMS = angular.module('APMS', ['ngSanitize']);
 // AngularJS Controller
-APMS.controller('APMScontrol', function ($scope, $http) {
+APMS.controller('APMScontrol', ($scope, $http) => {
 
   // initial definitions
-  $scope.path = 'modules/ConnectDB.php'
   $scope.pw = ''
   $scope.sqlServer = 'localhost'
   $scope.sqlPort = 3306
@@ -20,16 +19,15 @@ APMS.controller('APMScontrol', function ($scope, $http) {
     createHistory: false,
     redirectToLogin: true,
     login_url: '',
-    secretkey: ''
+    secretkey: '',
+    pathProject: ''
   }
 
   //------------------------------------------------------- Methods
-  $scope.refreshConfig = function(data) {
-    $scope.meta.login_url = data.login_url;
-    $scope.meta.secretkey = data.secret_key;
+   function refreshConfig(oldConfig, newConfig) {
     // Parse data
-    let oldConfig = JSON.parse(data.data)
-    let newConfig = $scope.tables
+    //let oldConfig = data
+    //let newConfig = $scope.tables
     // The new Config has always a higher priority
     /*
     console.log("-----------------Comparison NEW, OLD")
@@ -75,71 +73,78 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       })
     });
     // ===> Return new Config
-    $scope.tables = newConfig
+    return newConfig;
+    //$scope.tables = newConfig
   }
+
+  // TODO: Rename to Load Project by Path
   $scope.loadConfigByName = function() {
+    $scope.configFileWasFound = false
+    $scope.configFileWasNotFound = false
+    $scope.isLoading = true;
+    $scope.isError = false;
+    console.log('Looking for Project in', $scope.meta.pathProject);
     $scope.isLoading = true
-    var db = $scope.dbNames.model
-    console.log("Load config from file '", db, "'")
-    // Request
+    const url = $scope.meta.pathProject; // ../APMS_test/bpmspace_sqms2_v1/   ../APMS_test/liam3/
     $http({
       url: 'modules/parseConfig.php',
       method: "POST",
-      data: {
-        file_name: db
-      }
+      data: {prjPath: url}
     })
-    .success(function(data) {
-      if (data) {
+    .success(resp => {
+      if (resp) {
         $scope.configFileWasFound = true
         $scope.configFileWasNotFound = false
-        $scope.refreshConfig(data)
-      } else {
+
+        const existingConfig = JSON.parse(resp.existingConfig);
+        console.log("Existing Config", existingConfig);
+
+        $scope.meta.login_url = resp.login_url;
+        $scope.meta.secretkey = resp.secret_key;
+        $scope.sqlServer = resp.DBHost;
+        $scope.username = resp.DBUser;
+        $scope.pwd = resp.DBPass;
+        $scope.dbNames.model = resp.DBName;
+
+        // Now Load THIS Database and merge Configs
+        console.log('Loading Tables from Database...');
+        $http({
+          url: 'modules/ConnectDB.php',
+          method: "POST",
+          data: {
+            host: resp.DBHost,
+            port: $scope.sqlPort, // TODO => Config
+            user: resp.DBUser,
+            pwd: resp.DBPass,
+            dbname: resp.DBName
+          }
+        })
+        .success(stdConfig => {
+          console.log('Standard Config', stdConfig);
+          const mergedConfig = refreshConfig(stdConfig, existingConfig);
+          $scope.tables = mergedConfig;
+          // Stop Loading Icon
+          $scope.isLoading = false;
+          $scope.DBhasBeenLoaded = true;
+        });
+      }
+      else {
         $scope.configFileWasFound = false
         $scope.configFileWasNotFound = true
       }
       $scope.isLoading = false
     })
   }
-  $scope.loadconfig = function(text){
-    $scope.isLoading = true
-    $scope.isError = false
-    // Send Request
-    $http({
-      url: 'modules/parseConfig.php',
-      method: "POST",
-      data: {config_data: text}
-    })
-    .success(function(data) {
-      $scope.isLoading = false
-      let res = data;
-      const DBName = res.DBName;
-      if (DBName == $scope.dbNames.model) {
-        // Success
-        $scope.refreshConfig(data)
-        $scope.configFileWasFound = true;
-        $scope.configFileWasNotFound = false;
-      } else {
-        // Wrong Config loaded
-        console.log('The Database names of the configs does not match!');
-        $scope.configFileWasNotFound = true;
-        $scope.configFileWasFound = false;
-      }
-    })
-  }
-  /*
-  send fetch database info order for user to ConnectDB.php
-  */
+
+  // Load all Databases!
   $scope.connectToDB = function(){
-    
     $scope.isLoading = true;
     $scope.isError = false;
     $scope.dbNames = undefined;
-
-    console.log('Loading all DBs via '+$scope.path+':')
+    console.log('Loading all DBs...')
     // Send Request
     $http({
-      url: $scope.path,
+      url: 'modules/ConnectDB.php',
       method: "POST",
       data: {
         host: $scope.sqlServer,
@@ -148,7 +153,7 @@ APMS.controller('APMScontrol', function ($scope, $http) {
         pwd: $scope.pw
       }
     })
-    .success(function(data, status, headers, config) {
+    .success(function(data) {
       // Error
       if (data.indexOf('mysqli::') >= 0) {
         $scope.isLoading = false
@@ -166,48 +171,13 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       $scope.updateTables();
       $scope.isLoading = false
     })
-    .error(function(data, status, headers, config) {
+    .error(function(data, status) {
       $scope.status = status;
       console.log('Error-Status: '+JSON.stringify(status));
     });
   }
-  $scope.changeSelection = function() {
-    $scope.configFileWasFound = false
-    $scope.configFileWasNotFound = false
-    // Read the current configuration from Server
-    $scope.isLoading = true
-    $scope.isError = false
-    console.log('Loading Tables from Database ('+$scope.dbNames.model+') via '+$scope.path+':')
-    $http({
-      url: $scope.path,
-      method: "POST",
-      data: {
-        x_table: $scope.dbNames.model,
-        host: $scope.sqlServer,
-        port: $scope.sqlPort,
-        user: $scope.username,
-        pwd: $scope.pw
-      }
-    })
-    .success(function(data) {
-      console.log('Table-Data loaded successfully.');
-      $scope.tables = data
-      // Set Icons
-      Object.keys($scope.tables).forEach(function(t){
-        $scope.tables[t].table_icon = '<i class="fa fa-square"></i>';
-      })
-      // Stop Loading Icon
-      $scope.isLoading = false;
-      $scope.DBhasBeenLoaded = true;
+  $scope.changeSelection = function() { $scope.loadConfigByName(); }
 
-      // Load Config automatically
-      $scope.loadConfigByName();
-
-    });
-  }
-  /*
-  (re)define recent selected database
-  */
   $scope.updateTables = function(param){
   	//console.log("UPDATE TABLES", param)
     var param = param || $scope.dbNames.model
@@ -228,6 +198,7 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       user: $scope.username,
       pwd: $('#sqlPass')[0].value,
       db_name: $scope.dbNames.model,
+      pathProject: $scope.meta.pathProject,
       data: $scope.tables,
       create_RoleManagement: $scope.meta.createRoles,
       create_HistoryTable: $scope.meta.createHistory,
@@ -263,9 +234,7 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       newname = newname + 'x';
     return newname;
   }
-
   //---------------------- VIRTUAL COLUMN
-
   $scope.add_virtCol = function(tbl, tablename){
     console.log("Add virtual Column for", tablename);
     const cols = $scope.tables[tablename].columns;
@@ -285,9 +254,7 @@ APMS.controller('APMScontrol', function ($scope, $http) {
   $scope.del_virtCol = function(tbl, colname){    
     delete tbl.columns[colname];
   }
-
   //---------------------- VIRTUAL TABLE
-
   $scope.add_virtLink = function() {
     console.log("Add virtual Table");
     const tbls = $scope.tables;
@@ -304,7 +271,7 @@ APMS.controller('APMScontrol', function ($scope, $http) {
       columns: [],
     };
   }
-  
+
 
   $scope.changeSortOrder = function(col, inc) {
     const newIndex = parseInt(col.col_order) + inc;
