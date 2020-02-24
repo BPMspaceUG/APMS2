@@ -67,7 +67,6 @@
   $secretKey = $_REQUEST['secret_KEY']; 
   $pathProject = $_REQUEST['pathProject'];
   
-
   define('DB_HOST', $db_server);
   define('DB_NAME', $db_name);
   define('DB_USER', $db_user);
@@ -87,14 +86,11 @@
   require_once("output_StateEngine.php");
   require_once("output_RequestHandler.php");
   require_once("output_AuthHandler.php");
-
   //--------------------------------------
   // Sort Tables - from Data-Array by subkey values
   uasort($data, "cmp");
-
   echo "Generator-Version: ".$actAPMSvers."\n";  
   $con = DB::getInstance()->getConnection();
-
   //--------------------------------- create RoleManagement
   if ($createRoleManagement) {
     $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); //Error Handling
@@ -155,7 +151,6 @@
     $queries .= $sql;
     $con->exec($sql);
   }
-
   //---------------------------------
   $sqlCreateViewEdges = "CREATE OR REPLACE VIEW `_edges` AS ";
   $sqlCreateViewEdgesStmts = [];
@@ -350,7 +345,6 @@
   //----------------------------------------------
 
   // Create Project directories
-
   createSubDirIfNotExists($project_dir);
   createSubDirIfNotExists($project_dir."/css");
   createSubDirIfNotExists($project_dir."/js");

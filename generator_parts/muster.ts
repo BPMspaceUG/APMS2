@@ -925,7 +925,7 @@ class Table {
     wrapper.classList.add('table-responsive-md'); // bootstrap
 
     // Checks
-    if (!self.isExpanded && self.selectedRows.length === 0 && /**/ self.actRowCount === 0 /**/ && self.Search === "" && self.selType > 0) return wrapper;
+    if (!self.isExpanded && self.selectedRows.length === 0 && self.Search === "" && self.selType > 0) return wrapper;
 
     const tbl = document.createElement('table');
     tbl.classList.add('datatbl');

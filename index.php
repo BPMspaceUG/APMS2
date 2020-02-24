@@ -7,6 +7,7 @@
     <!-- CONTENT -->
     <div class="container-fluid w-75">
       <!-- Connect to Database-Server -->
+      <!--
       <form class="bpm-server-connect" action="modules/ConnectDB.php">
         <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
         <hr>
@@ -33,6 +34,8 @@
           </div>
         </div>
       </form>
+      -->
+
       <!-- Loading -->
       <div class="alert alert-info" ng-show="isLoading">
         <p class="m-0"><i class="fa fa-cog fa-spin"></i> Loading...</p>
@@ -41,8 +44,13 @@
       <div class="alert alert-danger" ng-show="isError">
         <p class="m-0"><i class="fa fa-exclamation"></i> <strong>Error:</strong> Login data is not correct.</p>
       </div>
+      <!-- Error Message -->
+      <div class="alert alert-danger" ng-show="errorProjectNotFound">
+        <p class="m-0"><i class="fa fa-exclamation"></i> <strong>Error:</strong> Project not found or Secret File missing.</p>
+      </div>
+
       <!-- DB Configuration -->
-		  <div ng-if="dbNames">
+		  <div class="mt-3">
 
         <!-- 1. Select Filepath -->
         <div class="card mb-3">
@@ -52,17 +60,15 @@
           <div class="card-body row">
             <div class="col-8">
               <!-- Path -->
-              <!--<label for="inpProjectFilepath">Path</label>-->
-              <input class="form-control" type="text" placeholder="for example: ./APMS_test/project1/" ng-model="meta.pathProject"/>
+              <input class="form-control" type="text" placeholder="for example: ../APMS_test/project1/" ng-model="meta.pathProject"/>
             </div>
             <div class="col-4">
-              <p>{{meta.pathProject}}</p>
-              <button class="btn btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="changeSelection()">Confirm</button>
+              <button class="btn btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="loadProject()">Load Project</button>
             </div>
           </div>
         </div>
 
-        <div ng-if="DBhasBeenLoaded ">
+        <div ng-if="DBhasBeenLoaded">
           <!-- Content of Databases -->
           <div class="card mb-3">
             <div class="card-header">
@@ -353,7 +359,7 @@
                 <i class="fa fa-long-arrow-alt-right"></i> Generate!
               </button>
               <!-- Open Project -->
-              <button class="btn btn-light" href="#" ng-click="openProject(e)" target="_blank"><i class="fa fa-folder-open"></i> Open Project</button>
+              <button class="btn btn-light" ng-click="openProject()"><i class="fa fa-folder-open"></i> Open Project</button>
               <!-- Generating -->
               <div class="d-inline h5 ml-2 text-center mt-5 text-muted" ng-if="GUI_generating">
                 <i class="fa fa-cog fa-spin fa-fw"></i> Generating Project...

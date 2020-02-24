@@ -13,8 +13,12 @@
 		$fname_json = __DIR__.'/../' . $prjPath . "config.inc.json";
 		$fname_secret = __DIR__.'/../' . $prjPath . "config.SECRET.inc.php";
 		//-----------------------
-		if (file_exists($fname_json) && file_exists($fname_secret)) {
-			$jsonFile = file_get_contents($fname_json);
+		if (file_exists($fname_secret)) {
+			// existing Configuration
+			$jsonFile = '{}';
+			if (file_exists($fname_json))
+				$jsonFile = file_get_contents($fname_json);
+			// required! for DB Access!
 			$secretFile = file_get_contents($fname_secret);
 			include_once($fname_secret);
 			// Send to Client
@@ -29,7 +33,7 @@
 			]);
 		}
 		else {
-			echo "Error: Project can not be loaded! Config-File or Secret-File not found!";
+			echo "Error: Project can not be loaded! Secret-File not found!";
 		}
 		exit();
 	}
