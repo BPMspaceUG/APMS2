@@ -75,9 +75,8 @@
 
   // Define ProjectPath
   $APMS_Path = __DIR__.'/../';
-  $project_dir = $APMS_Path . $pathProject; //$Path_APMS_test.'/'.$db_name;
+  $project_dir = realpath($APMS_Path . $pathProject);
   echo "======> $project_dir\n\n";
-  $Path_APMS_test = __DIR__ . "/../../APMS_test";
 
   $APMS_gitPath = __DIR__."/../.git/refs/heads/master";
   $actAPMSvers = trim(@file_get_contents($APMS_gitPath));
@@ -351,8 +350,6 @@
   //----------------------------------------------
 
   // Create Project directories
-
-  die();
 
   createSubDirIfNotExists($project_dir);
   createSubDirIfNotExists($project_dir."/css");
