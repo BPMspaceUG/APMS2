@@ -23,7 +23,7 @@ const gText = {
         Workflow: 'Workflow',
         titleCreate: 'Create new {alias}',
         titleRelate: 'Relate {alias}',
-        titleModify: 'Modify {alias} {id}',
+        titleModify: 'Modify {alias} #{id}',
         titleWorkflow: 'Workflow of {alias}',
         noEntries: 'No Entries',
         entriesStats: 'Entries {lim_from}-{lim_to} of {count}',
@@ -40,7 +40,7 @@ const gText = {
         Workflow: 'Workflow',
         titleCreate: '{alias} anlegen',
         titleRelate: 'Verbinden {alias}',
-        titleModify: 'Ändern {alias} {id}',
+        titleModify: '{alias} #{id} ändern',
         titleWorkflow: 'Workflow von {alias}',
         noEntries: 'Keine Einträge',
         entriesStats: 'Einträge {lim_from}-{lim_to} von {count}',
@@ -969,6 +969,7 @@ class Table {
                     const editBtn = document.createElement('a');
                     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
                     editBtn.setAttribute('href', 'javascript:void(0);');
+                    editBtn.setAttribute('title', '#' + row[self.getPrimaryColname()]);
                     editBtn.addEventListener('click', () => {
                         if (!self.superTypeOf) {
                             const modForm = new Form(self, row);
@@ -1663,6 +1664,12 @@ class Form {
         }
         else {
             frm.classList.add('frm-edit');
+            const titleElement = document.createElement('p');
+            titleElement.classList.add('text-primary', 'font-weight-bold', 'col-12', 'm-0', 'pt-2');
+            titleElement.innerText = gText[setLang].titleModify
+                .replace('{alias}', table.getTableAlias())
+                .replace('{id}', self.oRowData[table.getPrimaryColname()]);
+            frm.appendChild(titleElement);
         }
         const cols = [];
         sortedKeys.map(key => {

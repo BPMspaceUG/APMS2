@@ -25,8 +25,16 @@
         $json = getTables($con, $dbname);
       }
       else {
-        // Return output [Schemata/Databases]
-        $json = getData($con);
+        // Return Schemes / Databases
+        $res = [];
+        $result = mysqli_query($con, "SHOW DATABASES");
+        while ($row = $result->fetch_assoc()) {
+          $dbName = $row['Database'];
+          // Filter information_schema
+          if (strtolower($dbName) != "information_schema")
+            array_push($res, ["database"=>$dbName, "tables"=>[]]);
+        }
+        $json = $res;
       }
       header('Content-Type: application/json');
       echo json_encode($json);
@@ -35,18 +43,6 @@
 
   //====================
 
-  function getData($con) {
-    $res = array();
-    $query = "SHOW DATABASES";
-    $result = mysqli_query($con, $query);
-    while ($row = $result->fetch_assoc()) {
-      $dbName = $row['Database'];
-      // Filter information_schema to save resources
-      if (strtolower($dbName) != "information_schema")
-        array_push($res, array("database" => $dbName, "tables" => []));
-    }
-    return $res;
-  }
   function beautifyName($rawname) {
     $arr = explode('_', $rawname);
     $alias = end($arr);
@@ -62,6 +58,7 @@
     if ($datatype == 'bigint') return 'number';
     elseif ($datatype == 'int') return 'number';
     elseif ($datatype == 'float') return 'float';
+    elseif ($datatype == 'decimal') return 'float';
     // Boolean
     elseif ($datatype == 'tinyint') return 'switch';
     // Date & Time
@@ -110,19 +107,18 @@
           $col_type = $row2["COLUMN_TYPE"];
           $col_isPrimary = ($row2['EXTRA'] == 'auto_increment');
           if ($col_isPrimary) {
-            $sort_col = $column_name.",DESC";
+            $sort_col = $column_name.",DESC";            
           }
           $col_isFK = false;
           // Additional information
           //------------------------------------------------------
           // Pre fill foreign keys
-          //------------------------------------------------------
-          // default Foreign Key Template
-          $fk = array("table" => "", "col_id" => "", "col_subst" => "");
+          //------------------------------------------------------          
+          $fk = ["table"=>"", "col_id"=>"", "col_subst"=>""]; // default ForeignKey Settings
           // Pre-fill (default) values for Statemachine Tables
           if ($table == 'state' && $column_name == "statemachine_id") {
             $col_isFK = true;
-            $fk = array("table" => "state_machines", "col_id" => "id", "col_subst" => "{\"tablename\": 1}");
+            $fk = array("table"=>"state_machines", "col_id" => "id", "col_subst" => "{\"tablename\": 1}");
           }
           else if ($table == 'state_rules' && $column_name == "state_id_FROM") {
             $col_isFK = true;
@@ -148,8 +144,8 @@
             "column_alias" => $alias,
             "is_primary" => $col_isPrimary,
             "is_virtual" => false,
-            "show_in_grid" => true,
-            "show_in_form" => true,
+            "show_in_grid" => $col_isPrimary ? false : true,
+            "show_in_form" => $col_isPrimary ? false : true,
             "col_order" => (int)$column_counter,
             "mode_form" => ($column_name == "state_id" || $col_isPrimary) ? 'ro' : 'rw',
             "field_type" => $fieldtype,
@@ -212,8 +208,7 @@
             }
           }
         }
-      } // Columns finished
-      // TODO: Check if is a View => then ReadOnly = true
+      }
       // Generate a nice TableAlias
       $table_alias = beautifyName($table);
       /*------------------------------
@@ -222,11 +217,12 @@
       $res[$table] = [
         "table_alias" => $table_alias,
         "table_type" => ($table == 'state_rules' ? 'n_m' : 'obj'), // Default = Object
+        "table_icon" => "",
         "order" => (int)$table_counter,
         "mode" => "rw",
         "stdfilter" => "",
         "stdsorting" => $sort_col,
-        "in_menu" => false,
+        "in_menu" => true,
         "se_active" => $TableHasStateMachine,
         "stateIdSel" => 0, // Only relevant for Relation Tables
         "columns" => $columns

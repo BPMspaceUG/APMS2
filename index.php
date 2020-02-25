@@ -3,46 +3,12 @@
 <div ng-app="APMS">
   <div ng-controller="APMScontrol">
 
-
     <!-- CONTENT -->
     <div class="container-fluid w-75">
-      <!-- Connect to Database-Server -->
-      <!--
-      <form class="bpm-server-connect" action="modules/ConnectDB.php">
-        <p class="text-muted"><i class="fa fa-server"></i> Connect to Server</p>
-        <hr>
-        <div class="form-group row p-0 m-0">
-          <div class="col-sm-4">
-            <label for="sqlServer" class="form-control-label">Hostname</label>
-            <input type="text" class="form-control" autocomplete="off" name="host" id="sqlServer" ng-model="sqlServer">
-          </div>
-          <div class="col-sm-2">
-            <label for="sqlPort" class="form-control-label">Port</label>
-            <input type="number" class="form-control" autocomplete="off" name="port" id="sqlPort" ng-model="sqlPort">
-          </div>
-          <div class="col-sm-2">
-            <label for="username" class="form-control-label">Username</label>
-            <input type="text" autocomplete="off"  class="form-control" id="username" name="user" ng-model="username" >
-          </div>
-          <div class="col-sm-2">
-            <label for="sqlPass" class="form-control-label">Password</label>
-            <input type="password"  autocomplete="off" class="form-control" id="sqlPass" name="pwd" ng-model="pw">
-          </div>
-          <div class="col-sm-2">
-            <button type="button" class="btn btn-info mt-3" name="_connect" value="true" ng-click="connectToDB()">
-              <i class="fas fa-plug"></i> Connect</button>
-          </div>
-        </div>
-      </form>
-      -->
 
       <!-- Loading -->
       <div class="alert alert-info" ng-show="isLoading">
         <p class="m-0"><i class="fa fa-cog fa-spin"></i> Loading...</p>
-      </div>
-      <!-- Error Message -->
-      <div class="alert alert-danger" ng-show="isError">
-        <p class="m-0"><i class="fa fa-exclamation"></i> <strong>Error:</strong> Login data is not correct.</p>
       </div>
       <!-- Error Message -->
       <div class="alert alert-danger" ng-show="errorProjectNotFound">
@@ -255,8 +221,8 @@
                       </td>
                       <!-- Show -->
                       <td class="align-middle">
-                        <label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_grid">Grid</label>
-                        <label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_form">Form</label>
+                        <span><label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_grid">Grid</label></span>
+                        <span ng-if="!col.is_primary"><label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_form">Form</label></span>
                       </td>
                       <!-- Show FK Menu if it is no Primary column -->
                       <td class="align-middle" colspan="2" ng-if="!col.is_primary && !col.is_virtual">
