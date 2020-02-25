@@ -55,10 +55,12 @@
     $_REQUEST = json_decode(file_get_contents('php://input'), true);
 
   // Parameters
+  /*
   $db_server = $_REQUEST['host'];
   $db_user = $_REQUEST['user'];
   $db_pass = $_REQUEST['pwd'];
   $db_name = $_REQUEST['db_name'];
+  */
   $data = $_REQUEST['data'];
   $createRoleManagement = $_REQUEST['create_RoleManagement'];
   $createHistoryTable = $_REQUEST['create_HistoryTable'];
@@ -66,16 +68,16 @@
   $loginURL = $_REQUEST['login_URL'];
   $secretKey = $_REQUEST['secret_KEY']; 
   $pathProject = $_REQUEST['pathProject'];
-  
-  define('DB_HOST', $db_server);
-  define('DB_NAME', $db_name);
-  define('DB_USER', $db_user);
-  define('DB_PASS', $db_pass);
 
+  //==================================================
   // Define ProjectPath
   $APMS_Path = __DIR__.'/../';
   $project_dir = realpath($APMS_Path . $pathProject);
   echo "======> $project_dir\n\n";
+
+  // Inclucde Secret file
+  $fname_secret = $project_dir . "/config.SECRET.inc.php";
+  require_once($fname_secret);
 
   $APMS_gitPath = __DIR__."/../.git/refs/heads/master";
   $actAPMSvers = trim(@file_get_contents($APMS_gitPath));
@@ -290,8 +292,7 @@
       // Set the default Entrypoint for the Table (when creating an entry the Process starts here)
       $SM = new StateMachine($con, $tablename); // Load correct Machine
       $EP_ID = $SM->getEntryPoint();
-      $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD COLUMN `state_id` BIGINT(20) DEFAULT $EP_ID;";
-      //$queries .= $queries;
+      $sql = "ALTER TABLE ".DB_NAME.".".$tablename." ADD COLUMN state_id BIGINT(20) DEFAULT $EP_ID;";
       $con->query($sql);
       // Generate CSS-Colors for states
       $allstates = $SM->getStates();
@@ -314,8 +315,7 @@
       }
       // Add UNIQUE named foreign Key
       $uid = substr(md5($tablename), 0, 8);
-      $sql = "ALTER TABLE `".$db_name."`.`".$tablename."` ADD CONSTRAINT `state_id_".$uid."` FOREIGN KEY (`state_id`) ".
-        "REFERENCES `".$db_name."`.`state` (`state_id`) ON DELETE NO ACTION ON UPDATE NO ACTION;";
+      $sql = "ALTER TABLE ".DB_NAME.".".$tablename." ADD CONSTRAINT state_id_".$uid." FOREIGN KEY (state_id) REFERENCES ".DB_NAME.".state (state_id) ON DELETE NO ACTION ON UPDATE NO ACTION;";
       $queries .= $sql;
       $con->query($sql);
     }
@@ -323,8 +323,7 @@
   // Create Views (_nodes, _edges, _orphans)
   $sqlCreateViewEdges .= implode(" UNION ", $sqlCreateViewEdgesStmts) . ';';
   $sqlCreateViewNodes .= implode(" UNION ", $sqlCreateViewNodesStmts) . ';';
-  $sqlCreateViewOrphans = 'CREATE OR REPLACE VIEW `_orphans` AS '.
-    'SELECT n.* FROM _nodes AS n LEFT JOIN _edges AS e ON e.ObjectID = n.ObjectID WHERE EdgeType IS NULL;';
+  $sqlCreateViewOrphans = 'CREATE OR REPLACE VIEW `_orphans` AS SELECT n.* FROM _nodes AS n LEFT JOIN _edges AS e ON e.ObjectID = n.ObjectID WHERE EdgeType IS NULL;';
   $con->exec($sqlCreateViewEdges);
   $con->exec($sqlCreateViewNodes);
   $con->exec($sqlCreateViewOrphans);
@@ -337,7 +336,7 @@
 
   //------------------- CUSTOM Parts
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, file_get_contents("./muster.css")); // CSS State Colors
-  $output_content = str_replace('replaceDBName', $db_name, file_get_contents("./output_content.html")); // Projectname
+  $output_content = str_replace('replaceDBName', DB_NAME, file_get_contents("./output_content.html")); // Projectname
   // ---> ENCODE Data as JSON
   $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
   //----------------------------------------------
@@ -388,7 +387,7 @@
   // If file exists, load config
   if (file_exists($project_dir."/config.SECRET.inc.php"))
     @require_once($project_dir."/config.SECRET.inc.php"); // @ because const are redefined
-  file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, $db_name, $LOGIN_url, $secretKey, URL_CHANGEPW, URL_MANAGEPROFILE));
+  //file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, DB_NAME, $LOGIN_url, $secretKey, URL_CHANGEPW, URL_MANAGEPROFILE));
   file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
   file_put_contents($project_dir."/config.inc.json", $json);
   // GitIgnore for Secret Files

@@ -2,16 +2,9 @@
 const APMS = angular.module('APMS', ['ngSanitize']);
 // AngularJS Controller
 APMS.controller('APMScontrol', ($scope, $http) => {
-  // initial definitions
-  $scope.pw = ''
-  $scope.sqlServer = 'localhost'
-  $scope.sqlPort = 3306
-  $scope.username = 'root'
   $scope.isLoading = false;
-  $scope.dbNames = {};
-  $scope.DBhasBeenLoaded = false;
-  $scope.configtext = '';
   $scope.errorProjectNotFound = false;
+  $scope.DBhasBeenLoaded = false;
   $scope.GUI_generating = false;
   $scope.meta = {
     createRoles: false,
@@ -24,9 +17,7 @@ APMS.controller('APMScontrol', ($scope, $http) => {
   //------------------------------------------------------- Methods
   function mergeConfig(oldConfig, newConfig) {
     // Functions for Deep Merge
-    function isObject(item) {
-      return (item && typeof item === 'object' && !Array.isArray(item));
-    }
+    function isObject(item) { return (item && typeof item === 'object' && !Array.isArray(item)); }
     function mergeDeep(target, source) {
       let output = Object.assign({}, target);
       if (isObject(target) && isObject(source)) {
@@ -63,37 +54,22 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     return newConfig;
   }
   $scope.loadProject = function() {
-    $scope.errorProjectNotFound = false
     $scope.isLoading = true;
+    $scope.errorProjectNotFound = false
     console.log('Looking for Project in', $scope.meta.pathProject);
-    const url = $scope.meta.pathProject;
     $http({
-      url: 'modules/parseConfig.php',
-      method: "POST",
-      data: {prjPath: url}
+      url: 'modules/parseConfig.php', method: "POST", data: {prjPath: $scope.meta.pathProject}
     })
     .success(resp => {
       try {
         const existingConfig = JSON.parse(resp.existingConfig);
-        console.log("Existing Config", existingConfig);
+        console.log("Existing Config", resp);        
         $scope.meta.login_url = resp.login_url;
-        $scope.meta.secretkey = resp.secret_key;
-        $scope.sqlServer = resp.DBHost;
-        $scope.username = resp.DBUser;
-        $scope.pwd = resp.DBPass;
-        $scope.dbNames.model = resp.DBName;
+        $scope.meta.secretkey = resp.secret_key;  
         // Now Load THIS Database and merge Configs
         console.log('Loading Tables from Database...');
         $http({
-          url: 'modules/ConnectDB.php',
-          method: "POST",
-          data: {
-            host: resp.DBHost,
-            port: $scope.sqlPort, // TODO => Config
-            user: resp.DBUser,
-            pwd: resp.DBPass,
-            dbname: resp.DBName
-          }
+          url: 'modules/ConnectDB.php', method: "POST", data: {prjPath: $scope.meta.pathProject}
         })
         .success(stdConfig => {
           console.log('Standard Config', stdConfig);
@@ -114,24 +90,18 @@ APMS.controller('APMScontrol', ($scope, $http) => {
   }
   $scope.create_fkt = function() {
     $scope.GUI_generating = true;
-    const data = {
-      host: $scope.sqlServer,
-      port: $scope.sqlPort,
-      user: $scope.username,
-      pwd: $scope.pw,
-      db_name: $scope.dbNames.model,
-      pathProject: $scope.meta.pathProject,
-      data: $scope.tables,
-      create_RoleManagement: $scope.meta.createRoles,
-      create_HistoryTable: $scope.meta.createHistory,
-      redirectToLogin: $scope.meta.redirectToLogin,
-      login_URL: $scope.meta.login_url,
-      secret_KEY: $scope.meta.secretkey
-    }
     $http({
       url: 'generator_parts/fusion.php',
       method: "POST",
-      data: data
+      data: {
+        pathProject: $scope.meta.pathProject,
+        data: $scope.tables,
+        create_RoleManagement: $scope.meta.createRoles,
+        create_HistoryTable: $scope.meta.createHistory,
+        redirectToLogin: $scope.meta.redirectToLogin,
+        login_URL: $scope.meta.login_url,
+        secret_KEY: $scope.meta.secretkey
+      }
     })
     .success(resp => {
       $scope.GUI_generating = false;
@@ -146,7 +116,7 @@ APMS.controller('APMScontrol', ($scope, $http) => {
       console.log('Error-Status: ' + JSON.stringify(status));
     });
   }
-
+  //===================================================
   function rand_name(prefix, arr) {
     let newname = prefix;
     while (arr[newname]) 
