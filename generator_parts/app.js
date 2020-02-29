@@ -30,9 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const tmpBtn = document.createElement('a');
         document.getElementById('sidebar-links').appendChild(tmpBtn);
         tmpBtn.setAttribute('href', '#/' + tname);
-        /*tmpBtn.addEventListener('click', e => {
-          router.navigate('#/' + tname);
-        })*/
         tmpBtn.classList.add('list-group-item', 'list-group-item-action', 'link-'+tname); // bootstrap
         if (tname === location.hash.substr(2))
           tmpBtn.classList.add('active');
@@ -42,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //==========================================================
     // Happens after init
     window.addEventListener('hashchange', e => {
+      console.log('hashchanged');
       router.navigate(e.target.location.hash.substr(1));
     });
     //------------------------------- PING (token refresh)

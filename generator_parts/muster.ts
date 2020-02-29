@@ -518,6 +518,7 @@ class StateButton {
 //==============================================================
 // Class: Table
 //==============================================================
+// Creates nice HTML Table with logic and Filters / Search / Selection etc.
 class Table {
   private tablename: string;
   private Sort: string = '';
@@ -753,7 +754,6 @@ class Table {
     searchBarElement.setAttribute('type', "text");
     searchBarElement.setAttribute('placeholder', gText[setLang].Search);
     searchBarElement.classList.add('tbl_searchbar');
-    if (t.Search.length > 0) searchBarElement.setAttribute('value', t.Search);
     // Bootstrap custom classes
     searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1');
     // Events
@@ -901,10 +901,8 @@ class Table {
       }
     }
     else if (options.column.field_type === 'time') {
-      element.innerText = value;
     }
     else if (options.column.field_type === 'datetime') {
-      element.innerText = value;
     }
     else if (options.column.field_type === 'float') {
       if (value) {
@@ -1441,6 +1439,7 @@ class Form {
       const mTable = new Table(mTablename, SelectType.Multi);
       nmTable.ReadOnly = (el.mode_form == 'ro');
       nmTable.setColumnFilter(hideCol, 'null');
+      console.log('nm', isCreate);
       //------> MODIFY
       if (!isCreate) {
         const RowID = this.oRowData[this.oTable.getPrimaryColname()];
@@ -1466,12 +1465,9 @@ class Form {
           if (r.count > 0) {
             // has Relations
             const mObjs = allRels.map(row => row[el.revfk_colname2]);
-            const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
-            const tmpIDs = mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',');
-            if (tmpIDs.length > 0) {
-              const mFilter = '{"in":["'+mTable.getPrimaryColname()+'","'+tmpIDs+'"]}';
-              mTable.setFilter(mFilter);
-            }
+            const mObjsSel = connRels.map(row => row[el.revfk_colname2]);          
+            const mFilter = '{"in":["'+mTable.getPrimaryColname()+'","'+mObjsSel.map(o => o[mTable.getPrimaryColname()]).join(',')+'"]}';
+            mTable.setFilter(mFilter);
             mTable.setRows(mObjs);
             mTable.setSelectedRows(mObjsSel);
             mTable.renderHTML(crElem);
@@ -1549,7 +1545,7 @@ class Form {
       setTimeout(() => {
         // Initialize Quill Editor
         const editor = new Quill('#'+newID, options);
-        editor.root.innerHTML = v || '';
+        editor.root.innerHTML = v || '<p></p>';
       }, 10);
     }
     //--- Pure HTML
@@ -1853,10 +1849,8 @@ class Form {
         value = res;
       }
       // Quill Editor
-      else if (inp.classList.contains('ql-container')) {
+      else if (inp.classList.contains('ql-container'))
         value = inp.getElementsByClassName('ql-editor')[0].innerHTML;
-        if (value === '<p><br></p>') value = "" // empty?
-      }
       // Every other type
       else 
         value = inp.value;
