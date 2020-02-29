@@ -191,8 +191,7 @@
     //--- Create StateMachine
     if ($se_active) {
       // ------- StateMachine Creation
-      $SM = new StateMachine($con, "", $project_dir);
-
+      $SM = new StateMachine($con);
       $SM->createDatabaseStructure();
       $SM_ID = $SM->createBasicStateMachine($tablename, $table_type);
 
@@ -202,73 +201,67 @@
       // _state/$newStateID/form.json
       //echo "--create--> ". $Path_APMS_test . "\n";
 
-      $default_CREATE = "<?php\n\techo \"---CREATE--->\";";
-      $default_TRANSITION = "<?php\n\techo \"---TRANSITION--->\";";
-      $default_FORM = "";
-
-
       // M A C H I N E S
-      $scriptPath = $project_dir."/_state_machines/$SM_ID/";
       createSubDirIfNotExists($project_dir."/_state_machines/$SM_ID");
-      if (!file_exists($scriptPath.'create.php')) file_put_contents($scriptPath.'create.php', $default_CREATE);
-      if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', $default_FORM);
+      $scriptPath = $project_dir."/_state_machines/$SM_ID/";
+      if (!file_exists($scriptPath.'create.php')) file_put_contents($scriptPath.'create.php', "<?php\n\techo \"--CREATE-->\";");
+      if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', "{}");
       // If Create-Script is empty, then link to Filesystem
       if (empty($SM->getTransitionScriptCreate()))
         $SM->setCreateScript("include_once(__DIR__.'/../_state_machines/$SM_ID/create.php');");
 
 
       // T R A N S I T I O N S
-      $count = 0;
-      $scriptPath = $project_dir."/_state_rules/";
-      createSubDirIfNotExists($project_dir."/_state_rules");
+      // loop transitions
       foreach ($SM->getTransitions() as $trans) {
         $transID = $trans["state_rules_id"];
+        createSubDirIfNotExists($project_dir."/_state_rules");
+        $scriptPath = $project_dir."/_state_rules/";
+        if (!file_exists($scriptPath.$transID.'.php')) file_put_contents($scriptPath.$transID.'.php', "<?php\n\techo \"--TRANSITION ($transID)-->\";");
         // If Script is empty, then link to Filesystem
         if (empty($trans["transition_script"]))
           $SM->setTransitionScript($transID, "include_once(__DIR__.'/../_state_rules/$transID.php');");
-
-        //---Special Relation Scripts
-        if ($table_type != 'obj') {
-          echo "RELATION [$table_type]\n";
-          $customRelationScript = $SM->getCustomRelationScript(file_get_contents("./../template_scripts/".$table_type.".php"));
-          // Overwrite Create-Script
-          file_put_contents($project_dir."/_state_machines/$SM_ID/create.php", $customRelationScript);
-          // Only the Transaction from [UNSELECTED -> SELECTED]
-          if ($count == 0) {
-            if (!file_exists($scriptPath.$transID.'.php'))
-              file_put_contents($scriptPath.$transID.'.php', $customRelationScript);
-          }
-          $count++;
-        }
-
-        //--- Create the default Transition-Script
-        if (!file_exists($scriptPath.$transID.'.php'))
-          file_put_contents($scriptPath.$transID.'.php', $default_TRANSITION);
       }
-
-
       // S T A T E S
+      // loop states
       foreach ($SM->getStates() as $state) {
         // Create Scripts: in / out / form
         $stateID = $state["id"];
-        $scriptPath = $project_dir."/_state/$stateID/";
         createSubDirIfNotExists($project_dir."/_state/$stateID");
-        if (!file_exists($scriptPath.'in.php')) file_put_contents($scriptPath.'in.php', ""); // TODO: REMOVE!!
-        if (!file_exists($scriptPath.'out.php')) file_put_contents($scriptPath.'out.php', ""); // TODO: REMOVE!!
-        if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', $default_FORM);
+        $scriptPath = $project_dir."/_state/$stateID/";
+
+        if (!file_exists($scriptPath.'in.php')) file_put_contents($scriptPath.'in.php', "<?php\n\techo \"IN\";");
+        if (!file_exists($scriptPath.'out.php')) file_put_contents($scriptPath.'out.php', "<?php\n\techo \"OUT\";");
+        if (!file_exists($scriptPath.'form.json')) file_put_contents($scriptPath.'form.json', "{}");
         // If Script is empty, then link to Filesystem
         if (empty($SM->getINScript($stateID))) $SM->setINScript($stateID, "include_once(__DIR__.'/../_state/$stateID/in.php');");
         if (empty($SM->getOUTScript($stateID))) $SM->setOUTScript($stateID, "include_once(__DIR__.'/../_state/$stateID/out.php');");
       }
+      //-------------------
 
 
-
-      //====================================
-      //----------- OBJECT
-      //====================================
-      if ($table_type === 'obj') {        
-        $rights_ro = []; // Create Basic form and set RO, RW
-        foreach ($cols as $colname => $col) { // for all columns and virtual-columns
+      if ($table_type != 'obj') {
+        //====================================
+        //----------- RELATION
+        //====================================        
+        
+        echo "Create Relation Scripts ($table_type) -> ";
+        // Load Template
+        $templateScript = file_get_contents("./../template_scripts/".$table_type.".php");
+        $templateScript = str_replace("<?php", '', $templateScript); // Remove first chars ('<?php')
+        $templateScript = substr($templateScript, 2); // Remove newline char
+        $res = $SM->createRelationScripts($templateScript);
+        echo ($res == 0 ? 'OK' : 'Fail') . "\n";
+        
+      }
+      else {
+        //====================================
+        //----------- OBJECT
+        //====================================
+        // Create Basic form and set RO, RW
+        $rights_ro = [];
+        // for all columns and virtual-columns
+        foreach ($cols as $colname => $col) {
           $confMode = $cols[$colname]["mode_form"];
           if (!($col['is_primary'] || $colname == 'state_id' || $confMode == 'hi')) {
             // Set the form data
@@ -277,19 +270,19 @@
         }
         // Update the inactive state with readonly
         $formDataRO = json_encode($rights_ro);
+        
         // if empty, create basic-form if name is (_active_ => [ro] or _inactive_ => [ro])
         foreach ($SM->getStates() as $state) {
-          // Create Formdata if none is there
-          $currentFormData = $SM->getFormDataByStateID($state["id"]);
-          if (strlen($currentFormData) === 0 || $currentFormData == '{}') {
+          // Create Formdata
+          $formData = $SM->getFormDataByStateID($state["id"]);
+          if (strlen($formData) == 0) {
             // check if statename contains the phrase "active"
             if (strpos($state["name"], "active") !== FALSE)
               $SM->setFormDataByStateID($state["id"], $formDataRO);
           }
         }
+
       }
-
-
       // Exclude the following Columns:
       $excludeKeys = $primKey;
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData
