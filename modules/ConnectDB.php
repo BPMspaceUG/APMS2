@@ -5,21 +5,40 @@
 
   if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
     $params = json_decode(file_get_contents('php://input'), true);
-
-  $prjPath = $params['prjPath'];
-  $fname_secret = __DIR__.'/../' . $prjPath . "config.SECRET.inc.php";
-  require_once($fname_secret);
+  
+  //--- Params
+  $host = isset($params['host']) ? $params['host'] : null;
+  $port = isset($params['port']) ? $params['port'] : null;
+  $user = isset($params['user']) ? $params['user'] : null;
+  $pwd = isset($params['pwd']) ? $params['pwd'] : null;
+  $dbname  = isset($params['dbname']) ? $params['dbname'] : null;
 
   //--- Load Data
-  $con = new mysqli(DB_HOST, DB_USER, DB_PASS, "", 3306); // TODO: Port
-  // Connection Error ?
-  if ($con->connect_error)
-    die("\n\nCould not connect: ERROR NO. " . $con->connect_errno . " : " . $con->connect_error);
-  else {
-    // Return output [Tables, Specific Schema/DB]
-    $json = getTables($con, DB_NAME);
-    header('Content-Type: application/json');
-    echo json_encode($json);
+  if (isset($host) && isset($user) && isset($pwd)) {
+    $con = new mysqli($host, $user, $pwd, "", $port);
+    // Connection Error ?
+    if ($con->connect_error)
+      die("\n\nCould not connect: ERROR NO. " . $con->connect_errno . " : " . $con->connect_error);
+    else {
+      if (!is_null($dbname)) {
+        // Return output [Tables, Specific Schema/DB]
+        $json = getTables($con, $dbname);
+      }
+      else {
+        // Return Schemes / Databases
+        $res = [];
+        $result = mysqli_query($con, "SHOW DATABASES");
+        while ($row = $result->fetch_assoc()) {
+          $dbName = $row['Database'];
+          // Filter information_schema
+          if (strtolower($dbName) != "information_schema")
+            array_push($res, ["database"=>$dbName, "tables"=>[]]);
+        }
+        $json = $res;
+      }
+      header('Content-Type: application/json');
+      echo json_encode($json);
+    }
   }
 
   //====================
