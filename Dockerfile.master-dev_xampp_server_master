@@ -1,8 +1,0 @@
-FROM bpmspace/docker_bpmspace_base:dev_xampp_server_master
-RUN mkdir -p /var/www/html/APMS2
-RUN mkdir -p /var/www/html/APMS_test
-RUN mkdir -p /var/www/html/wwwsqldesigner
-RUN mkdir -p /var/www/html/LIAM_dummy
-RUN git clone https://github.com/BPMspaceUG/wwwsqldesigner.git /var/www/html/wwwsqldesigner
-RUN git clone https://github.com/BPMspaceUG/LIAM_dummy.git /var/www/html/LIAM_dummy
-COPY . /var/www/html/
