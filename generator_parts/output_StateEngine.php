@@ -51,13 +51,19 @@
 		  $this->db->query($query);
       $this->log($query); 
 
-      // Add column to state_machines if not exists
+      // Add Form_data column to state_machines if not exists
       $query = "SHOW COLUMNS FROM `state_machines`;";
       $rows = $this->db->query($query);
       // Build one string with all columnnames
       $columnstr = "";
       foreach ($rows as $row) $columnstr .= $row["Field"];
-      // Column does not yet exist
+      // Column [form_data] does not yet exist
+      if (strpos($columnstr, "form_data") === FALSE) {
+        $query = "ALTER TABLE `state_machines` ADD COLUMN `form_data` LONGTEXT NULL AFTER `tablename`;";
+        $this->db->query($query);
+        $this->log($query);
+      }
+      // Column [form_data] does not yet exist
       if (strpos($columnstr, "transition_script") === FALSE) {
         $query = "ALTER TABLE `state_machines` ADD COLUMN `transition_script` LONGTEXT NULL AFTER `tablename`;";
         $this->db->query($query);
@@ -68,6 +74,7 @@
 		  $query = "CREATE TABLE IF NOT EXISTS `state` (
 			  `state_id` bigint(20) NOT NULL AUTO_INCREMENT,
 			  `name` varchar(45) DEFAULT NULL,
+			  `form_data` longtext,
 			  `entrypoint` tinyint(1) NOT NULL DEFAULT '0',
 			  `statemachine_id` bigint(20) NOT NULL DEFAULT '1',
         `script_IN` longtext,
@@ -133,13 +140,18 @@
 		  // TODO: Foreign Key for [state <-> state_machines]
     }
     private function createNewState($statename, $isEP) {
+<<<<<<< HEAD
       $newStateID = -1;
       $query = "INSERT INTO state (name, statemachine_id, entrypoint) VALUES (?,?,?,?)";
+=======
+      $result = -1;
+      $query = "INSERT INTO state (name, form_data, statemachine_id, entrypoint) VALUES (?,?,?,?)";
+>>>>>>> parent of 446cc44... Merge branch 'dev'
       $stmt = $this->db->prepare($query);
-      $stmt->execute(array($statename, $this->ID, $isEP));
-      $newStateID = $this->db->lastInsertId();
+      $stmt->execute(array($statename, '', $this->ID, $isEP));  
+      $result = $this->db->lastInsertId();
       $this->log($query);
-      return $newStateID;
+      return $result;
     }
     private function createTransition($from, $to) {
       $result = -1;
@@ -222,53 +234,66 @@
       $this->log("-- [END] StateMachine created for Table '$tablename'");
       return $ID;
     } 
-    public function getFormDataByStateID($stateID) {
+    public function getFormDataByStateID($StateID) {
       if (!($this->ID > 0)) return "";
+      $result = '';
+      $sql = 'SELECT form_data AS fd FROM state WHERE state_id = ?';
+      $stmt = $this->db->prepare($sql);
+      $stmt->execute(array($StateID));
+      while($row = $stmt->fetch()) {
+        $result = $row['fd'];
+      }
+      return $result;
+    }
+    public function setFormDataByStateID($StateID, $formData) {
+      if (!($this->ID > 0)) return "";
+<<<<<<< HEAD
       $fname = __DIR__."/../_state/$stateID/form.json";
       return file_exists($fname) ? file_get_contents($fname) : null;
+=======
+      $sql = 'UPDATE state SET form_data = ? WHERE state_id = ?';
+      $stmt = $this->db->prepare($sql);
+      return $stmt->execute(array($formData, $StateID)); // Returns True/False
+>>>>>>> parent of 446cc44... Merge branch 'dev'
     }
     public function getCreateFormByTablename() {
       if (!($this->ID > 0)) return "";
-      $fname = __DIR__."/../_state_machines/".$this->ID."/form.json";
-      return file_exists($fname) ? file_get_contents($fname) : null;
+      $result = '';
+      $sql = 'SELECT form_data AS fd FROM state_machines WHERE id = ?';
+      $stmt = $this->db->prepare($sql);
+      $stmt->execute(array($this->ID));
+      while($row = $stmt->fetch()) {
+        $result = $row['fd'];
+      }
+      return $result;
     }
     public function getID() {
     	return $this->ID;
     }
     public function getStates() {
       $result = array();
-      $stmt = $this->db->prepare("SELECT state_id AS id, name, entrypoint FROM state WHERE statemachine_id = ? ORDER BY state_id");
+      $stmt = $this->db->prepare("SELECT state_id AS id, name, entrypoint, form_data FROM state WHERE statemachine_id = ? ORDER BY state_id");
       $stmt->execute(array($this->ID));
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $stateID = (int)$row['id'];
         $result[] = [
-          'id' => $stateID,
+          'id' => (int)$row['id'],
           'name' => $row['name'],
           'entrypoint' => (int)$row['entrypoint'],
-          'formdata' => $this->getFormDataByStateID($stateID)
+          'form_data' => $row['form_data']
         ];
       }
       return $result;
     }
     public function getLinks() {
       $result = array();
-      $stmt = $this->db->prepare("SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
-        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?) ORDER BY state_id_TO");
+      $stmt = $this->db->prepare(
+        "SELECT state_id_FROM AS 'from', state_id_TO AS 'to' FROM state_rules WHERE
+        state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?)
+        ORDER BY state_id_TO");
       $stmt->execute(array($this->ID));
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $result[] = [
-          'from' => (int)$row['from'],
-          'to' => (int)$row['to']
-        ];
+        $result[] = ['from' => (int)$row['from'], 'to' => (int)$row['to']];
       }
-      return $result;
-    }
-    public function getTransitions() {
-      $result = [];
-      $stmt = $this->db->prepare("SELECT * FROM state_rules WHERE state_id_FROM AND state_id_TO IN (SELECT state_id FROM state WHERE statemachine_id = ?)");
-      $stmt->execute(array($this->ID));
-      while($row = $stmt->fetch(PDO::FETCH_ASSOC))
-        $result[] = $row;
       return $result;
     }
     public function getEntryPoint() {
@@ -329,16 +354,18 @@
       if (!($this->ID > 0)) return ""; // check for valid state machine
       $stmt = $this->db->prepare("SELECT script_IN FROM state WHERE state_id = ?");
       $stmt->execute(array($StateID));
-      $row = $stmt->fetch();
-      $result = $row['script_IN'];
+      while($row = $stmt->fetch()) {
+        $result = $row['script_IN'];
+      }
       return $result;
     }
     public function getOUTScript($StateID) {
       if (!($this->ID > 0)) return ""; // check for valid state machine
       $stmt = $this->db->prepare("SELECT script_OUT FROM state WHERE state_id = ?");
       $stmt->execute(array($StateID));
-      $row = $stmt->fetch();
-      $result = $row['script_OUT'];
+      while($row = $stmt->fetch()) {
+        $result = $row['script_OUT'];
+      }
       return $result;
     }
     public function executeScript($script, &$param = null, $tablename = null) {
@@ -386,6 +413,7 @@
       }
       return $standardResult;
     }
+<<<<<<< HEAD
 
     // Set Functions
     public function setTransitionScript($transID, $script) {
@@ -414,4 +442,6 @@
       if (file_exists($fname))
         file_put_contents($fname, $formData);
     }
+=======
+>>>>>>> parent of 446cc44... Merge branch 'dev'
   }

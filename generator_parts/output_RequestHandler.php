@@ -617,7 +617,6 @@
       // Inputs
       $tablename = $param["table"];
       $row = $param["row"];
-      $param["token"] = $this->token;
       // Check Parameter
       if (!Config::isValidTablename($tablename)) die(fmtError('Invalid Tablename!'));
       if (!Config::doesTableExist($tablename)) die(fmtError('Table does not exist!'));
