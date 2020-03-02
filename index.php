@@ -2,10 +2,8 @@
 <!-- Content -->
 <div ng-app="APMS">
   <div ng-controller="APMScontrol">
-
     <!-- CONTENT -->
     <div class="container-fluid w-75">
-
       <!-- Loading -->
       <div class="alert alert-info" ng-show="isLoading">
         <p class="m-0"><i class="fa fa-cog fa-spin"></i> Loading...</p>
@@ -14,26 +12,55 @@
       <div class="alert alert-danger" ng-show="errorProjectNotFound">
         <p class="m-0"><i class="fa fa-exclamation"></i> <strong>Error:</strong> Project not found or Secret File missing.</p>
       </div>
-
       <!-- DB Configuration -->
 		  <div class="mt-3">
-
-        <!-- 1. Select Filepath -->
+        <!-- Project -->
         <div class="card mb-3">
           <div class="card-header">
-            <span class="badge badge-success mr-2">1</span> Select Project Path
+            <span class="badge badge-success mr-2">1</span> Project
           </div>
-          <div class="card-body row">
-            <div class="col-8">
-              <!-- Path -->
-              <input class="form-control" type="text" placeholder="for example: ../APMS_test/project1/" ng-model="meta.pathProject"/>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-6">
+                <label>Project-Path</label>
+                <input class="form-control" type="text" placeholder="for example: ../APMS_test/project1/" ng-disabled="DBhasBeenLoaded" ng-model="meta.pathProject"/></div>
+              <div class="col-2"><label>&nbsp;</label><button class="btn btn-block btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="createFilepath()">Create new Project</button></div>
+              <div class="col-2"><label>&nbsp;</label><button class="btn btn-block btn-primary" ng-disabled="meta.pathProject.length == 0" ng-click="loadProject()">Load existing Project</button></div>
             </div>
-            <div class="col-4">
-              <button class="btn btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="loadProject()">Load Project</button>
+            <div class="row pt-3" ng-if="createdFilepath && !DBhasBeenLoaded">
+              <div class="col-4">
+                <label>Hostname</label>
+                <input class="form-control" type="text" placeholder="for ex. localhost" ng-model="meta.sqlHost"/>
+              </div>
+              <div class="col-1">
+                <label>Port</label>
+                <input class="form-control" type="text" ng-model="meta.sqlPort"/>
+              </div>
+              <div class="col-3">
+                <label>Username</label>
+                <input class="form-control" type="text" placeholder="for ex. admin" ng-model="meta.sqlUser"/>
+              </div>
+              <div class="col-3">
+                <label>Password</label>
+                <input class="form-control" type="password" placeholder="password" ng-model="meta.sqlPass"/>
+              </div>
+              <div class="col-1">
+                <label>&nbsp;</label>
+                <button class="btn btn-block btn-info" ng-click="connectDB()">Connect</button>
+              </div>
+            </div>
+            <div class="row pt-3"  ng-if="connectedToDatabase && !DBhasBeenLoaded">
+              <div class="col-4">
+                <label>Database-Name</label>
+                <select class="custom-select" type="text" ng-model="meta.sqlName">
+                  <option ng-repeat="name in dbNames" value="{{name}}">{{name}}</option>
+                <select>
+              </div>
+              <div class="col-2"><label>&nbsp;</label><button class="btn btn-block btn-success" ng-click="createProject()">Create Project</button></div>
             </div>
           </div>
         </div>
-
+        <!-- Project ok -->
         <div ng-if="DBhasBeenLoaded">
           <!-- Content of Databases -->
           <div class="card mb-3">
@@ -41,12 +68,10 @@
               <span class="badge badge-success mr-2">2</span>Configuration
             </div>
             <div class="card-body">
-            
               <h6 class="mb-3">
                 <span class="text-primary mr-3">{{ dbNames.model }}</span>
                 <span class="text-muted">{{cntTables() + ' Table' + (cntTables() != 1 ? 's' : '')}}</span>
               </h6>
-
               <!-- Meta Setting -->
               <div class="my-3 float-left">
                 <span class="m-0 mr-3 font-weight-bold">
@@ -60,14 +85,11 @@
                 </div>
                 <a href="#" class="btn btn-success btn-sm d-inline" ng-click="add_virtLink()">+ Link</a>
               </div>
-
               <div class="font-weight-bold my-3 float-right">
                 <label class="m-0 mr-3"><input type="checkbox" ng-model="meta.createRoles" class="mr-2">Role-Management</label>
                 <label class="m-0"><input type="checkbox" ng-model="meta.createHistory" class="mr-2">History</label>
-              </div>             
-
+              </div>
               <div class="clearfix"></div>
-
               <!-- Tables -->
               <div class="row">
                 <table class="table table-sm table-striped" id="loadedtables" ng-model="tbl" id="row{{$index}}">
@@ -83,11 +105,8 @@
                       <th width="30%" colspan="2">Icon</th>
                     </tr>
                   </thead>
-
                   <tbody ng-repeat="(name, tbl) in tables">
-
                     <!-- ===================== Table ======================== -->
-
                     <tr ng-class="{'table-primary' : tbl.table_type == 'obj', 'table-info' : tbl.table_type != 'obj', 'table-secondary text-muted': tbl.mode == 'hi'}">
                       <!-- Order Tabs -->
                       <td class="align-middle m-0 p-0" style="background-color: #cccccc66;">
@@ -150,11 +169,9 @@
                         </div>
                       </td>
                     </tr>
-
                     <!-- ========================================================= -->
                     <!-- ===================== C O L U M N S ===================== -->
-                    <!-- ========================================================= -->
-                    
+                    <!-- ========================================================= -->                    
                     <tr ng-repeat="(colname, col) in tbl.columns" ng-show="tbl.showKids" ng-class="{'bg-warning' : col.is_virtual}" style="font-size: .8em;">
                       <!-- Order -->
                       <td class="align-middle m-0 p-0" style="background-color: #cccccc33;">
@@ -168,8 +185,6 @@
                           </div>
                         </div>
                       </td>
-
-
                       <!-- Name -->
                       <td class="align-middle">
                         <div style="font-size: .9em;">{{colname}}</div>
@@ -268,11 +283,9 @@
                       </td>                      
                     </tr>
                     <!-- Columns END -->
-
                     <!---- CUSTOM FILTER ---->
                     <tr ng-show="tbl.showKids">
                       <td class="align-middle pb-3" colspan="8">
-
                         <!-- Normal Table -->
                         <div class="row" ng-hide="tbl.is_virtual">
                           <!-- Selected-ID -->
@@ -297,23 +310,17 @@
                             </form>
                           </div>
                         </div>
-
                         <!-- Virtual -->
                         <div ng-if="tbl.is_virtual">
                           <textarea class="form-control" ng-model="tbl.virtualcontent"></textarea>
                         </div>
-
-
                       </td>
                     </tr>
-
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
-
-
           <!-- Create Button -->
           <div class="card">
             <div class="card-header">
@@ -332,18 +339,15 @@
               </div>
             </div>
           </div>
-
           <!-- File String -->
           <div class="row">
             <div class="col-md-12" id="code">
-                <div readonly style="width: 100%; min-height: 100px; max-height: 300px; resize: none; padding:50px 0 0; margin:0 0 50px; overflow:auto;" class="bpm-textarea" id="bpm-code">
-                  Currently Empty
-                </div>
+              <div readonly style="width: 100%; min-height: 100px; max-height: 300px; resize: none; padding:50px 0 0; margin:0 0 50px; overflow:auto;" class="bpm-textarea" id="bpm-code">
+                Currently Empty
+              </div>
             </div>
           </div>
-
         </div>
-
       </div>
     </div>
   </div>

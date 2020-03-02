@@ -6,10 +6,18 @@ APMS.controller('APMScontrol', ($scope, $http) => {
   $scope.errorProjectNotFound = false;
   $scope.DBhasBeenLoaded = false;
   $scope.GUI_generating = false;
+  $scope.createdFilepath = false;
+  $scope.connectedToDatabase = false;
+  $scope.dbNames = [];
   $scope.meta = {
     createRoles: false,
     createHistory: false,
     redirectToLogin: true,
+    sqlHost: 'localhost',
+    sqlPort: 3306,
+    sqlUser: 'root',
+    sqlPass: '',
+    sqlName: '',
     login_url: '',
     secretkey: '',
     pathProject: ''
@@ -87,6 +95,33 @@ APMS.controller('APMScontrol', ($scope, $http) => {
         $scope.errorProjectNotFound = true;
       }
     })
+  }
+  $scope.createFilepath = function() {
+    $scope.createdFilepath = true;
+  }
+  $scope.connectDB = function() {
+    $http({url: 'modules/connectDB.php', method: "POST", data: $scope.meta})
+    .success(resp => {
+      if (typeof resp !== "string") {
+        console.log(resp);
+        $scope.dbNames = resp;
+        $scope.connectedToDatabase = true;
+      }
+      else {
+        alert("Could not connect to Database!");
+        $scope.connectedToDatabase = false;
+      }
+    });
+  }
+  $scope.createProject = function() {
+    // 1. Create Config file
+    $http({url: 'modules/createNewProject.php', method: "POST", data: $scope.meta})
+    .success(resp => {
+      console.log(resp);
+      console.log("Created Project. Reload...");
+      // 2. Reload Project
+      $scope.loadProject();
+    });
   }
   $scope.create_fkt = function() {
     $scope.GUI_generating = true;

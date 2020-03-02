@@ -1,49 +1,6 @@
 <?php
   //========================== FUNCTIONS
-  function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
-    return ".state$id {background-color: $bgcolor; color: $color;}\n";
-  }
-  function generateConfig($user = "", $pass = "", $host = "", $name = "", $urlLogin = "", $secretKey = "", $url1="", $url2="") {
-    global $act_version_link; // TODO: Remove!
-    $data = "<?php
-    // APMS Generated Project (".date("Y-m-d H:i:s").")
-    // Version: $act_version_link
-    // ==================================================
-    //-- Database
-    define('DB_USER', '$user');
-    define('DB_PASS', '$pass');
-    define('DB_HOST', '$host');
-    define('DB_NAME', '$name');
-    //-- Authentication + API
-    define('API_URL_LIAM', '$urlLogin'); // Authentication-Service
-    define('AUTH_KEY', '$secretKey'); // Secret of Auth-Service
-    define('TOKEN_EXP_TIME', 3600); // Expiry Time of an Access-Token [sec]
-    define('URL_CHANGEPW', '$url1'); // Link to change the Password
-    define('URL_MANAGEPROFILE', '$url2'); // Link to manage the Profile
-    ";
-    return $data;
-  }
-  function createSubDirIfNotExists($dirname) {
-    if (!is_dir($dirname)) mkdir($dirname, 0750, true);
-  }
-  function cmp($a, $b) {
-    return ((int)$a['order']) - ((int)$b['order']);
-  }
-  function writeFileIfNotExist($filename, $content) {
-    if (!file_exists($filename)) file_put_contents($filename, $content);
-  }
-  function writeFileIfNotExistOrEmpty($filename, $content) {
-    if (!file_exists($filename))
-      file_put_contents($filename, $content);
-    else {
-      // check if file is empty
-      $fcont = file_get_contents($filename);
-      if (strlen(trim($fcont)) === 0) {
-        echo "File exists and empty!\n";
-        file_put_contents($filename, $content);
-      }
-    }
-  }
+  require_once(__DIR__.'/../modules/functions.php');
 
   //========================== DEFINITIONS
   $queries = '';
@@ -55,12 +12,6 @@
     $_REQUEST = json_decode(file_get_contents('php://input'), true);
 
   // Parameters
-  /*
-  $db_server = $_REQUEST['host'];
-  $db_user = $_REQUEST['user'];
-  $db_pass = $_REQUEST['pwd'];
-  $db_name = $_REQUEST['db_name'];
-  */
   $data = $_REQUEST['data'];
   $createRoleManagement = $_REQUEST['create_RoleManagement'];
   $createHistoryTable = $_REQUEST['create_HistoryTable'];
@@ -387,7 +338,6 @@
   // If file exists, load config
   if (file_exists($project_dir."/config.SECRET.inc.php"))
     @require_once($project_dir."/config.SECRET.inc.php"); // @ because const are redefined
-  //file_put_contents($project_dir."/config.SECRET.inc.php", generateConfig($db_user, $db_pass, $db_server, DB_NAME, $LOGIN_url, $secretKey, URL_CHANGEPW, URL_MANAGEPROFILE));
   file_put_contents($project_dir."/config.EXAMPLE_SECRET.inc.php", generateConfig()); // Example
   file_put_contents($project_dir."/config.inc.json", $json);
   // GitIgnore for Secret Files

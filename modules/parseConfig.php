@@ -2,14 +2,13 @@
 	//=====================================================
 	// CREATE A BASIC CONFIG FROM THE DATABASE
 	//=====================================================
-
   	if ($_SERVER['REQUEST_METHOD'] == 'POST' && empty($_POST))
 		$params = json_decode(file_get_contents('php://input'), true);
 
 	$prjPath = $params['prjPath'];
 	// get data
-	$fname_json = __DIR__.'/../' . $prjPath . "config.inc.json";
-	$fname_secret = __DIR__.'/../' . $prjPath . "config.SECRET.inc.php";
+	$fname_json = __DIR__.'/../'.$prjPath."config.inc.json";
+	$fname_secret = __DIR__.'/../'.$prjPath."config.SECRET.inc.php";
 	//-----------------------
 	if (file_exists($fname_secret)) {
 		// existing Configuration
