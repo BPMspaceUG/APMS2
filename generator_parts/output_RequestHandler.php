@@ -610,6 +610,7 @@
     }
     // Stored Procedure can be Read and Write (GET and POST)
     public function call($param) {
+      $param = json_decode(json_encode($param), true); // Hack ==> TODO: Remove!
       // Strcuture: {name: "sp_table", inputs: ["test", 13, 42, "2019-01-01"]}
       //--------------------- Check Params
       $validParams = ['name', 'inputs', 'path'];
