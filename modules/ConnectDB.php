@@ -31,6 +31,15 @@
 
   // Output
   if (strlen(DB_NAME) > 0) {
+
+    // Write to recent project file
+    $recentPrjFile = __DIR__.'/../recentprojects.secret.json';
+    if (!file_exists($recentPrjFile)) file_put_contents($recentPrjFile, "[]");
+    $recentPrj = json_decode(file_get_contents($recentPrjFile));
+    if (!is_array($recentPrj) || !in_array($prjPath, $recentPrj))
+      $recentPrj[] = $prjPath; // append
+    file_put_contents($recentPrjFile, json_encode($recentPrj, JSON_PRETTY_PRINT));
+
     // Return output [Tables, Specific Schema/DB]
     $json = getTables($con, DB_NAME);
     header('Content-Type: application/json');

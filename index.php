@@ -8,10 +8,6 @@
       <div class="alert alert-info" ng-show="isLoading">
         <p class="m-0"><i class="fa fa-cog fa-spin"></i> Loading...</p>
       </div>
-      <!-- Error Message -->
-      <div class="alert alert-danger" ng-show="errorProjectNotFound">
-        <p class="m-0"><i class="fa fa-exclamation"></i> <strong>Error:</strong> Project not found or Secret File missing.</p>
-      </div>
       <!-- DB Configuration -->
 		  <div class="mt-3">
         <!-- Project -->
@@ -22,27 +18,44 @@
           <div class="card-body">
             <div class="row">
               <div class="col-6">
-                <label>Project-Path</label>
-                <input class="form-control" type="text" placeholder="for example: ../APMS_test/project1/" ng-disabled="DBhasBeenLoaded" ng-model="meta.pathProject"/></div>
-              <div class="col-2"><label>&nbsp;</label><button class="btn btn-block btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="createFilepath()">Create new Project</button></div>
-              <div class="col-2"><label>&nbsp;</label><button class="btn btn-block btn-primary" ng-disabled="meta.pathProject.length == 0" ng-click="loadProject()">Load existing Project</button></div>
+                <label>(New) Path to Project</label>
+                <div class="input-group">
+                  <input class="form-control" type="text" placeholder="for example: ../APMS_test/project1/" ng-model="meta.pathProject"/>
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown"></button>
+                    <div class="dropdown-menu">
+                      <a ng-repeat="projectpath in recentProjects" ng-click="loadProject(projectpath)" class="dropdown-item" href="javascript:void(0);">{{projectpath}}</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-1"><label>&nbsp;</label><button class="btn btn-block btn-primary" ng-disabled="meta.pathProject.length == 0" ng-click="loadProject()">OK</button></div>
+            </div>
+            <!-- Error Message -->
+            <div class="alert alert-danger mt-2" ng-show="errorProjectNotFound && !createdFilepath">
+              <p class="m-0">
+                <strong>Error:</strong>
+                <span class="mr-2">No Config-File or Project found at this Path!</span>
+                <button class="btn btn-sm btn-success" ng-disabled="meta.pathProject.length == 0" ng-click="createFilepath()">Create new Project</button>
+              </p>
             </div>
             <div class="row pt-3" ng-if="createdFilepath && !DBhasBeenLoaded">
+              <p class="col-12 m-0"><b>Enter Connection to Database</b></p>
               <div class="col-4">
                 <label>Hostname</label>
-                <input class="form-control" type="text" placeholder="for ex. localhost" ng-model="meta.sqlHost"/>
+                <input class="form-control" type="text" placeholder="for ex. localhost" ng-model="meta.sqlHost" ng-disabled="connectedToDatabase"/>
               </div>
               <div class="col-1">
                 <label>Port</label>
-                <input class="form-control" type="text" ng-model="meta.sqlPort"/>
+                <input class="form-control" type="text" ng-model="meta.sqlPort" ng-disabled="connectedToDatabase"/>
               </div>
               <div class="col-3">
                 <label>Username</label>
-                <input class="form-control" type="text" placeholder="for ex. admin" ng-model="meta.sqlUser"/>
+                <input class="form-control" type="text" placeholder="for ex. admin" ng-model="meta.sqlUser" ng-disabled="connectedToDatabase"/>
               </div>
               <div class="col-3">
                 <label>Password</label>
-                <input class="form-control" type="password" placeholder="password" ng-model="meta.sqlPass"/>
+                <input class="form-control" type="password" placeholder="password" ng-model="meta.sqlPass" ng-disabled="connectedToDatabase"/>
               </div>
               <div class="col-1">
                 <label>&nbsp;</label>

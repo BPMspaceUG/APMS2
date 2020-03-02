@@ -8,6 +8,7 @@ APMS.controller('APMScontrol', ($scope, $http) => {
   $scope.GUI_generating = false;
   $scope.createdFilepath = false;
   $scope.connectedToDatabase = false;
+  $scope.recentProjects = [];
   $scope.dbNames = [];
   $scope.meta = {
     createRoles: false,
@@ -20,8 +21,16 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     sqlName: '',
     login_url: '',
     secretkey: '',
-    pathProject: ''
+    pathProject: '../APMS_test/project1/'
   }
+
+  //=================================================== INIT
+
+  // Load recent Projects
+  $http.get('recentprojects.secret.json').success(data => {
+    $scope.recentProjects = data;
+  });
+
   //------------------------------------------------------- Methods
   function mergeConfig(oldConfig, newConfig) {
     // Functions for Deep Merge
@@ -61,32 +70,41 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     // ===> Return new Config
     return newConfig;
   }
-  $scope.loadProject = function() {
+  $scope.loadProject = function(projectpath = null) {
     $scope.isLoading = true;
-    $scope.errorProjectNotFound = false
+    $scope.errorProjectNotFound = false;
     console.log('Looking for Project in', $scope.meta.pathProject);
+    const PPath = projectpath || $scope.meta.pathProject;
+    $scope.meta.pathProject = PPath;
     $http({
-      url: 'modules/parseConfig.php', method: "POST", data: {prjPath: $scope.meta.pathProject}
+      url: 'modules/parseConfig.php', method: "POST", data: {prjPath: PPath}
     })
     .success(resp => {
       try {
         const existingConfig = JSON.parse(resp.existingConfig);
         console.log("Existing Config", resp);        
         $scope.meta.login_url = resp.login_url;
-        $scope.meta.secretkey = resp.secret_key;  
+        $scope.meta.secretkey = resp.secret_key;
         // Now Load THIS Database and merge Configs
         console.log('Loading Tables from Database...');
         $http({
-          url: 'modules/ConnectDB.php', method: "POST", data: {prjPath: $scope.meta.pathProject}
+          url: 'modules/ConnectDB.php', method: "POST", data: {prjPath: PPath}
         })
         .success(stdConfig => {
           console.log('Standard Config', stdConfig);
-          // Merge Configs
-          $scope.tables = mergeConfig(stdConfig, existingConfig);
-          console.log('Project successfully loaded!');
+          if (typeof stdConfig !== 'string') {
+            // Merge Configs
+            $scope.tables = mergeConfig(stdConfig, existingConfig);
+            console.log('Project successfully loaded!');
+            $scope.DBhasBeenLoaded = true;
+          }
+          else {
+            // ERROR
+            alert("The Config-File of the Project has an Error!\nAre you sure you defined\n\nDB_HOST, DB_PORT, DB_USER, DB_PASS and DB_NAME\n\ncorrectly?");
+            $scope.DBhasBeenLoaded = false;
+          }
           // Stop Loading
           $scope.isLoading = false;
-          $scope.DBhasBeenLoaded = true;
         });
       }
       catch (error) {
@@ -103,7 +121,6 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     $http({url: 'modules/connectDB.php', method: "POST", data: $scope.meta})
     .success(resp => {
       if (typeof resp !== "string") {
-        console.log(resp);
         $scope.dbNames = resp;
         $scope.connectedToDatabase = true;
       }
@@ -117,8 +134,8 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     // 1. Create Config file
     $http({url: 'modules/createNewProject.php', method: "POST", data: $scope.meta})
     .success(resp => {
-      console.log(resp);
-      console.log("Created Project. Reload...");
+      //console.log(resp);
+      //console.log("Created Project. Reload...");
       // 2. Reload Project
       $scope.loadProject();
     });
