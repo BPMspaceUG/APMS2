@@ -69,6 +69,14 @@
                   <option ng-repeat="name in dbNames" value="{{name}}">{{name}}</option>
                 <select>
               </div>
+              <div class="col-4">
+                <label>Login-URL</label>
+                <input type="text" class="form-control" ng-model="meta.login_url">
+              </div>
+              <div class="col-4">
+                <label>Secret-Key</label>
+                <input type="text" class="form-control" ng-model="meta.secret_key">
+              </div>
               <div class="col-2"><label>&nbsp;</label><button class="btn btn-block btn-success" ng-click="createProject()">Create Project</button></div>
             </div>
           </div>
@@ -81,28 +89,20 @@
               <span class="badge badge-success mr-2">2</span>Configuration
             </div>
             <div class="card-body">
-              <h6 class="mb-3">
-                <span class="text-primary mr-3">{{ dbNames.model }}</span>
-                <span class="text-muted">{{cntTables() + ' Table' + (cntTables() != 1 ? 's' : '')}}</span>
-              </h6>
-              <!-- Meta Setting -->
-              <div class="my-3 float-left">
-                <span class="m-0 mr-3 font-weight-bold">
-                  <input type="checkbox" ng-model="meta.redirectToLogin" class="mr-2">Login-System
-                </span>
-                <div ng-if="meta.redirectToLogin">
-                    <label class="d-inline">Login-URL:</label>
-                    <input type="text" class="form-control form-control-sm d-inline" style="width: 200px;" ng-model="meta.login_url"/>
-                    <label class="d-inline">SecretKey:</label>
-                    <input type="text" class="form-control form-control-sm d-inline" style="width: 200px;" ng-model="meta.secretkey"/>
+              <div class="row mb-1">
+                <div class="col-3">
+                  <p>{{cntTables() + ' Table' + (cntTables() != 1 ? 's' : '')}}</p>
                 </div>
-                <a href="#" class="btn btn-success btn-sm d-inline" ng-click="add_virtLink()">+ Link</a>
+                <div class="col-3">
+                  <button class="btn btn-sm btn-success" ng-click="add_virtLink()">+ virtual Table</button>
+                </div>
+                <div class="col-3">
+                  <label class="m-0 mr-3"><input type="checkbox" ng-model="meta.createRoles" class="mr-2">Role-Management</label>
+                </div>
+                <div class="col-3">
+                  <label class="m-0"><input type="checkbox" ng-model="meta.createHistory" class="mr-2">History</label>
+                </div>
               </div>
-              <div class="font-weight-bold my-3 float-right">
-                <label class="m-0 mr-3"><input type="checkbox" ng-model="meta.createRoles" class="mr-2">Role-Management</label>
-                <label class="m-0"><input type="checkbox" ng-model="meta.createHistory" class="mr-2">History</label>
-              </div>
-              <div class="clearfix"></div>
               <!-- Tables -->
               <div class="row">
                 <table class="table table-sm table-striped" id="loadedtables" ng-model="tbl" id="row{{$index}}">
@@ -133,15 +133,15 @@
                           </div>
                         </div>
                       </td>
-                      <!-- Expand / Collapse -->
+                      <!-- Expand / Collapse + VCol-->
                       <td>
                         <div style="white-space:nowrap; overflow: hidden;">
                           <a class="btn" ng-click="toggle_kids(tbl)" title="Show column settings">
                             <i class="fa fa-plus-square" ng-if="!tbl.showKids"></i>
                             <i class="fa fa-minus-square" ng-if="tbl.showKids"></i>
                           </a>
-                          <button class="btn btn-sm btn-success" ng-click="add_virtCol(tbl, name)">+VCol</button>
-                          <select class="custom-select" ng-model="tbl.table_type" style="width: 80px;">
+                          <button class="btn btn-sm btn-success" ng-click="add_virtCol(tbl, name)" ng-disabled="tbl.is_virtual">+VCol</button>
+                          <select class="custom-select" ng-model="tbl.table_type" style="width: 80px;" ng-disabled="tbl.is_virtual">
                             <option value="obj">O</option>
                             <option value="1_1">1:1</option>
                             <option value="1_n">1:N</option>
@@ -158,7 +158,7 @@
                       <td><input type="text" class="form-control" ng-model="tbl.table_alias"/></td>
                       <!-- Mode (HI, RO, RW) -->
                       <td>
-                        <select class="custom-select" ng-model="tbl.mode" style="width: 80px;">
+                        <select class="custom-select" ng-model="tbl.mode" style="width: 80px;" ng-disabled="tbl.is_virtual">
                           <option value="rw">RW</option>
                           <option value="ro">RO</option>
                           <option value="hi">HI</option>
@@ -170,7 +170,7 @@
                       </td>
                       <!-- Has Statemachine? -->
                       <td style="background-color: #f5c6cb66;">
-                        <input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="name == 'state' || name == 'state_rules'">
+                        <input type="checkbox" class="form-control" ng-model="tbl.se_active" ng-disabled="tbl.is_virtual || name == 'state' || name == 'state_rules'">
                       </td>
                       <!-- Table-Icon -->
                       <td class="align-middle">

@@ -229,7 +229,7 @@
       $res[$table] = [
         "table_alias" => $table_alias,
         "table_type" => ($table == 'state_rules' ? 'n_m' : 'obj'), // Default = Object
-        "table_icon" => "",
+        "table_icon" => '<i class="fas fa-cube"></i>',
         "order" => (int)$table_counter,
         "mode" => "rw",
         "stdfilter" => "",

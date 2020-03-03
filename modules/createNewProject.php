@@ -12,7 +12,15 @@
   $project_dir = $APMS_Path.$pathProject;
   
   // Create new Project
-  $config = generateConfig($params["sqlHost"], $params["sqlPort"], $params["sqlUser"], $params["sqlPass"], $params["sqlName"]);
+  $config = generateConfig(
+    $params["sqlHost"],
+    $params["sqlPort"],
+    $params["sqlUser"],
+    $params["sqlPass"],
+    $params["sqlName"],
+    $params["login_url"],
+    $params["secret_key"]
+  );
 
   createSubDirIfNotExists($project_dir);
   writeFileIfNotExist($project_dir."/config.SECRET.inc.php", $config);

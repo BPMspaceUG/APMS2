@@ -15,9 +15,6 @@
   $data = $_REQUEST['data'];
   $createRoleManagement = $_REQUEST['create_RoleManagement'];
   $createHistoryTable = $_REQUEST['create_HistoryTable'];
-  $redirectToLoginURL = $_REQUEST['redirectToLogin'];
-  $loginURL = $_REQUEST['login_URL'];
-  $secretKey = $_REQUEST['secret_KEY']; 
   $pathProject = $_REQUEST['pathProject'];
 
   //==================================================
@@ -278,12 +275,6 @@
   $con->exec($sqlCreateViewEdges);
   $con->exec($sqlCreateViewNodes);
   $con->exec($sqlCreateViewOrphans);
-
-  // Remove Filename from URL...
-  $LOGIN_url = $loginURL == '' ? 'http://localhost/Authenticate/' : $loginURL; // default value
-  $tmpURL = explode('/', $LOGIN_url);
-  array_pop($tmpURL);
-  $LOGIN_url2 = implode('/', $tmpURL);
 
   //------------------- CUSTOM Parts
   $output_css = str_replace('/*###CSS_STATES###*/', $content_css_statecolors, file_get_contents("./muster.css")); // CSS State Colors

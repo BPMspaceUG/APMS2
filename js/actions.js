@@ -20,17 +20,15 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     sqlPass: '',
     sqlName: '',
     login_url: '',
-    secretkey: '',
-    pathProject: '../APMS_test/project1/'
+    secret_key: '',
+    pathProject: '../APMS2_test/project1/'
   }
 
   //=================================================== INIT
-
   // Load recent Projects
   $http.get('recentprojects.secret.json').success(data => {
     $scope.recentProjects = data;
   });
-
   //------------------------------------------------------- Methods
   function mergeConfig(oldConfig, newConfig) {
     // Functions for Deep Merge
@@ -82,9 +80,9 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     .success(resp => {
       try {
         const existingConfig = JSON.parse(resp.existingConfig);
-        console.log("Existing Config", resp);        
-        $scope.meta.login_url = resp.login_url;
-        $scope.meta.secretkey = resp.secret_key;
+        console.log("Existing Config", resp);
+        if (resp.login_url.length > 0) $scope.meta.login_url = resp.login_url;
+        if (resp.secret_key.length > 0) $scope.meta.secret_key = resp.secret_key;
         // Now Load THIS Database and merge Configs
         console.log('Loading Tables from Database...');
         $http({
@@ -96,6 +94,9 @@ APMS.controller('APMScontrol', ($scope, $http) => {
             // Merge Configs
             $scope.tables = mergeConfig(stdConfig, existingConfig);
             console.log('Project successfully loaded!');
+            // If Dashboard does not exist => create
+            if (Object.keys($scope.tables).indexOf('dashboard') === -1)
+              $scope.add_virtLink('dashboard');
             $scope.DBhasBeenLoaded = true;
           }
           else {
@@ -194,13 +195,14 @@ APMS.controller('APMScontrol', ($scope, $http) => {
   $scope.del_virtCol = function(tbl, colname){    
     delete tbl.columns[colname];
   }
-  $scope.add_virtLink = function() {
+  $scope.add_virtLink = function(tblname = null) {
     console.log("Add virtual Table");
     const tbls = $scope.tables;
-    const new_virt_tblname = rand_name('virtualTbl', tbls);
+    const new_virt_tblname = tblname || rand_name('virtualTbl', tbls);
     $scope.tables[new_virt_tblname] = {
       table_alias: 'Virtual Table',
       table_icon: '<i class="far fa-star"></i>',
+      table_type: 'obj',
       href: '#',
       order: 3,
       mode: 'ro',
@@ -209,6 +211,12 @@ APMS.controller('APMScontrol', ($scope, $http) => {
       is_virtual: true,
       columns: [],
     };
+    if (new_virt_tblname === 'dashboard') {
+      $scope.tables[new_virt_tblname].order = 0;
+      $scope.tables[new_virt_tblname].table_alias = 'Dashboard';
+      $scope.tables[new_virt_tblname].table_icon = '<i class="fas fa-tachometer-alt"></i>';
+      $scope.tables[new_virt_tblname].virtualcontent = "return \u0027\u003Ch5 class=\u0022mt-3\u0022\u003EDashboard\u003C\/h5\u003E\u0027;";
+    }
   }
   $scope.changeSortOrder = function(col, inc) {
     const newIndex = parseInt(col.col_order) + inc;

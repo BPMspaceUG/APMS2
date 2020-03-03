@@ -32,7 +32,7 @@
   // Output
   if (strlen(DB_NAME) > 0) {
 
-    // Write to recent project file
+    //--- Write to recent project file
     $recentPrjFile = __DIR__.'/../recentprojects.secret.json';
     if (!file_exists($recentPrjFile)) file_put_contents($recentPrjFile, "[]");
     $recentPrj = json_decode(file_get_contents($recentPrjFile));
