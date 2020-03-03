@@ -626,13 +626,15 @@ class Table {
   public getPrimaryColname(): string { return this.PriColname; }
   public getTableIcon(): string { return this.getConfig().table_icon; }
   public getTableAlias(): string { return this.getConfig().table_alias; }
+  public getStateMachine(): StateMachine { return this.SM; }
+
   public setSort(sortStr: string) { this.Sort = sortStr; }
   public setFilter(filterStr: string) { if (filterStr && filterStr.trim().length > 0) this.Filter = filterStr; }
   public setColumnFilter(columnName: string, filterText: string) { this.Filter = '{"=": ["'+columnName+'","'+filterText+'"]}'; }
   public setRows(ArrOfRows: any) { this.actRowCount = ArrOfRows.length; this.Rows = ArrOfRows; }
+  public setSelType(newSelType: SelectType) { this.selType = newSelType; }
   public resetFilter(){ this.Filter = ''; }
   public resetLimit(){ this.PageIndex = null; this.PageLimit = null; }
-  public getStateMachine(): StateMachine { return this.SM; }
   //=====================================
   //--- Form (Settings)
   public getFormCreateDefault(): any {
@@ -1462,7 +1464,7 @@ class Form {
           mTable.ReadOnly = nmTable.ReadOnly;
           // Check if there are Relations
           const allRels = nmTable.getRows();
-          const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
+          const connRels = (nmTable.hasStateMachine()) ? allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel) : allRels;
           if (r.count > 0) {
             // has Relations
             const mObjs = allRels.map(row => row[el.revfk_colname2]);
@@ -1471,6 +1473,11 @@ class Form {
             if (tmpIDs.length > 0) {
               const mFilter = '{"in":["'+mTable.getPrimaryColname()+'","'+tmpIDs+'"]}';
               mTable.setFilter(mFilter);
+            }
+            // Hide Selections if nmTable has no Statemachine
+            if (!nmTable.hasStateMachine()) {
+              mTable.setSelType(SelectType.NoSelect);
+              mTable.isExpanded = true;
             }
             mTable.setRows(mObjs);
             mTable.setSelectedRows(mObjsSel);
@@ -1845,6 +1852,12 @@ class Form {
       else if (type == 'time' && inp.classList.contains('dtm')) {
         // if key exists in result append Time to Date
         if (key in result) value = result[key] + ' ' + inp.value;
+      }
+      // Date
+      else if (type == 'date') {
+        value = null;
+        if (inp.value !== "")
+          value = inp.value;
       }
       // ForeignKey
       else if (type == 'hidden') {

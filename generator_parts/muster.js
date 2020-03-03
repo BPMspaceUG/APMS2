@@ -564,14 +564,15 @@ class Table {
     getPrimaryColname() { return this.PriColname; }
     getTableIcon() { return this.getConfig().table_icon; }
     getTableAlias() { return this.getConfig().table_alias; }
+    getStateMachine() { return this.SM; }
     setSort(sortStr) { this.Sort = sortStr; }
     setFilter(filterStr) { if (filterStr && filterStr.trim().length > 0)
         this.Filter = filterStr; }
     setColumnFilter(columnName, filterText) { this.Filter = '{"=": ["' + columnName + '","' + filterText + '"]}'; }
     setRows(ArrOfRows) { this.actRowCount = ArrOfRows.length; this.Rows = ArrOfRows; }
+    setSelType(newSelType) { this.selType = newSelType; }
     resetFilter() { this.Filter = ''; }
     resetLimit() { this.PageIndex = null; this.PageLimit = null; }
-    getStateMachine() { return this.SM; }
     getFormCreateDefault() {
         const me = this;
         let FormObj = {};
@@ -1307,7 +1308,7 @@ class Form {
                     mTable.options.showSearch = true;
                     mTable.ReadOnly = nmTable.ReadOnly;
                     const allRels = nmTable.getRows();
-                    const connRels = allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel);
+                    const connRels = (nmTable.hasStateMachine()) ? allRels.filter(rel => rel.state_id == nmTable.getConfig().stateIdSel) : allRels;
                     if (r.count > 0) {
                         const mObjs = allRels.map(row => row[el.revfk_colname2]);
                         const mObjsSel = connRels.map(row => row[el.revfk_colname2]);
@@ -1315,6 +1316,10 @@ class Form {
                         if (tmpIDs.length > 0) {
                             const mFilter = '{"in":["' + mTable.getPrimaryColname() + '","' + tmpIDs + '"]}';
                             mTable.setFilter(mFilter);
+                        }
+                        if (!nmTable.hasStateMachine()) {
+                            mTable.setSelType(SelectType.NoSelect);
+                            mTable.isExpanded = true;
                         }
                         mTable.setRows(mObjs);
                         mTable.setSelectedRows(mObjsSel);
@@ -1625,6 +1630,11 @@ class Form {
             else if (type == 'time' && inp.classList.contains('dtm')) {
                 if (key in result)
                     value = result[key] + ' ' + inp.value;
+            }
+            else if (type == 'date') {
+                value = null;
+                if (inp.value !== "")
+                    value = inp.value;
             }
             else if (type == 'hidden') {
                 let res = null;
