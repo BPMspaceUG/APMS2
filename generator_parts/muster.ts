@@ -787,7 +787,7 @@ class Table {
     const t = this;
     // Create default Footer
     const footerElement = document.createElement('div');
-    footerElement.classList.add('tbl_footer');
+    footerElement.classList.add('tbl_footer', 'col-12', 'p-0');
     // No Rows = No Footer
     if (!t.Rows || t.Rows.length <= 0) return footerElement;
     if ((t.selType !== SelectType.NoSelect) && !t.isExpanded) return footerElement;
@@ -838,10 +838,10 @@ class Table {
     const self = this;
     // create Element
     const header = document.createElement('div');
-    header.setAttribute('class', 'tbl_header mb-1');
+    header.classList.add('tbl_header', 'mb-2', 'col-12', 'p-0');
     // TODO: Improve
-    if (self.selType === SelectType.NoSelect)
-      header.classList.add('mt-3');
+    //if (self.selType === SelectType.NoSelect)
+      //header.classList.add('mt-3');
     // Expanded?
     if (this.selectedRows.length > 0 && !this.isExpanded) return header;
     if (this.ReadOnly && this.actRowCount < self.PageLimit) return header;
@@ -923,7 +923,7 @@ class Table {
   private getTable(): HTMLElement {
     const self = this;
     const wrapper = document.createElement('div');
-    wrapper.classList.add('tbl_content');
+    wrapper.classList.add('tbl_content', 'col-12', 'p-0');
     wrapper.classList.add('table-responsive-md'); // bootstrap
 
     // Checks
@@ -931,7 +931,7 @@ class Table {
 
     const tbl = document.createElement('table');
     tbl.classList.add('datatbl');
-    tbl.classList.add('table', 'table-striped', 'table-hover', 'table-sm', 'm-0', 'border'); // bootstrap
+    tbl.classList.add('table', 'table-sm', 'table-hover', 'm-0'); // bootstrap
     wrapper.appendChild(tbl);
 
     // filter + sort columns
@@ -991,7 +991,7 @@ class Table {
       if (colname === "select") {
         th.classList.add('col-sel');
         if (!self.isExpanded) {
-          th.innerHTML = '<i class="fas fa-chevron-down text-primary"></i>';
+          th.innerHTML = '<a href="javascript:void(0);"><i class="fas fa-chevron-circle-down"></i></a>';
           th.addEventListener('click', () => {
             self.resetFilter();
             self.isExpanded = true;
@@ -1012,9 +1012,8 @@ class Table {
           else if (self.getSortDir() === 'ASC')
             sortHTML = '<i class="fas fa-sort-up mr-1"></i>';
         }
-        // Text-Align
-        if (optionCols[index].column.field_type === 'float')
-          th.classList.add('text-right');
+        // Custom class header
+        th.classList.add('ft-' + optionCols[index].column.field_type);
         // Content
         th.innerHTML = sortHTML + aliasCols[index];
         //- Sorting
@@ -1104,7 +1103,7 @@ class Table {
                   }
                 })
               })
-            }            
+            }
           });
           td.appendChild(editBtn);
         }
@@ -1115,6 +1114,7 @@ class Table {
             const sub = path.split('/').pop(); // Get leaf - 1
             const value = (sub === self.getTablename()) ? row[colnames[1]] : row[sub][colnames[1]];
             const rowID = (sub === self.getTablename()) ? row[self.getPrimaryColname()] : row[sub][optionCols[index].table.getPrimaryColname()];
+            td.classList.add('ft-' + optionCols[index].column.field_type);
             td.appendChild(self.renderGridElement(optionCols[index], rowID, value));
           }
         }
@@ -1145,11 +1145,17 @@ class Table {
 
     //--- Build Form (Header, Content Footer)
     const comp = document.createElement('div');
-    comp.classList.add('tablecontent');
-    comp.appendChild(self.getHeader());
-    comp.appendChild(self.getTable());
-    comp.appendChild(self.getFooter());
+    comp.classList.add('m-1')
+
+    const tbl = document.createElement('div');
+    tbl.classList.add('tablecontent', 'row');
+    tbl.appendChild(self.getHeader());
+    tbl.appendChild(self.getTable());
+    tbl.appendChild(self.getFooter());
+    comp.appendChild(tbl);
+
     self.DOMContainer = comp; // save
+
     // Replace Element
     container.replaceWith(comp);
   }
@@ -1893,6 +1899,8 @@ class Form {
     // Order by config[key].orderF
     const sortedKeys = Object.keys(self.formConf).sort((x,y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
     // create Form element
+    const frmwrapper = document.createElement('div');
+    frmwrapper.classList.add('m-1');
     const frm = document.createElement('form');
     frm.classList.add('formcontent', 'row');
     if (!self.oRowData) {
@@ -1936,11 +1944,15 @@ class Form {
         }
       }
     });
-    // Save
-    this.formElement = frm;
+    // Footer
     if (self.showFooter)
       frm.appendChild(self.getFooter());
+
+
+      frmwrapper.appendChild(frm);
+      // Save
+    this.formElement = frmwrapper;
     // ===> Output
-    return frm;
+    return frmwrapper;
   }
 }

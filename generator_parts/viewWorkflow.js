@@ -9,7 +9,7 @@ export default props => {
     setTimeout(() => { t.SM.renderHTML(document.getElementById('statemachine')); }, 10);
     //------ HTML Output
     return `<div>
-      <h2 class="text-info">${t.getTableIcon() + ' ' + t.getTableAlias()} Workflow</h2>
+      <h6 class="text-info mt-2">${t.getTableIcon() + ' ' + t.getTableAlias()} Workflow</h6>
       <div id="statemachine"></div>
       <br>
       <div class="text-center pb-3">
