@@ -31,11 +31,11 @@ const gText = {
         PleaseChoose: 'Please choose...'
     },
     de: {
-        Create: 'Erstellen',
+        Create: '{alias} erstellen',
         Cancel: 'Abbrechen',
         Search: 'Suchen...',
         Loading: 'Laden...',
-        Save: 'Speichern',
+        Save: '{alias} speichern',
         Relate: 'Verbinden',
         Workflow: 'Workflow',
         titleCreate: '{alias} anlegen',
@@ -433,14 +433,14 @@ class StateButton {
         this.getTransButtons = () => {
             const self = this;
             const wrapper = document.createElement('span');
-            const nextstates = this._table.getStateMachine().getNextStates(this._stateID);
+            const nextstates = self._table.getStateMachine().getNextStates(this._stateID);
             if (nextstates.length > 0) {
                 nextstates.map(state => {
                     const nextbtn = document.createElement('a');
                     nextbtn.classList.add('btn', 'mr-1');
                     nextbtn.setAttribute('href', 'javascript:void(0)');
                     if (state.id === self._stateID) {
-                        nextbtn.innerText = gText[setLang].Save;
+                        nextbtn.innerText = gText[setLang].Save.replace('{alias}', self._table.getTableAlias());
                         nextbtn.classList.add('btnState', 'btnEnabled', 'btn-primary');
                     }
                     else {
@@ -657,10 +657,9 @@ class Table {
         if (!table)
             table = self;
         const createBtnElement = document.createElement('a');
-        createBtnElement.classList.add('tbl_createbtn');
         createBtnElement.setAttribute('href', `javascript:void(0);`);
         createBtnElement.innerText = '+ ' + table.getTableAlias();
-        createBtnElement.classList.add('btn', 'btn-success', 'mr-1');
+        createBtnElement.classList.add('btn', 'btn-success');
         createBtnElement.addEventListener('click', () => {
             const createForm = new Form(table);
             createForm.setNewOriginTable(self);
@@ -671,10 +670,9 @@ class Table {
     }
     getWorkflowButton() {
         const createBtnElement = document.createElement('a');
-        createBtnElement.classList.add('tbl_workflowbtn');
         createBtnElement.setAttribute('href', `#/${this.getTablename()}/workflow`);
         createBtnElement.innerText = gText[setLang].Workflow;
-        createBtnElement.classList.add('btn', 'btn-info', 'mr-1');
+        createBtnElement.classList.add('btn', 'btn-info');
         return createBtnElement;
     }
     getSearchBar() {
@@ -682,10 +680,9 @@ class Table {
         const searchBarElement = document.createElement('input');
         searchBarElement.setAttribute('type', "text");
         searchBarElement.setAttribute('placeholder', gText[setLang].Search);
-        searchBarElement.classList.add('tbl_searchbar');
         if (t.Search.length > 0)
             searchBarElement.setAttribute('value', t.Search);
-        searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1');
+        searchBarElement.classList.add('form-control', 'd-inline-block');
         const dHandler = DB.debounce(250, () => {
             t.setSearch(searchBarElement.value);
             t.loadRows(() => {
@@ -753,7 +750,9 @@ class Table {
     getHeader() {
         const self = this;
         const header = document.createElement('div');
-        header.classList.add('tbl_header', 'mb-2', 'col-12', 'p-0');
+        header.classList.add('tbl_header', 'col-12', 'input-group', 'p-0');
+        const appendedCtrl = document.createElement('div');
+        appendedCtrl.classList.add('input-group-append');
         if (this.selectedRows.length > 0 && !this.isExpanded)
             return header;
         if (this.ReadOnly && this.actRowCount < self.PageLimit)
@@ -763,20 +762,21 @@ class Table {
             header.appendChild(searchBar);
             searchBar.focus();
         }
+        header.appendChild(appendedCtrl);
         if (this.superTypeOf) {
             this.superTypeOf.map(subtype => {
                 const tmpTable = new Table(subtype);
                 const tmpCreateBtn = this.getCreateButton(tmpTable);
-                header.appendChild(tmpCreateBtn);
+                appendedCtrl.appendChild(tmpCreateBtn);
             });
         }
         else {
             if (!this.ReadOnly && this.options.showCreateButton) {
-                header.appendChild(self.getCreateButton(self));
+                appendedCtrl.appendChild(self.getCreateButton(self));
             }
         }
         if (this.SM && this.options.showWorkflowButton) {
-            header.appendChild(this.getWorkflowButton());
+            appendedCtrl.appendChild(this.getWorkflowButton());
         }
         return header;
     }
@@ -971,7 +971,7 @@ class Table {
                     editBtn.addEventListener('click', () => {
                         if (!self.superTypeOf) {
                             const modForm = new Form(self, row);
-                            wrapper.parentElement.replaceWith(modForm.getForm());
+                            wrapper.parentElement.parentElement.replaceWith(modForm.getForm());
                         }
                         else {
                             const SuperTableRowID = row[self.getPrimaryColname()];
@@ -981,7 +981,7 @@ class Table {
                                 tmpTable.loadRows(rows => {
                                     if (rows.count > 0) {
                                         const modForm = new Form(tmpTable, rows.records[0]);
-                                        wrapper.parentElement.replaceWith(modForm.getForm());
+                                        wrapper.parentElement.parentElement.replaceWith(modForm.getForm());
                                         modForm.setNewOriginTable(self);
                                     }
                                 });
@@ -1021,7 +1021,7 @@ class Table {
             return;
         }
         const comp = document.createElement('div');
-        comp.classList.add('m-1');
+        comp.classList.add('container-fluid');
         const tbl = document.createElement('div');
         tbl.classList.add('tablecontent', 'row');
         tbl.appendChild(self.getHeader());
@@ -1498,10 +1498,10 @@ class Form {
         const self = this;
         const tblSaved = this.oTable;
         const wrapper = document.createElement('div');
-        wrapper.classList.add('col-12', 'my-4');
+        wrapper.classList.add('col-12', 'my-3');
         if (!self.oRowData) {
             const createBtn = document.createElement('a');
-            createBtn.innerText = gText[setLang].Create;
+            createBtn.innerText = gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias());
             createBtn.setAttribute('href', 'javascript:void(0);');
             createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
             wrapper.appendChild(createBtn);
@@ -1529,7 +1529,7 @@ class Form {
                         for (const msg of messages) {
                             let title = '';
                             if (msg.type == 0)
-                                title += gText[setLang].Create + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
+                                title += gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias()) + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
                             document.getElementById('myModalTitle').innerHTML = title;
                             document.getElementById('myModalContent').innerHTML = msg.text;
                             $('#myModal').modal({});
@@ -1570,9 +1570,9 @@ class Form {
             }
             else {
                 const saveBtn = document.createElement('a');
-                saveBtn.innerText = gText[setLang].Save;
+                saveBtn.innerText = gText[setLang].Save.replace('{alias}', tblSaved.getTableAlias());
                 saveBtn.setAttribute('href', 'javascript:void(0);');
-                saveBtn.classList.add('btn', 'btn-primary', 'mr-1', 'mb-1');
+                saveBtn.classList.add('btn', 'btn-primary', 'mr-1');
                 wrapper.appendChild(saveBtn);
                 saveBtn.addEventListener('click', () => {
                     const data = self.getValues(true);
@@ -1665,7 +1665,7 @@ class Form {
         const table = self.oldTable || self.oTable;
         const sortedKeys = Object.keys(self.formConf).sort((x, y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
         const frmwrapper = document.createElement('div');
-        frmwrapper.classList.add('m-1');
+        frmwrapper.classList.add('container-fluid');
         const frm = document.createElement('form');
         frm.classList.add('formcontent', 'row');
         if (!self.oRowData) {

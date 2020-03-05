@@ -24,11 +24,11 @@ const gText = {
     PleaseChoose: 'Please choose...'
   },
   de: {
-    Create: 'Erstellen',
+    Create: '{alias} erstellen',
     Cancel: 'Abbrechen',
     Search: 'Suchen...',
     Loading: 'Laden...',
-    Save: 'Speichern',
+    Save: '{alias} speichern',
     Relate: 'Verbinden',
     Workflow: 'Workflow',
     titleCreate: '{alias} anlegen',
@@ -491,7 +491,7 @@ class StateButton {
     const self = this;
     const wrapper = document.createElement('span');
     //--- List of next states      
-    const nextstates = this._table.getStateMachine().getNextStates(this._stateID);
+    const nextstates = self._table.getStateMachine().getNextStates(this._stateID);
     if (nextstates.length > 0) {
       nextstates.map(state => {
         // Create New Button-Element
@@ -499,7 +499,7 @@ class StateButton {
         nextbtn.classList.add('btn', 'mr-1'); // bootstrap
         nextbtn.setAttribute('href', 'javascript:void(0)');
         if (state.id === self._stateID) {
-          nextbtn.innerText = gText[setLang].Save;
+          nextbtn.innerText = gText[setLang].Save.replace('{alias}', self._table.getTableAlias());
           nextbtn.classList.add('btnState', 'btnEnabled', 'btn-primary');
         } else {
           nextbtn.innerText = state.name;
@@ -727,10 +727,9 @@ class Table {
     if (!table) table = self;
     // Create Element
     const createBtnElement = document.createElement('a');
-    createBtnElement.classList.add('tbl_createbtn');
     createBtnElement.setAttribute('href', `javascript:void(0);`);
     createBtnElement.innerText = '+ ' + table.getTableAlias();
-    createBtnElement.classList.add('btn', 'btn-success', 'mr-1'); // Bootstrap custom classes
+    createBtnElement.classList.add('btn', 'btn-success'); // Bootstrap custom classes
     createBtnElement.addEventListener('click', () => {
       // On Create click
       const createForm = new Form(table);
@@ -743,10 +742,9 @@ class Table {
   }
   private getWorkflowButton(): HTMLElement {
     const createBtnElement = document.createElement('a');
-    createBtnElement.classList.add('tbl_workflowbtn');
     createBtnElement.setAttribute('href', `#/${this.getTablename()}/workflow`);
     createBtnElement.innerText = gText[setLang].Workflow;
-    createBtnElement.classList.add('btn', 'btn-info', 'mr-1'); // Bootstrap custom classes
+    createBtnElement.classList.add('btn', 'btn-info'); // Bootstrap custom classes
     return createBtnElement;
   }
   private getSearchBar(): HTMLElement {
@@ -754,10 +752,9 @@ class Table {
     const searchBarElement = document.createElement('input');
     searchBarElement.setAttribute('type', "text");
     searchBarElement.setAttribute('placeholder', gText[setLang].Search);
-    searchBarElement.classList.add('tbl_searchbar');
     if (t.Search.length > 0) searchBarElement.setAttribute('value', t.Search);
     // Bootstrap custom classes
-    searchBarElement.classList.add('form-control', 'd-inline-block', 'w-50', 'w-lg-25', 'mr-1');
+    searchBarElement.classList.add('form-control', 'd-inline-block');
     // Events
     const dHandler = DB.debounce(250, ()=>{
       t.setSearch(searchBarElement.value); // Set Filter
@@ -838,10 +835,9 @@ class Table {
     const self = this;
     // create Element
     const header = document.createElement('div');
-    header.classList.add('tbl_header', 'mb-2', 'col-12', 'p-0');
-    // TODO: Improve
-    //if (self.selType === SelectType.NoSelect)
-      //header.classList.add('mt-3');
+    header.classList.add('tbl_header', 'col-12', 'input-group', 'p-0');
+    const appendedCtrl = document.createElement('div');
+    appendedCtrl.classList.add('input-group-append');
     // Expanded?
     if (this.selectedRows.length > 0 && !this.isExpanded) return header;
     if (this.ReadOnly && this.actRowCount < self.PageLimit) return header;
@@ -850,23 +846,24 @@ class Table {
       const searchBar = this.getSearchBar();
       header.appendChild(searchBar);
       searchBar.focus();
-    }   
+    }
+    header.appendChild(appendedCtrl);
     // Subtypes Buttons (TODO: From Config!!)
     if (this.superTypeOf) {
       this.superTypeOf.map(subtype => {
         const tmpTable = new Table(subtype);
         const tmpCreateBtn = this.getCreateButton(tmpTable);
-        header.appendChild(tmpCreateBtn);
+        appendedCtrl.appendChild(tmpCreateBtn);
       })
     } else {
       // Create Button
       if (!this.ReadOnly && this.options.showCreateButton) {
-        header.appendChild(self.getCreateButton(self));
+        appendedCtrl.appendChild(self.getCreateButton(self));
       }
     }
     // Workflow Button
     if (this.SM && this.options.showWorkflowButton) {
-      header.appendChild(this.getWorkflowButton());
+      appendedCtrl.appendChild(this.getWorkflowButton());
     }
     return header;
   }
@@ -1087,7 +1084,7 @@ class Table {
             if (!self.superTypeOf) {
               // Normal Edit
               const modForm = new Form(self, row);
-              wrapper.parentElement.replaceWith(modForm.getForm());
+              wrapper.parentElement.parentElement.replaceWith(modForm.getForm());
             }
             else {
               // SuperType Edit (jump to the relevant entry)
@@ -1098,7 +1095,7 @@ class Table {
                 tmpTable.loadRows(rows => {
                   if (rows.count > 0) {
                     const modForm = new Form(tmpTable, rows.records[0]);
-                    wrapper.parentElement.replaceWith(modForm.getForm());
+                    wrapper.parentElement.parentElement.replaceWith(modForm.getForm());
                     modForm.setNewOriginTable(self);
                   }
                 })
@@ -1145,7 +1142,7 @@ class Table {
 
     //--- Build Form (Header, Content Footer)
     const comp = document.createElement('div');
-    comp.classList.add('m-1')
+    comp.classList.add('container-fluid');
 
     const tbl = document.createElement('div');
     tbl.classList.add('tablecontent', 'row');
@@ -1698,11 +1695,11 @@ class Form {
     const tblSaved = this.oTable;
     // Wrapper (Footer)
     const wrapper = document.createElement('div');
-    wrapper.classList.add('col-12', 'my-4');
+    wrapper.classList.add('col-12', 'my-3');
     //--- Add create Button (if CreateForm)
     if (!self.oRowData) {
       const createBtn = document.createElement('a');
-      createBtn.innerText = gText[setLang].Create;
+      createBtn.innerText = gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias());
       createBtn.setAttribute('href', 'javascript:void(0);');
       createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
       wrapper.appendChild(createBtn);
@@ -1734,7 +1731,7 @@ class Form {
             }
             for (const msg of messages) {
               let title = '';
-              if (msg.type == 0) title += gText[setLang].Create + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
+              if (msg.type == 0) title += gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias()) + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
               // Render a Modal
               document.getElementById('myModalTitle').innerHTML = title;
               document.getElementById('myModalContent').innerHTML = msg.text;
@@ -1783,9 +1780,9 @@ class Form {
       else {
         // Save Button
         const saveBtn = document.createElement('a');
-        saveBtn.innerText = gText[setLang].Save;
+        saveBtn.innerText = gText[setLang].Save.replace('{alias}', tblSaved.getTableAlias());
         saveBtn.setAttribute('href', 'javascript:void(0);');
-        saveBtn.classList.add('btn', 'btn-primary', 'mr-1', 'mb-1'); // Bootstrap custom classes
+        saveBtn.classList.add('btn', 'btn-primary', 'mr-1'); // Bootstrap custom classes
         wrapper.appendChild(saveBtn);
         saveBtn.addEventListener('click', () => {
           const data = self.getValues(true);
@@ -1900,7 +1897,8 @@ class Form {
     const sortedKeys = Object.keys(self.formConf).sort((x,y) => Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)));
     // create Form element
     const frmwrapper = document.createElement('div');
-    frmwrapper.classList.add('m-1');
+    frmwrapper.classList.add('container-fluid')
+
     const frm = document.createElement('form');
     frm.classList.add('formcontent', 'row');
     if (!self.oRowData) {
