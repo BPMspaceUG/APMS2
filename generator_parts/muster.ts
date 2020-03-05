@@ -1234,6 +1234,7 @@ class Form {
     if (el.mode_form == 'hi') return null;
     if (el.mode_form == 'ro' && el.is_primary) return null;
     if (!this.oRowData && el.field_type === 'state') return null;
+    if (!this.oRowData && el.is_virtual && el.field_type === 'foreignkey') return null;
     //====================================================
     // Create Element
     let crElem: HTMLElement = null;
@@ -1387,7 +1388,7 @@ class Form {
       if (el.show_in_form) {
         //--- Replace Patterns
         if (el.customfilter) {
-          if (self.oRowData) {
+          if (self.oRowData) { // [EDIT]
             // Replace Pattern
             for (const colname of Object.keys(self.oRowData)) {
               const pattern = '%'+colname+'%';
@@ -1404,7 +1405,7 @@ class Form {
               fCreate[el.revfk_col]['value'] = {};
               fCreate[el.revfk_col].value[el.revfk_col] = self.oRowData[el.revfk_col];
             }
-          }
+          } // [BOTH]
           el.customfilter = decodeURI(el.customfilter);
           tmpTable.setFilter(el.customfilter);
         }

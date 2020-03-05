@@ -139,7 +139,7 @@
       $cols = Config::getColsByTablename($tablename, $data);
       // Collect only virtual Columns
       foreach ($cols as $colname => $col) {
-        if ($col["is_virtual"] && $col["field_type"] != "reversefk")
+        if ($col["is_virtual"] && $col["field_type"] != "reversefk" && $col["field_type"] != "foreignkey")
           $res[$colname] = $col["virtual_select"];
       }
       return $res;
@@ -176,7 +176,7 @@
       if (is_null($cols)) return [];
       // Collect only virtual Columns
       foreach ($cols as $colname => $col) {
-        if ($col["is_virtual"] && $col["field_type"] != "reversefk")
+        if ($col["is_virtual"] && $col["field_type"] != "reversefk" && $col["field_type"] != "foreignkey")
           $res[] = '`'.$colname.'`';
       }
       return $res;
@@ -185,7 +185,7 @@
       $res = array();
       $cols = Config::getColsByTablename($tablename);
       foreach ($cols as $colname => $col) {
-        if (array_key_exists('foreignKey', $col) && $col["foreignKey"]['table'] != '') {
+        if (array_key_exists('foreignKey', $col) && $col["foreignKey"]['table'] != '' && !$col["is_virtual"]) {
           $extTblCols = Config::getColnamesByTablename($col["foreignKey"]['table']);
           foreach ($extTblCols as $extColname) {
             $arr = explode(".", $extColname);
@@ -201,7 +201,7 @@
       $cols = Config::getColsByTablename($tablename);
       // Find primary columns
       foreach ($cols as $colname => $col) {
-        if (array_key_exists('foreignKey', $col) && $col["foreignKey"]['table'] != '')
+        if (array_key_exists('foreignKey', $col) && $col["foreignKey"]['table'] != '' && !$col["is_virtual"])
           $res[] = array(
             'table' => $col["foreignKey"]['table'],
             'col_id' => $col["foreignKey"]['col_id'],

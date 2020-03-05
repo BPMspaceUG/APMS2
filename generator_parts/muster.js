@@ -1100,6 +1100,8 @@ class Form {
             return null;
         if (!this.oRowData && el.field_type === 'state')
             return null;
+        if (!this.oRowData && el.is_virtual && el.field_type === 'foreignkey')
+            return null;
         let crElem = null;
         const path = this._path + '/' + key;
         if (el.field_type == 'textarea') {
