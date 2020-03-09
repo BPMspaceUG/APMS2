@@ -7,11 +7,11 @@ enum TableType {obj = 'obj', t1_1 = '1_1', t1_n = '1_n', tn_1 = 'n_1', tn_m = 'n
 
 const gText = {
   en: {
-    Create: 'Create',
+    Create: 'Create {alias}',
     Cancel: 'Cancel',
     Search: 'Search...',
     Loading: 'Loading...',
-    Save: 'Save',
+    Save: 'Save {alias}',
     Relate: 'Relate',
     Workflow: 'Workflow',
     titleCreate: 'Create new {alias}',
@@ -1366,7 +1366,6 @@ class Form {
       if (!selType && selType !== 0) selType = SelectType.Single;
 
       const tmpTable = new Table(el.fk_table, selType);
-      //const randID = DB.getID(); // TODO: Remove
       tmpTable.ReadOnly = (el.mode_form == 'ro');
 
       //--- Check if FK already has a value from Server (yes/no)
@@ -1386,10 +1385,21 @@ class Form {
       hiddenInp.setAttribute('value', v);
       //================================
       if (el.show_in_form) {
-        //--- Replace Patterns
-        if (el.customfilter) {
-          if (self.oRowData) { // [EDIT]
-            // Replace Pattern
+        let customFilter = null;
+        if (self.oRowData) { // [EDIT]
+          // Reverse FK
+          if (el.is_virtual) {
+            const myID = self.oRowData[self.oTable.getPrimaryColname()];
+            const fCreate = tmpTable.getFormCreateSettingsDiff();
+            fCreate[el.foreignKey.col_id] = {}
+            fCreate[el.foreignKey.col_id]['value'] = {};
+            fCreate[el.foreignKey.col_id].value[el.foreignKey.col_id] = myID;
+            customFilter = '{"=":["project",' + myID + ']}';
+            tmpTable.isExpanded = true;
+            tmpTable.setSelType(SelectType.NoSelect);
+          }
+          // Customfilter: Replace Patterns
+          if (el.customfilter) {
             for (const colname of Object.keys(self.oRowData)) {
               const pattern = '%'+colname+'%';
               // Replace if found
@@ -1398,18 +1408,11 @@ class Form {
                 el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
               }
             }
-            // Reverse FK (must have set customfilter and value)
-            if (el.revfk_col) {
-              const fCreate = tmpTable.getFormCreateSettingsDiff();
-              fCreate[el.revfk_col] = {}
-              fCreate[el.revfk_col]['value'] = {};
-              fCreate[el.revfk_col].value[el.revfk_col] = self.oRowData[el.revfk_col];
-            }
-          } // [BOTH]
-          el.customfilter = decodeURI(el.customfilter);
-          tmpTable.setFilter(el.customfilter);
+            el.customfilter = decodeURI(el.customfilter);
+          }
         }
-        // Update Value when selection happened
+        tmpTable.setFilter(customFilter);
+          // Update Value when selection happened
         tmpTable.onSelectionChanged(selRows => {
           let value = "";
           if (selType === SelectType.Single) value = tmpTable.getSelectedIDs()[0];

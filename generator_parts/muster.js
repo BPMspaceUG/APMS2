@@ -14,11 +14,11 @@ var TableType;
 })(TableType || (TableType = {}));
 const gText = {
     en: {
-        Create: 'Create',
+        Create: 'Create {alias}',
         Cancel: 'Cancel',
         Search: 'Search...',
         Loading: 'Loading...',
-        Save: 'Save',
+        Save: 'Save {alias}',
         Relate: 'Relate',
         Workflow: 'Workflow',
         titleCreate: 'Create new {alias}',
@@ -1244,8 +1244,19 @@ class Form {
                 v = "";
             hiddenInp.setAttribute('value', v);
             if (el.show_in_form) {
-                if (el.customfilter) {
-                    if (self.oRowData) {
+                let customFilter = null;
+                if (self.oRowData) {
+                    if (el.is_virtual) {
+                        const myID = self.oRowData[self.oTable.getPrimaryColname()];
+                        const fCreate = tmpTable.getFormCreateSettingsDiff();
+                        fCreate[el.foreignKey.col_id] = {};
+                        fCreate[el.foreignKey.col_id]['value'] = {};
+                        fCreate[el.foreignKey.col_id].value[el.foreignKey.col_id] = myID;
+                        customFilter = '{"=":["project",' + myID + ']}';
+                        tmpTable.isExpanded = true;
+                        tmpTable.setSelType(SelectType.NoSelect);
+                    }
+                    if (el.customfilter) {
                         for (const colname of Object.keys(self.oRowData)) {
                             const pattern = '%' + colname + '%';
                             if (el.customfilter.indexOf(pattern) >= 0) {
@@ -1253,16 +1264,10 @@ class Form {
                                 el.customfilter = el.customfilter.replace(new RegExp(pattern, "g"), replaceWith);
                             }
                         }
-                        if (el.revfk_col) {
-                            const fCreate = tmpTable.getFormCreateSettingsDiff();
-                            fCreate[el.revfk_col] = {};
-                            fCreate[el.revfk_col]['value'] = {};
-                            fCreate[el.revfk_col].value[el.revfk_col] = self.oRowData[el.revfk_col];
-                        }
+                        el.customfilter = decodeURI(el.customfilter);
                     }
-                    el.customfilter = decodeURI(el.customfilter);
-                    tmpTable.setFilter(el.customfilter);
                 }
+                tmpTable.setFilter(customFilter);
                 tmpTable.onSelectionChanged(selRows => {
                     let value = "";
                     if (selType === SelectType.Single)
