@@ -253,7 +253,7 @@
                         <span ng-if="!col.is_primary"><label class="m-0"><input type="checkbox" class="mr-1" ng-model="col.show_in_form">Form</label></span>
                       </td>
                       <!-- Show FK Menu if it is no Primary column -->
-                      <td class="align-middle" colspan="2" ng-if="!col.is_primary">
+                      <td class="align-middle" colspan="2" ng-if="col.field_type == 'foreignkey' && !col.is_primary">
                         <!-- FK -->
                         <div ng-if="col.field_type == 'foreignkey'">
                           <select class="custom-select custom-select-sm" style="width: 130px; display: inline !important;" ng-model="col.foreignKey.table">
@@ -270,11 +270,11 @@
                         </div>
                       </td>
                       <!-- VIRTUAL GRID COLUMN -->
-                      <td colspan="4" ng-if="col.is_virtual && !col.field_type == 'foreignkey">
+                      <td colspan="4" ng-if="col.is_virtual">
                         <div class="row">
                           <div class="col-10">
                             <!-- Virtual Select -->
-                            <div ng-if="col.field_type != 'reversefk'">
+                            <div ng-if="col.field_type != 'reversefk' && col.field_type != 'foreignkey'">
                               <span>SELECT ( i.e. CONCAT(a, b) ): </span>
                               <input type="text" ng-model="col.virtual_select" style="width: 300px" placeholder="CONCAT(id, col1, col2)">
                             </div>

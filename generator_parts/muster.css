@@ -35,7 +35,7 @@ body {margin-bottom: 60px; overflow-x: hidden;}
 .datatbl td ul, ol {margin: 0; padding: 0; list-style-position: inside;}
 th.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; border: none !important; vertical-align: middle;}
 td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50px; vertical-align: middle;}
-.tbl_statustext {font-size: .8em; color: grey;}
+.tbl_statustext {font-size: .8em; color: grey; padding-top: .8em; margin-left: 1em;}
 
 .ft-float {text-align: right;}
 .ft-switch, .ft-checkbox {text-align: center;}

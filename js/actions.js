@@ -23,7 +23,6 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     secret_key: '',
     pathProject: '../APMS2_test/project1/'
   }
-
   //=================================================== INIT
   // Load recent Projects
   $http.get('recentprojects.secret.json').success(data => {
@@ -177,7 +176,6 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     return newname;
   }
   $scope.add_virtCol = function(tbl, tablename){
-    console.log("Add virtual Column for", tablename);
     const cols = $scope.tables[tablename].columns;
     const new_virt_colname = rand_name('virtualCol', cols);
     $scope.tables[tablename].columns[new_virt_colname] = {
@@ -196,7 +194,6 @@ APMS.controller('APMScontrol', ($scope, $http) => {
     delete tbl.columns[colname];
   }
   $scope.add_virtLink = function(tblname = null) {
-    console.log("Add virtual Table");
     const tbls = $scope.tables;
     const new_virt_tblname = tblname || rand_name('virtualTbl', tbls);
     $scope.tables[new_virt_tblname] = {
@@ -215,7 +212,7 @@ APMS.controller('APMScontrol', ($scope, $http) => {
       $scope.tables[new_virt_tblname].order = 0;
       $scope.tables[new_virt_tblname].table_alias = 'Dashboard';
       $scope.tables[new_virt_tblname].table_icon = '<i class="fas fa-tachometer-alt"></i>';
-      $scope.tables[new_virt_tblname].virtualcontent = "return \u0027\u003Ch5 class=\u0022mt-3\u0022\u003EDashboard\u003C\/h5\u003E\u0027;";
+      $scope.tables[new_virt_tblname].virtualcontent = "return \u0027\u003Ch5\u003EDashboard\u003C\/h5\u003E\u0027;";
     }
   }
   $scope.changeSortOrder = function(col, inc) {
