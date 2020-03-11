@@ -51,50 +51,40 @@ const gText = {
 let setLang = 'en';
 class DB {
     static request(command, params, callback) {
-        let me = this;
+        let url = 'api.php';
         let data = { cmd: command };
-        let HTTPMethod = 'POST';
-        let HTTPBody = undefined;
-        let url = me.API_URL;
+        const settings = { method: 'GET', body: null };
         if (params)
             data['param'] = params;
-        if (command == 'init') {
-            HTTPMethod = 'GET';
+        if (command === 'init') {
         }
-        else if (command == 'create') {
-            HTTPMethod = 'POST';
+        else if (command === 'ping') {
+            settings.method = 'POST';
+            settings.body = JSON.stringify(data);
+        }
+        else if (command === 'create' || command === 'import' || command === 'makeTransition' || command === 'call') {
+            settings.method = 'POST';
             data['param']['path'] = location.hash;
-            HTTPBody = JSON.stringify(data);
+            settings.body = JSON.stringify(data);
         }
-        else if (command == 'read') {
-            HTTPMethod = 'GET';
-            const getParamStr = Object.keys(params).map(key => {
-                const val = params[key];
-                return key + '=' + (DB.isObject(val) ? JSON.stringify(val) : val);
-            }).join('&');
-            url += '?' + getParamStr;
+        else if (command === 'read') {
+            url += '?' + Object.keys(params).map(key => key + '=' + (DB.isObject(params[key]) ? JSON.stringify(params[key]) : params[key])).join('&');
         }
-        else if (command == 'update') {
-            HTTPMethod = 'PATCH';
+        else if (command === 'update') {
+            settings.method = 'PATCH';
             data['param']['path'] = location.hash;
-            HTTPBody = JSON.stringify(data);
+            settings.body = JSON.stringify(data);
         }
         else {
-            if (command == 'makeTransition' || command == 'call')
-                data['param']['path'] = location.hash;
-            HTTPBody = JSON.stringify(data);
+            console.error('Unkown Command:', command);
+            return false;
         }
-        fetch(url, {
-            method: HTTPMethod,
-            body: HTTPBody,
-            credentials: 'same-origin'
-        }).then(response => {
-            return response.json();
-        }).then(res => {
+        fetch(url, settings).then(r => r.json()).then(res => {
             if (res.error) {
                 console.error(res.error.msg);
                 if (res.error.url) {
-                    document.location.assign('?logout');
+                    console.log(res);
+                    console.error('Logged out!');
                 }
             }
             else
@@ -150,7 +140,6 @@ class DB {
         };
     }
 }
-DB.API_URL = 'api.php';
 DB.getID = () => { const c4 = () => { return Math.random().toString(16).slice(-4); }; return 'i' + c4() + c4() + c4() + c4() + c4() + c4() + c4() + c4(); };
 class StateMachine {
     constructor(states, links) {
@@ -911,9 +900,13 @@ class Table {
                     else if (self.getSortDir() === 'ASC')
                         sortHTML = '<i class="fas fa-sort-up mr-1"></i>';
                 }
+                if (self.Rows.length <= 1)
+                    sortHTML = '';
                 th.classList.add('ft-' + optionCols[index].column.field_type);
                 th.innerHTML = sortHTML + aliasCols[index];
                 th.addEventListener('click', () => {
+                    if (self.Rows.length <= 1)
+                        return;
                     let newSortDir = "ASC";
                     if (colname.split('.').pop() === self.getSortColname().split('.').pop()) {
                         newSortDir = (self.getSortDir() === "ASC") ? "DESC" : null;
@@ -1238,6 +1231,7 @@ class Form {
             if (fkIsSet) {
                 if (DB.isObject(v)) {
                     const key = Object.keys(v)[0];
+                    tmpTable.setRows([v]);
                     tmpTable.setSelectedRows([v]);
                     tmpTable.isExpanded = false;
                     v = v[key];
@@ -1291,26 +1285,31 @@ class Form {
                         value = "";
                     hiddenInp.setAttribute('value', value);
                 });
-                tmpTable.loadRows(rows => {
-                    if (rows["count"] == 0) {
-                        tblElement.innerText = gText[setLang].noEntries;
-                        if (!tmpTable.ReadOnly) {
-                            const createBtn = document.createElement('button');
-                            createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
-                            createBtn.innerText = gText[setLang].Create.replace('{alias}', tmpTable.getTableAlias());
-                            createBtn.addEventListener('click', e => {
-                                e.preventDefault();
-                                const createForm = new Form(tmpTable);
-                                tblElement.replaceWith(createForm.getForm());
-                                createForm.focusFirst();
-                            });
-                            tblElement.appendChild(createBtn);
+                if (fkIsSet && !el.is_virtual) {
+                    tmpTable.renderHTML(tblElement);
+                }
+                else {
+                    tmpTable.loadRows(rows => {
+                        if (rows["count"] == 0) {
+                            tblElement.innerText = gText[setLang].noEntries;
+                            if (!tmpTable.ReadOnly) {
+                                const createBtn = document.createElement('button');
+                                createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
+                                createBtn.innerText = gText[setLang].Create.replace('{alias}', tmpTable.getTableAlias());
+                                createBtn.addEventListener('click', e => {
+                                    e.preventDefault();
+                                    const createForm = new Form(tmpTable);
+                                    tblElement.replaceWith(createForm.getForm());
+                                    createForm.focusFirst();
+                                });
+                                tblElement.appendChild(createBtn);
+                            }
                         }
-                    }
-                    else {
-                        tmpTable.renderHTML(tblElement);
-                    }
-                });
+                        else {
+                            tmpTable.renderHTML(tblElement);
+                        }
+                    });
+                }
             }
             else {
                 el.column_alias = null;

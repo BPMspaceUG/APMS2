@@ -50,64 +50,53 @@ let setLang = 'en'; // default Language
 // TODO: Rename this class to API, Ctrl or Main... Should be the main class, which controlls everything
 abstract class DB {
   // Variables
-  private static API_URL: string = 'api.php';
   public static Config: any;
   // Methods
   public static request(command: string, params: any, callback) {
-    let me = this;
+    let url = 'api.php';
     let data = {cmd: command};
-    let HTTPMethod = 'POST';
-    let HTTPBody = undefined;
-    let url = me.API_URL;
+    const settings: RequestInit = {method: 'GET', body: null};
 
-    if (params)
-      data['param'] = params; // append to data Object 
-
-    // Set HTTP Method
-    if (command == 'init') {
-      HTTPMethod = 'GET';
+    // append Parameter to DataObject
+    if (params) data['param'] = params;
+    //if (token) settings['headers'] = {'Authorization': 'Bearer ' + token};
+ 
+    // Set Request Settings
+    if (command === 'init') {
     }
-    else if (command == 'create') {
-      HTTPMethod = 'POST';
+    else if (command === 'ping') {
+      settings.method = 'POST';
+      settings.body = JSON.stringify(data);
+    }
+    else if (command === 'create' || command === 'import' || command === 'makeTransition' || command === 'call') {
+      settings.method = 'POST';
       data['param']['path'] = location.hash; // Send path within body
-      HTTPBody = JSON.stringify(data);
+      settings.body = JSON.stringify(data);
     }
-    else if (command == 'read') {
-      HTTPMethod = 'GET';
-      const getParamStr = Object.keys(params).map(key => { 
-        const val = params[key];
-        return key + '=' + (DB.isObject(val) ? JSON.stringify(val) : val);
-      }).join('&');
-      url += '?' + getParamStr;
+    else if (command === 'read') {
+      url += '?' + Object.keys(params).map(key => key + '=' + (DB.isObject(params[key]) ? JSON.stringify(params[key]) : params[key])).join('&');
     }
-    else if (command == 'update') {
-      HTTPMethod = 'PATCH';
+    else if (command === 'update') {
+      settings.method = 'PATCH';
       data['param']['path'] = location.hash; // Send path within body
-      HTTPBody = JSON.stringify(data);
+      settings.body = JSON.stringify(data);
     }
     else {
-      // makeTransition || call
-      if (command == 'makeTransition' || command == 'call')
-        data['param']['path'] = location.hash; // Send path within body
-      HTTPBody = JSON.stringify(data);
+      console.error('Unkown Command:', command);
+      return false;
     }
-    // Request (every Request is processed by this function)
-    fetch(url, {
-      method: HTTPMethod,
-      body: HTTPBody,
-      //headers: {'Authorization': 'Bearer '+token},
-      credentials: 'same-origin'
-    }).then(response => {
-      return response.json();
-    }).then(res => {
+    //=====> Request (every Request is processed by this function)
+    fetch(url, settings).then(r => r.json()).then(res => {
+      // <===== Response
       // Check for Error
       if (res.error) {
-        //alert(res.error.msg);
         console.error(res.error.msg);
         // Goto URL (Login)
         if (res.error.url) {
+          console.log(res);
+          console.error('Logged out!');
           //document.location.assign(res.error.url);
-          document.location.assign('?logout');
+          //document.location.assign('?logout');
         }
       }
       else
@@ -1010,12 +999,15 @@ class Table {
           else if (self.getSortDir() === 'ASC')
             sortHTML = '<i class="fas fa-sort-up mr-1"></i>';
         }
+        if (self.Rows.length <= 1)
+          sortHTML = '';
         // Custom class header
         th.classList.add('ft-' + optionCols[index].column.field_type);
         // Content
         th.innerHTML = sortHTML + aliasCols[index];
-        //- Sorting
+        //- Sorting        
         th.addEventListener('click', () => {
+          if (self.Rows.length <= 1) return;
           let newSortDir = "ASC";
           if (colname.split('.').pop() === self.getSortColname().split('.').pop()) {
             newSortDir = (self.getSortDir() === "ASC") ? "DESC" : null;
@@ -1370,7 +1362,6 @@ class Form {
       // Select Type
       let selType = parseInt(el.seltype);
       if (!selType && selType !== 0) selType = SelectType.Single;
-      //console.log("ELEMENT =>", el);
 
       const tmpTable = new Table(el.fk_table, selType);
       tmpTable.ReadOnly = (el.mode_form == 'ro');
@@ -1381,15 +1372,17 @@ class Form {
       if (fkIsSet) {
         if (DB.isObject(v)) {
           const key = Object.keys(v)[0];
+          tmpTable.setRows([v]);
           tmpTable.setSelectedRows([v]);
           tmpTable.isExpanded = false;
           v = v[key]; // First Key (=ID)
           tmpTable.setFilter('{"=":["'+key+'",'+v+']}');
         }
-      } else v = "";
+      }
+      else v = "";
       // Set Hidden ID
       hiddenInp.setAttribute('value', v);
-      //================================
+      //================================ Custom Filter + RevFK
       if (el.show_in_form) {
         let customFilter = null;
         // Standard Filter
@@ -1427,9 +1420,8 @@ class Form {
             tmpTable.setSelType(SelectType.NoSelect);
           }
         }
-        //---> Set Filter
-        //console.log('--filter-->', customFilter);
         tmpTable.setFilter(customFilter);
+        //-------------------------------------
 
         // Update Value when selection happened
         tmpTable.onSelectionChanged(selRows => {
@@ -1440,28 +1432,36 @@ class Form {
           // Set Value to field
           hiddenInp.setAttribute('value', value);
         });
-        //--- Load Rows
-        tmpTable.loadRows(rows => {
-          if (rows["count"] == 0) {
-            tblElement.innerText = gText[setLang].noEntries;
-            if (!tmpTable.ReadOnly) {
-              // If no entries, Create a new one => Form
-              const createBtn = document.createElement('button');
-              createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
-              createBtn.innerText = gText[setLang].Create.replace('{alias}', tmpTable.getTableAlias());
-              createBtn.addEventListener('click', e => {
-                e.preventDefault();
-                const createForm = new Form(tmpTable);
-                tblElement.replaceWith(createForm.getForm());
-                createForm.focusFirst();
-              })
-              tblElement.appendChild(createBtn);
+
+        // Normal FK
+        if (fkIsSet && !el.is_virtual) {
+          tmpTable.renderHTML(tblElement);
+        }
+        else {
+          //--- Load Rows
+          tmpTable.loadRows(rows => {
+            if (rows["count"] == 0) {
+              tblElement.innerText = gText[setLang].noEntries;
+              if (!tmpTable.ReadOnly) {
+                // If no entries, Create a new one => Form
+                const createBtn = document.createElement('button');
+                createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
+                createBtn.innerText = gText[setLang].Create.replace('{alias}', tmpTable.getTableAlias());
+                createBtn.addEventListener('click', e => {
+                  e.preventDefault();
+                  const createForm = new Form(tmpTable);
+                  tblElement.replaceWith(createForm.getForm());
+                  createForm.focusFirst();
+                })
+                tblElement.appendChild(createBtn);
+              }
             }
-          }
-          else {
-            tmpTable.renderHTML(tblElement);
-          }
-        });
+            else {
+              tmpTable.renderHTML(tblElement);
+            }
+          });
+        }
+
       }
       else {
         // Hide in FORM (but make ID readable)
