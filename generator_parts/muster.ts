@@ -484,9 +484,8 @@ class StateButton {
     if (nextstates.length > 0) {
       nextstates.map(state => {
         // Create New Button-Element
-        const nextbtn = document.createElement('a');
+        const nextbtn = document.createElement('button');
         nextbtn.classList.add('btn', 'mr-1'); // bootstrap
-        nextbtn.setAttribute('href', 'javascript:void(0)');
         if (state.id === self._stateID) {
           nextbtn.innerText = gText[setLang].Save.replace('{alias}', self._table.getTableAlias());
           nextbtn.classList.add('btnState', 'btnEnabled', 'btn-primary');
@@ -796,10 +795,10 @@ class Table {
         btn.classList.add('page-item'); // Bootstrap
         if (t.PageIndex === actPage) btn.classList.add('active');
         //-- Create Link
-        const pageLinkEl = document.createElement('a');
-        pageLinkEl.setAttribute('href', 'javascript:void(0);');
+        const pageLinkEl = document.createElement('button');
         pageLinkEl.innerText = `${actPage + 1}`;
-        pageLinkEl.addEventListener('click', () => {
+        pageLinkEl.addEventListener('click', e => {
+          e.preventDefault();
           // Set new PageIndex
           t.PageIndex = actPage;
           t.loadRows(() => { t.renderHTML(); });
@@ -979,7 +978,8 @@ class Table {
         th.classList.add('col-sel');
         if (!self.isExpanded && self.Search === '') {
           th.innerHTML = '<a href="javascript:void(0);"><i class="fas fa-chevron-circle-down"></i></a>';
-          th.addEventListener('click', () => {
+          th.addEventListener('click', e => {
+            e.preventDefault();
             self.resetFilter();
             self.isExpanded = true;
             self.loadRows(()=>{
@@ -1006,7 +1006,8 @@ class Table {
         // Content
         th.innerHTML = sortHTML + aliasCols[index];
         //- Sorting        
-        th.addEventListener('click', () => {
+        th.addEventListener('click', e => {
+          e.preventDefault();
           if (self.Rows.length <= 1) return;
           let newSortDir = "ASC";
           if (colname.split('.').pop() === self.getSortColname().split('.').pop()) {
@@ -1076,7 +1077,8 @@ class Table {
           editBtn.innerHTML = '<i class="fas fa-edit"></i>';
           editBtn.setAttribute('href', 'javascript:void(0);');
           editBtn.setAttribute('title', '#' + row[self.getPrimaryColname()]);
-          editBtn.addEventListener('click', () => { // On Edit Click
+          editBtn.addEventListener('click', e => { // On Edit Click
+            e.preventDefault();
             if (!self.superTypeOf) {
               // Normal Edit
               const modForm = new Form(self, row);
@@ -1124,15 +1126,26 @@ class Table {
     if (!container) return;
 
     // SuperType
-    if (this.getTablename() === 'partner')
-      this.setSuperTypeOf('person', 'organization');
+    if (self.getTablename() === 'partner')
+      self.setSuperTypeOf('person', 'organization');
 
     //--- No Entries?
-    if (this.actRowCount === 0 && !this.ReadOnly && !this.superTypeOf) {
+    if (self.actRowCount === 0 && !self.ReadOnly && !self.superTypeOf) {
       // instantly show Create Form
-      const createForm = new Form(self);
-      container.replaceWith(createForm.getForm());
-      createForm.focusFirst();
+      container.innerText = gText[setLang].noEntries;
+      if (!self.ReadOnly) {
+        // If no entries, Create a new one => Form
+        const createBtn = document.createElement('button');
+        createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
+        createBtn.innerText = gText[setLang].Create.replace('{alias}', self.getTableAlias());
+        createBtn.addEventListener('click', e => {
+          e.preventDefault();
+          const createForm = new Form(self);
+          container.replaceWith(createForm.getForm());
+          createForm.focusFirst();
+        })
+        container.appendChild(createBtn);
+      }
       return;
     }
 
@@ -1251,7 +1264,7 @@ class Form {
       if (el.mode_form === 'rw') crElem.classList.add('rwInput');
       if (el.mode_form === 'ro') crElem.setAttribute('readonly', 'readonly')
       crElem.classList.add('form-control'); // Bootstrap
-      crElem.setAttribute('value', DB.escapeHtml(v));
+      crElem.setAttribute('value', v);
     }
     //--- Number
     else if (el.field_type == 'number') {
@@ -1371,12 +1384,13 @@ class Form {
       const fkIsSet = !Object.values(v).every(o => o === null);
       if (fkIsSet) {
         if (DB.isObject(v)) {
+          // FORWARD FOREIGN KEY
           const key = Object.keys(v)[0];
           tmpTable.setRows([v]);
           tmpTable.setSelectedRows([v]);
           tmpTable.isExpanded = false;
           v = v[key]; // First Key (=ID)
-          tmpTable.setFilter('{"=":["'+key+'",'+v+']}');
+          tmpTable.setFilter('{"=":["' + key + '",' + v + ']}');
         }
       }
       else v = "";
@@ -1407,13 +1421,14 @@ class Form {
           }
           // Reverse FK
           if (el.is_virtual) {
+            // REVERSE FOREIGN KEY
             const myID = self.oRowData[self.oTable.getPrimaryColname()];
             const fCreate = tmpTable.getFormCreateSettingsDiff();
             fCreate[el.foreignKey.col_id] = {}
             fCreate[el.foreignKey.col_id]['value'] = {};
             fCreate[el.foreignKey.col_id].value[el.foreignKey.col_id] = myID;
             fCreate[el.foreignKey.col_id].show_in_form = false;
-            customFilter = '{"=":["'+ el.foreignKey.col_id +'",'+ myID +']}';
+            customFilter = '{"=":["`' + tmpTable.getTablename() + '`.'+ el.foreignKey.col_id +'",'+ myID +']}';
             tmpTable.isExpanded = true;
             tmpTable.Columns[el.foreignKey.col_id].show_in_grid = false;
             tmpTable.Columns[el.foreignKey.col_id].show_in_form = false;
@@ -1440,28 +1455,9 @@ class Form {
         else {
           //--- Load Rows
           tmpTable.loadRows(rows => {
-            if (rows["count"] == 0) {
-              tblElement.innerText = gText[setLang].noEntries;
-              if (!tmpTable.ReadOnly) {
-                // If no entries, Create a new one => Form
-                const createBtn = document.createElement('button');
-                createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
-                createBtn.innerText = gText[setLang].Create.replace('{alias}', tmpTable.getTableAlias());
-                createBtn.addEventListener('click', e => {
-                  e.preventDefault();
-                  const createForm = new Form(tmpTable);
-                  tblElement.replaceWith(createForm.getForm());
-                  createForm.focusFirst();
-                })
-                tblElement.appendChild(createBtn);
-              }
-            }
-            else {
-              tmpTable.renderHTML(tblElement);
-            }
+            tmpTable.renderHTML(tblElement);
           });
         }
-
       }
       else {
         // Hide in FORM (but make ID readable)
@@ -1732,12 +1728,12 @@ class Form {
     wrapper.classList.add('col-12', 'my-3');
     //--- Add create Button (if CreateForm)
     if (!self.oRowData) {
-      const createBtn = document.createElement('a');
+      const createBtn = document.createElement('button');
       createBtn.innerText = gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias());
-      createBtn.setAttribute('href', 'javascript:void(0);');
       createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
       wrapper.appendChild(createBtn);
-      createBtn.addEventListener('click', () => {
+      createBtn.addEventListener('click', e => {
+        e.preventDefault();
         //===================== Create Command
         const data = self.getValues();
         let newRowID = null;
@@ -1837,12 +1833,12 @@ class Form {
       }
       else {
         // Save Button
-        const saveBtn = document.createElement('a');
+        const saveBtn = document.createElement('button');
         saveBtn.innerText = gText[setLang].Save.replace('{alias}', tblSaved.getTableAlias());
-        saveBtn.setAttribute('href', 'javascript:void(0);');
         saveBtn.classList.add('btn', 'btn-primary', 'mr-1'); // Bootstrap custom classes
         wrapper.appendChild(saveBtn);
-        saveBtn.addEventListener('click', () => {
+        saveBtn.addEventListener('click', e => {
+          e.preventDefault();
           const data = self.getValues(true);
           const newRowData = data[tblSaved.getTablename()][0];
           newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
@@ -1851,30 +1847,24 @@ class Form {
             if (this.oTable) this.oTable.loadRows(()=>{ this.oTable.renderHTML(self.formElement); });
             else {
               document.location.reload();
-              /*
-              tblSaved.loadRow(self.oRowData[tblSaved.getPrimaryColname()], row => {                
-                const F = new Form(tblSaved, row);
-                self.formElement.replaceWith(F.getForm());
-              });
-              */
             }
           })
         });
       }
     }
     //--- Add Cancel Button
-    if (this.oTable.getNrOfRows() > 0) {
-      const cancelBtn = document.createElement('a');
+    //if (this.oTable.getNrOfRows() > 0) {
+      const cancelBtn = document.createElement('button');
       cancelBtn.innerText = gText[setLang].Cancel;
-      cancelBtn.setAttribute('href', 'javascript:void(0);');
       cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1'); // Bootstrap custom classes
       wrapper.appendChild(cancelBtn);
-      cancelBtn.addEventListener('click', () => {
+      cancelBtn.addEventListener('click', e => {
+        e.preventDefault();
         self.oTable.loadRows(()=>{
           self.oTable.renderHTML(self.formElement);
         });
       })
-    }
+    //}
     //=====> Output
     return wrapper;
   }

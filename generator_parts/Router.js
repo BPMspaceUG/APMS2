@@ -39,7 +39,14 @@ export default class Router {
 		const btns = document.getElementsByClassName('list-group-item-action');
 		[...btns].map(b => {
 			b.classList.remove('active');
-			if (b.getAttribute('href') === '#/' + table) b.classList.add('active');
+			if (b.getAttribute('href') === '#/' + table) {
+				// When loading via Button-Click
+				b.classList.add('active');
+				document.getElementById('actTitle').innerHTML = b.innerHTML;
+				document.getElementById('actTitle').className = '';
+				document.getElementById('actTitle').classList.add('link-'+table);
+				document.getElementById('wrapper').classList.remove('toggled');
+			}
 		});
 	}
 }

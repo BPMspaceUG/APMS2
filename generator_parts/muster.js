@@ -425,9 +425,8 @@ class StateButton {
             const nextstates = self._table.getStateMachine().getNextStates(this._stateID);
             if (nextstates.length > 0) {
                 nextstates.map(state => {
-                    const nextbtn = document.createElement('a');
+                    const nextbtn = document.createElement('button');
                     nextbtn.classList.add('btn', 'mr-1');
-                    nextbtn.setAttribute('href', 'javascript:void(0)');
                     if (state.id === self._stateID) {
                         nextbtn.innerText = gText[setLang].Save.replace('{alias}', self._table.getTableAlias());
                         nextbtn.classList.add('btnState', 'btnEnabled', 'btn-primary');
@@ -717,10 +716,10 @@ class Table {
                 btn.classList.add('page-item');
                 if (t.PageIndex === actPage)
                     btn.classList.add('active');
-                const pageLinkEl = document.createElement('a');
-                pageLinkEl.setAttribute('href', 'javascript:void(0);');
+                const pageLinkEl = document.createElement('button');
                 pageLinkEl.innerText = `${actPage + 1}`;
-                pageLinkEl.addEventListener('click', () => {
+                pageLinkEl.addEventListener('click', e => {
+                    e.preventDefault();
                     t.PageIndex = actPage;
                     t.loadRows(() => { t.renderHTML(); });
                 });
@@ -881,7 +880,8 @@ class Table {
                 th.classList.add('col-sel');
                 if (!self.isExpanded && self.Search === '') {
                     th.innerHTML = '<a href="javascript:void(0);"><i class="fas fa-chevron-circle-down"></i></a>';
-                    th.addEventListener('click', () => {
+                    th.addEventListener('click', e => {
+                        e.preventDefault();
                         self.resetFilter();
                         self.isExpanded = true;
                         self.loadRows(() => {
@@ -904,7 +904,8 @@ class Table {
                     sortHTML = '';
                 th.classList.add('ft-' + optionCols[index].column.field_type);
                 th.innerHTML = sortHTML + aliasCols[index];
-                th.addEventListener('click', () => {
+                th.addEventListener('click', e => {
+                    e.preventDefault();
                     if (self.Rows.length <= 1)
                         return;
                     let newSortDir = "ASC";
@@ -964,7 +965,8 @@ class Table {
                     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
                     editBtn.setAttribute('href', 'javascript:void(0);');
                     editBtn.setAttribute('title', '#' + row[self.getPrimaryColname()]);
-                    editBtn.addEventListener('click', () => {
+                    editBtn.addEventListener('click', e => {
+                        e.preventDefault();
                         if (!self.superTypeOf) {
                             const modForm = new Form(self, row);
                             wrapper.parentElement.parentElement.replaceWith(modForm.getForm());
@@ -1008,12 +1010,22 @@ class Table {
         container = container || self.DOMContainer;
         if (!container)
             return;
-        if (this.getTablename() === 'partner')
-            this.setSuperTypeOf('person', 'organization');
-        if (this.actRowCount === 0 && !this.ReadOnly && !this.superTypeOf) {
-            const createForm = new Form(self);
-            container.replaceWith(createForm.getForm());
-            createForm.focusFirst();
+        if (self.getTablename() === 'partner')
+            self.setSuperTypeOf('person', 'organization');
+        if (self.actRowCount === 0 && !self.ReadOnly && !self.superTypeOf) {
+            container.innerText = gText[setLang].noEntries;
+            if (!self.ReadOnly) {
+                const createBtn = document.createElement('button');
+                createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
+                createBtn.innerText = gText[setLang].Create.replace('{alias}', self.getTableAlias());
+                createBtn.addEventListener('click', e => {
+                    e.preventDefault();
+                    const createForm = new Form(self);
+                    container.replaceWith(createForm.getForm());
+                    createForm.focusFirst();
+                });
+                container.appendChild(createBtn);
+            }
             return;
         }
         const comp = document.createElement('div');
@@ -1119,7 +1131,7 @@ class Form {
             if (el.mode_form === 'ro')
                 crElem.setAttribute('readonly', 'readonly');
             crElem.classList.add('form-control');
-            crElem.setAttribute('value', DB.escapeHtml(v));
+            crElem.setAttribute('value', v);
         }
         else if (el.field_type == 'number') {
             crElem = this.getNewFormElement('input', key, path);
@@ -1267,7 +1279,7 @@ class Form {
                         fCreate[el.foreignKey.col_id]['value'] = {};
                         fCreate[el.foreignKey.col_id].value[el.foreignKey.col_id] = myID;
                         fCreate[el.foreignKey.col_id].show_in_form = false;
-                        customFilter = '{"=":["' + el.foreignKey.col_id + '",' + myID + ']}';
+                        customFilter = '{"=":["`' + tmpTable.getTablename() + '`.' + el.foreignKey.col_id + '",' + myID + ']}';
                         tmpTable.isExpanded = true;
                         tmpTable.Columns[el.foreignKey.col_id].show_in_grid = false;
                         tmpTable.Columns[el.foreignKey.col_id].show_in_form = false;
@@ -1290,24 +1302,7 @@ class Form {
                 }
                 else {
                     tmpTable.loadRows(rows => {
-                        if (rows["count"] == 0) {
-                            tblElement.innerText = gText[setLang].noEntries;
-                            if (!tmpTable.ReadOnly) {
-                                const createBtn = document.createElement('button');
-                                createBtn.classList.add('btn', 'btn-sm', 'btn-success', 'ml-2');
-                                createBtn.innerText = gText[setLang].Create.replace('{alias}', tmpTable.getTableAlias());
-                                createBtn.addEventListener('click', e => {
-                                    e.preventDefault();
-                                    const createForm = new Form(tmpTable);
-                                    tblElement.replaceWith(createForm.getForm());
-                                    createForm.focusFirst();
-                                });
-                                tblElement.appendChild(createBtn);
-                            }
-                        }
-                        else {
-                            tmpTable.renderHTML(tblElement);
-                        }
+                        tmpTable.renderHTML(tblElement);
                     });
                 }
             }
@@ -1530,12 +1525,12 @@ class Form {
         const wrapper = document.createElement('div');
         wrapper.classList.add('col-12', 'my-3');
         if (!self.oRowData) {
-            const createBtn = document.createElement('a');
+            const createBtn = document.createElement('button');
             createBtn.innerText = gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias());
-            createBtn.setAttribute('href', 'javascript:void(0);');
             createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
             wrapper.appendChild(createBtn);
-            createBtn.addEventListener('click', () => {
+            createBtn.addEventListener('click', e => {
+                e.preventDefault();
                 const data = self.getValues();
                 let newRowID = null;
                 tblSaved.importData(data, resp => {
@@ -1615,12 +1610,12 @@ class Form {
                 wrapper.appendChild(nextStateBtns);
             }
             else {
-                const saveBtn = document.createElement('a');
+                const saveBtn = document.createElement('button');
                 saveBtn.innerText = gText[setLang].Save.replace('{alias}', tblSaved.getTableAlias());
-                saveBtn.setAttribute('href', 'javascript:void(0);');
                 saveBtn.classList.add('btn', 'btn-primary', 'mr-1');
                 wrapper.appendChild(saveBtn);
-                saveBtn.addEventListener('click', () => {
+                saveBtn.addEventListener('click', e => {
+                    e.preventDefault();
                     const data = self.getValues(true);
                     const newRowData = data[tblSaved.getTablename()][0];
                     newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
@@ -1634,18 +1629,16 @@ class Form {
                 });
             }
         }
-        if (this.oTable.getNrOfRows() > 0) {
-            const cancelBtn = document.createElement('a');
-            cancelBtn.innerText = gText[setLang].Cancel;
-            cancelBtn.setAttribute('href', 'javascript:void(0);');
-            cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
-            wrapper.appendChild(cancelBtn);
-            cancelBtn.addEventListener('click', () => {
-                self.oTable.loadRows(() => {
-                    self.oTable.renderHTML(self.formElement);
-                });
+        const cancelBtn = document.createElement('button');
+        cancelBtn.innerText = gText[setLang].Cancel;
+        cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1');
+        wrapper.appendChild(cancelBtn);
+        cancelBtn.addEventListener('click', e => {
+            e.preventDefault();
+            self.oTable.loadRows(() => {
+                self.oTable.renderHTML(self.formElement);
             });
-        }
+        });
         return wrapper;
     }
     focusFirst() {

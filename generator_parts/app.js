@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //==========================================================
     // Set actual User (TODO: Ask userdata from system)
     const elemUser = document.getElementById('username');
-    elemUser.innerText = config.user.firstname + ' ' + config.user.lastname;
+    elemUser.innerText = (config.user.firstname || '') + ' ' + (config.user.lastname || '');
     elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
 
     // Set Table Links
@@ -30,13 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const tmpBtn = document.createElement('a');
         document.getElementById('sidebar-links').appendChild(tmpBtn);
         tmpBtn.setAttribute('href', '#/' + tname);
-        /*tmpBtn.addEventListener('click', e => {
-          router.navigate('#/' + tname);
-        })*/
         tmpBtn.classList.add('list-group-item', 'list-group-item-action', 'link-'+tname); // bootstrap
-        if (tname === location.hash.substr(2))
-          tmpBtn.classList.add('active');
         tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
+        if (tname === location.hash.substr(2)) {
+          // When loading via URL
+          tmpBtn.classList.add('active');
+          document.getElementById('actTitle').innerHTML = tmpBtn.innerHTML;
+        }
       }
     });
     //==========================================================
