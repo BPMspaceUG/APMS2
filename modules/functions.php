@@ -2,7 +2,7 @@
   function getStateCSS($id, $bgcolor, $color = "white", $border = "none") {
     return ".state$id {background-color: $bgcolor; color: $color;}\n";
   }
-  function generateConfig($host="", $port="", $user="", $pass="", $name="", $urlLogin="", $secretKey="", $url1="", $url2="") {
+  function generateConfig($host="", $port="", $user="", $pass="", $name="", $urlLogin="", $secretKey="", $url1="", $url2="", $url3="") {
     global $act_version_link; // TODO: Remove!
     $data = "<?php
     // APMS Generated Project (".date("Y-m-d H:i:s").")
@@ -20,6 +20,7 @@
     define('TOKEN_EXP_TIME', 3600); // Expiry Time of an Access-Token [sec]
     define('URL_CHANGEPW', '$url1'); // Link to change the Password
     define('URL_MANAGEPROFILE', '$url2'); // Link to manage the Profile
+    define('URL_LOGOUT', '$url3'); // Link to manage the Profile
     ";
     return $data;
   }

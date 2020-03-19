@@ -223,8 +223,7 @@
           }
         }
       }
-
-
+      
       // Exclude the following Columns:
       $excludeKeys = $primKey;
       $excludeKeys[] = 'state_id'; // Also exclude StateMachine in the FormData

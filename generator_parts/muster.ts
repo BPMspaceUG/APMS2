@@ -1,5 +1,5 @@
 // Plugins (only declared to remove TS Errors)
-declare var vis: any, Quill: any, $: any; // Plugins
+declare var vis: any, Quill: any, $: any, accessToken: string; // Plugins
 
 // Enums
 enum SelectType {NoSelect = 0, Single = 1, Multi = 2}
@@ -55,7 +55,7 @@ abstract class DB {
   public static request(command: string, params: any, callback) {
     let url = 'api.php';
     let data = {cmd: command};
-    const settings: RequestInit = {method: 'GET', body: null};
+    const settings: RequestInit = {method: 'GET', headers: {Authorization: 'Bearer ' + accessToken}, body: null};
 
     // append Parameter to DataObject
     if (params) data['param'] = params;

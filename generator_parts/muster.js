@@ -53,7 +53,7 @@ class DB {
     static request(command, params, callback) {
         let url = 'api.php';
         let data = { cmd: command };
-        const settings = { method: 'GET', body: null };
+        const settings = { method: 'GET', headers: { Authorization: 'Bearer ' + accessToken }, body: null };
         if (params)
             data['param'] = params;
         if (command === 'init') {
