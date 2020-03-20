@@ -15,6 +15,7 @@
   if (!isset($_GET['token']) && is_null($accessToken)) {
     // Login
     header('Location: ' . getLoginURL());
+    exit();
   }
   else if (is_null($accessToken)) {
     // Save access token for one request in cookie

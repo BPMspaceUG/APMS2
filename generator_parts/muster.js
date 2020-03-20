@@ -1106,6 +1106,8 @@ class Form {
             return null;
         if (el.mode_form == 'ro' && el.is_primary)
             return null;
+        if (el.mode_form == 'ro' && !el.show_in_form)
+            return null;
         if (!this.oRowData && el.field_type === 'state')
             return null;
         if (!this.oRowData && el.is_virtual && el.field_type === 'foreignkey')
