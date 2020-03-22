@@ -33,11 +33,11 @@ export default class Router {
 				route.setProps({table, origin: first});
 			}
 		}
-		// ===> Output HTML
-		this.renderNode.innerHTML = route ? route.renderView() : document.location.assign('#/dashboard');
 		// Link active
 		const btns = document.getElementsByClassName('list-group-item-action');
+		let firstMenuLink = null;
 		[...btns].map(b => {
+			if (!firstMenuLink) firstMenuLink = b.getAttribute('href');
 			b.classList.remove('active');
 			if (b.getAttribute('href') === '#/' + table) {
 				// When loading via Button-Click
@@ -48,5 +48,7 @@ export default class Router {
 				document.getElementById('wrapper').classList.remove('toggled');
 			}
 		});
+		// ===> Output HTML
+		this.renderNode.innerHTML = route ? route.renderView() : document.location.assign(firstMenuLink);
 	}
 }

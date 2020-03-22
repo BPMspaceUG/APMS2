@@ -15,13 +15,11 @@ const routes = [
 document.addEventListener('DOMContentLoaded', () => {
   // Load Configuration
   DB.loadConfig(config => {
-    const router = new Router(routes, document.getElementById('app'));
     //==========================================================
     // Set actual User (TODO: Ask userdata from system)
     const elemUser = document.getElementById('username');
     elemUser.innerText = (config.user.firstname || '') + ' ' + (config.user.lastname || '');
     elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
-
     // Set Table Links
     Object.keys(config.tables).forEach(tname => {
       // Render only if in Menu
@@ -39,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+    const router = new Router(routes, document.getElementById('app'));
     //==========================================================
     // Happens after init
     window.addEventListener('hashchange', e => {
