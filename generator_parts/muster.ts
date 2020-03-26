@@ -531,7 +531,8 @@ class Table {
     showControlColumn: true,
     showWorkflowButton: false,
     showCreateButton: true,
-    showSearch: true
+    showSearch: true,
+    showHeader: true
   }
   public isExpanded: boolean = false;
   private formCreateSettingsDiff: any;
@@ -825,11 +826,13 @@ class Table {
     // create Element
     const header = document.createElement('div');
     header.classList.add('tbl_header', 'col-12', 'input-group', 'p-0');
-    const appendedCtrl = document.createElement('div');
-    appendedCtrl.classList.add('input-group-append');
     // Expanded?
     if (this.selectedRows.length > 0 && !this.isExpanded) return header;
     if (this.ReadOnly && this.actRowCount < self.PageLimit) return header;
+    if (!this.options.showHeader) return header;
+    //---
+    const appendedCtrl = document.createElement('div');
+    appendedCtrl.classList.add('input-group-append');
     // Searchbar
     if (this.options.showSearch) {
       const searchBar = this.getSearchBar();
@@ -919,16 +922,14 @@ class Table {
     tbl.classList.add('datatbl');
     tbl.classList.add('table', 'table-sm', 'table-hover', 'm-0'); // bootstrap
     wrapper.appendChild(tbl);
-
     // filter + sort columns
     const allowedCols = Object.keys(self.Columns).filter(col => self.Columns[col].show_in_grid); // only which are shown
     const sortedCols = allowedCols.sort((a,b) => Math.sign(self.Columns[a].col_order - self.Columns[b].col_order)); // sort by col_order
-    
     // Merge into max 2 (vals and optcols)
     const expandedCols = [];
     const aliasCols = [];
     const optionCols = [];
-    
+    // Cloumns
     sortedCols.map(col => {
       if (self.Columns[col].field_type === "foreignkey") {
         // FK
@@ -1023,7 +1024,6 @@ class Table {
       }
       tr.appendChild(th);
     });
-
     //--- Body
     const tbody = document.createElement('tbody');
     tbl.appendChild(tbody);
@@ -1130,7 +1130,8 @@ class Table {
       self.setSuperTypeOf('person', 'organization');
 
     //--- No Entries?
-    if (self.actRowCount === 0 && !self.ReadOnly && !self.superTypeOf) {
+    //console.log(self.getTablename(), self.actRowCount, self.ReadOnly);
+    if (self.actRowCount === 0 && !self.superTypeOf) {
       // instantly show Create Form
       container.innerText = gText[setLang].noEntries;
       if (!self.ReadOnly) {
@@ -1433,6 +1434,8 @@ class Form {
             tmpTable.isExpanded = true;
             tmpTable.Columns[el.foreignKey.col_id].show_in_grid = false;
             tmpTable.Columns[el.foreignKey.col_id].show_in_form = false;
+            if (tmpTable.getSelectType() === SelectType.Single)
+              tmpTable.options.showHeader = false;
             tmpTable.setSelType(SelectType.NoSelect);
           }
         }
@@ -1645,10 +1648,10 @@ class Form {
             tblOptions.setFilter(el.customfilter);
           if (el.onchange)
             crElem.addEventListener('change', () => {
-              eval(el.onchange);
+              const fun = new Function(el.onchange);
+              fun.call(this);
             });
-          // Empty Element (cant be null)
-          /*
+          // Empty Element (cant be null)          
           const opt = document.createElement('option');
           opt.setAttribute('value', null);
           opt.innerText = gText[setLang].PleaseChoose;
@@ -1656,7 +1659,6 @@ class Form {
           opt.setAttribute('disabled', 'disabled');
           opt.setAttribute('style', 'display:none;');
           crElem.appendChild(opt);
-          */
           //--- Check if FK already has a value from Server (yes/no)
           const fkIsSet = !Object.values(v).every(o => o === null);
           if (fkIsSet) {
@@ -1667,7 +1669,6 @@ class Form {
           }
           else
             v = "";
-
           // load Rows
           tblOptions.loadRows(rows => {
             rows.records.map(row => {

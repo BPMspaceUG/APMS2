@@ -470,7 +470,8 @@ class Table {
             showControlColumn: true,
             showWorkflowButton: false,
             showCreateButton: true,
-            showSearch: true
+            showSearch: true,
+            showHeader: true
         };
         this.isExpanded = false;
         this.callbackSelectionChanged = resp => { };
@@ -740,12 +741,14 @@ class Table {
         const self = this;
         const header = document.createElement('div');
         header.classList.add('tbl_header', 'col-12', 'input-group', 'p-0');
-        const appendedCtrl = document.createElement('div');
-        appendedCtrl.classList.add('input-group-append');
         if (this.selectedRows.length > 0 && !this.isExpanded)
             return header;
         if (this.ReadOnly && this.actRowCount < self.PageLimit)
             return header;
+        if (!this.options.showHeader)
+            return header;
+        const appendedCtrl = document.createElement('div');
+        appendedCtrl.classList.add('input-group-append');
         if (this.options.showSearch) {
             const searchBar = this.getSearchBar();
             header.appendChild(searchBar);
@@ -1012,7 +1015,7 @@ class Table {
             return;
         if (self.getTablename() === 'partner')
             self.setSuperTypeOf('person', 'organization');
-        if (self.actRowCount === 0 && !self.ReadOnly && !self.superTypeOf) {
+        if (self.actRowCount === 0 && !self.superTypeOf) {
             container.innerText = gText[setLang].noEntries;
             if (!self.ReadOnly) {
                 const createBtn = document.createElement('button');
@@ -1285,6 +1288,8 @@ class Form {
                         tmpTable.isExpanded = true;
                         tmpTable.Columns[el.foreignKey.col_id].show_in_grid = false;
                         tmpTable.Columns[el.foreignKey.col_id].show_in_form = false;
+                        if (tmpTable.getSelectType() === SelectType.Single)
+                            tmpTable.options.showHeader = false;
                         tmpTable.setSelType(SelectType.NoSelect);
                     }
                 }
@@ -1463,8 +1468,16 @@ class Form {
                         tblOptions.setFilter(el.customfilter);
                     if (el.onchange)
                         crElem.addEventListener('change', () => {
-                            eval(el.onchange);
+                            const fun = new Function(el.onchange);
+                            fun.call(this);
                         });
+                    const opt = document.createElement('option');
+                    opt.setAttribute('value', null);
+                    opt.innerText = gText[setLang].PleaseChoose;
+                    opt.setAttribute('selected', 'selected');
+                    opt.setAttribute('disabled', 'disabled');
+                    opt.setAttribute('style', 'display:none;');
+                    crElem.appendChild(opt);
                     const fkIsSet = !Object.values(v).every(o => o === null);
                     if (fkIsSet) {
                         if (DB.isObject(v)) {
