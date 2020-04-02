@@ -47,7 +47,7 @@ let setLang = 'en'; // default Language
 //==============================================================
 // Database (Communication via API)
 //==============================================================
-// TODO: Rename this class to API, Ctrl or Main... Should be the main class, which controlls everything
+// TODO: Rename this class to API, Ctrl
 abstract class DB {
   // Variables
   public static Config: any;
@@ -116,20 +116,38 @@ abstract class DB {
   public static isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
   }
+  public static objAssign(target, varArgs) {
+    'use strict';
+    if (target == null)  // TypeError if undefined or null
+      throw new TypeError('Cannot convert undefined or null to object');
+    const to = Object(target);
+    for (let i = 1; i < arguments.length; i++) {
+      let nextSource = arguments[i];
+      if (nextSource != null) { // Skip over if undefined or null
+        for (var nextKey in nextSource) {
+          // Avoid bugs when hasOwnProperty is shadowed
+          if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+            to[nextKey] = nextSource[nextKey];
+          }
+        }
+      }
+    }
+    return to;
+  }
   public static mergeDeep(target, ...sources) {
     if (!sources.length) return target;
     const source = sources.shift();
     if (this.isObject(target) && this.isObject(source)) {    
       for (const key in source) {
         if (this.isObject(source[key])) {
-          if (!target[key]) { 
-            Object.assign(target, { [key]: {} });
+          if (!target[key]) {
+            DB.objAssign(target, { [key]: {} });
           }else{          
-            target[key] = Object.assign({}, target[key])
+            target[key] = DB.objAssign({}, target[key])
           }
           this.mergeDeep(target[key], source[key]);
         } else {
-          Object.assign(target, { [key]: source[key] });
+          DB.objAssign(target, { [key]: source[key] });
         }
       }
     }
@@ -151,6 +169,14 @@ abstract class DB {
   }
   public static replaceDomElement(oldNode: HTMLElement, newNode: HTMLElement) {
     oldNode.parentElement.replaceChild(newNode, oldNode);
+  }
+  public static sign(x: number) {
+    return x ? x < 0 ? -1 : 1 : 0;
+  }
+  public static isInteger(value: number) {
+    return typeof value === 'number' && 
+    isFinite(value) && 
+    Math.floor(value) === value;
   }
   // TODO: Remove the random ID generation because of Selenium!!! and use DOM-Create-Element instead!
   public static getID = ()=>{ const c4 = ()=>{ return Math.random().toString(16).slice(-4); }; return 'i'+c4()+c4()+c4()+c4()+c4()+c4()+c4()+c4(); };
@@ -229,7 +255,7 @@ class StateMachine {
       // Find duplicates by from + to
       const unique = [];
       const duplicates = input.filter(o => {
-        if (unique.find(i => i.from === o.from && i.to === o.to)) return true;
+        //if (unique.find(i => i.from === o.from && i.to === o.to)) return true;
         unique.push(o);
         return false;
       });
@@ -931,7 +957,7 @@ class Table {
     wrapper.appendChild(tbl);
     // filter + sort columns
     const allowedCols = Object.keys(self.Columns).filter(col => self.Columns[col].show_in_grid); // only which are shown
-    const sortedCols = allowedCols.sort((a,b) => Math.sign(self.Columns[a].col_order - self.Columns[b].col_order)); // sort by col_order
+    const sortedCols = allowedCols.sort((a,b) => DB.sign(self.Columns[a].col_order - self.Columns[b].col_order)); // sort by col_order
     // Merge into max 2 (vals and optcols)
     const expandedCols = [];
     const aliasCols = [];
@@ -1050,7 +1076,7 @@ class Table {
           td.appendChild(cb);
 
           // On (Un)Select
-          function changeCheckbox(){
+          const changeCheckbox = () => {
             if (cb.checked) {
               // Unselect all checkboxes
               const allCheckboxes = cb.parentElement.parentElement.parentElement.querySelectorAll('input[type=checkbox]');
@@ -1247,7 +1273,7 @@ class Form {
       else {
         // Otherwise, update the current place in the object
         if (!current[key]) { // If the key doesn't exist, create it
-          if (Number.isInteger(key) && key > 0) {
+          if (DB.isInteger(key) && key > 0) {
             // existing Object
             const tmp = new Table(lastkey);
             const newObj = {};
@@ -1834,7 +1860,7 @@ class Form {
           if (importWasSuccessful) {
             // if Table is selectType 1 or 2 then add to selectedRows
             //console.log('1-->[', newRowID,']', tblSaved.getTableAlias(), tblSaved.getSubTables());
-            function reloadStuff(newRowID) {
+            const reloadStuff = newRowID => {
               self.oTable.setSearch('');
               if (self.oTable.getSelectType() === 1) {
                 // Foreign Key
@@ -1930,10 +1956,10 @@ class Form {
     const result = {};
     let res = {};
     // Read inputs from Form-Scope
-    const rwInputs = this.formElement.getElementsByClassName('rwInput');
+    const rwInputs = <HTMLInputElement[]><any>this.formElement.getElementsByClassName('rwInput');
     // For every Input
     for (const element of rwInputs) {
-      const inp = <HTMLInputElement>element;
+      const inp = element;
       const key = inp.getAttribute('name');
       const type = inp.getAttribute('type');
       let path = inp.getAttribute('data-path');
@@ -1996,7 +2022,7 @@ class Form {
     const table = self.oldTable || self.oTable;
     // Order by config[key].orderF
     const sortedKeys = Object.keys(self.formConf).sort((x,y) => 
-      Math.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)
+      DB.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)
     ));
     // create Form element
     const frmwrapper = document.createElement('div');
