@@ -2,8 +2,9 @@
     "compilerOptions": {
         "module": "commonjs",
         "removeComments": true,
-        "target": "es2017",
-        "lib": ["es2017", "dom", "dom.iterable"]
+        "target": "ES6",
+        //"strict": true,
+        "lib": ["ES6", "dom", "dom.iterable"]
     },
     "include": ["generator_parts/*"]
 }
