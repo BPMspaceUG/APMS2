@@ -181,7 +181,6 @@ var DB = (function () {
             isFinite(value) &&
             Math.floor(value) === value;
     };
-    DB.getID = function () { var c4 = function () { return Math.random().toString(16).slice(-4); }; return 'i' + c4() + c4() + c4() + c4() + c4() + c4() + c4() + c4(); };
     return DB;
 }());
 var StateMachine = (function () {
@@ -706,15 +705,16 @@ var Table = (function () {
     Table.prototype.getCreateButton = function (subTable) {
         if (subTable === void 0) { subTable = null; }
         var self = this;
-        var table = subTable ? subTable : self;
+        var subTableOrSelf = subTable || self;
         var createBtnElement = document.createElement('button');
-        createBtnElement.innerText = '+ ' + table.getTableAlias();
+        createBtnElement.innerText = '+ ' + subTableOrSelf.getTableAlias();
         createBtnElement.classList.add('btn', 'btn-success');
         createBtnElement.addEventListener('click', function (e) {
             e.preventDefault();
-            table.setSearch('');
-            var createForm = new Form(table);
-            createForm.setNewOriginTable(self);
+            subTableOrSelf.setSearch('');
+            var createForm = new Form(subTableOrSelf);
+            if (subTable)
+                createForm.setSuperTable(self);
             DB.replaceDomElement(self.DOMContainer, createForm.getForm());
             createForm.focusFirst();
         });
@@ -757,7 +757,7 @@ var Table = (function () {
                 gText[setLang].noEntries;
         return statusTextElement;
     };
-    Table.prototype.getFooter = function () {
+    Table.prototype.getTblFooter = function () {
         var t = this;
         var footerElement = document.createElement('div');
         footerElement.classList.add('tbl_footer', 'col-12', 'p-0');
@@ -1051,8 +1051,8 @@ var Table = (function () {
                                 tmpTable.loadRows(function (rows) {
                                     if (rows.count > 0) {
                                         var modForm = new Form(tmpTable, rows.records[0]);
+                                        modForm.setSuperTable(self);
                                         DB.replaceDomElement(wrapper.parentElement.parentElement, modForm.getForm());
-                                        modForm.setNewOriginTable(self);
                                     }
                                 });
                             });
@@ -1109,7 +1109,7 @@ var Table = (function () {
                         createBtn.addEventListener('click', function (e) {
                             e.preventDefault();
                             var createForm = new Form(subType);
-                            createForm.setNewOriginTable(self);
+                            createForm.setSuperTable(self);
                             DB.replaceDomElement(container, createForm.getForm());
                             createForm.focusFirst();
                         });
@@ -1125,7 +1125,7 @@ var Table = (function () {
         tbl.classList.add('tablecontent', 'row');
         tbl.appendChild(self.getHeader());
         tbl.appendChild(self.getTable());
-        tbl.appendChild(self.getFooter());
+        tbl.appendChild(self.getTblFooter());
         comp.appendChild(tbl);
         self.DOMContainer = comp;
         DB.replaceDomElement(container, comp);
@@ -1133,7 +1133,7 @@ var Table = (function () {
     Table.prototype.reRenderRows = function () {
         var self = this;
         DB.replaceDomElement(self.DOMContainer.getElementsByClassName('tbl_content')[0], self.getTable());
-        DB.replaceDomElement(self.DOMContainer.getElementsByClassName('tbl_footer')[0], self.getFooter());
+        DB.replaceDomElement(self.DOMContainer.getElementsByClassName('tbl_footer')[0], self.getTblFooter());
     };
     return Table;
 }());
@@ -1141,7 +1141,7 @@ var Form = (function () {
     function Form(Table, RowData, Path) {
         if (RowData === void 0) { RowData = null; }
         if (Path === void 0) { Path = null; }
-        this.oldTable = null;
+        this.superTable = null;
         this.showFooter = false;
         this.oTable = Table;
         this.oRowData = RowData;
@@ -1504,18 +1504,16 @@ var Form = (function () {
         else if (el.field_type == 'htmleditor') {
             crElem = document.createElement('div');
             crElem.classList.add('htmleditor');
-            var newID_1 = DB.getID();
-            var cont = this.getNewFormElement('div', key, path);
-            cont.setAttribute('id', newID_1);
-            cont.setAttribute('class', 'rwInput');
-            crElem.appendChild(cont);
+            var cont_1 = this.getNewFormElement('div', key, path);
+            cont_1.setAttribute('class', 'rwInput');
+            crElem.appendChild(cont_1);
             var options_1 = { theme: 'snow' };
             if (el.mode_form == 'ro') {
                 options_1['readOnly'] = true;
                 options_1['modules'] = { toolbar: false };
             }
             setTimeout(function () {
-                var editor = new Quill('#' + newID_1, options_1);
+                var editor = new Quill(cont_1, options_1);
                 editor.root.innerHTML = v || '';
             }, 10);
         }
@@ -1534,7 +1532,7 @@ var Form = (function () {
                 var RowID = self_2.oRowData[pcol];
                 self_2.oTable.loadRow(RowID, function (row) {
                     var newForm = new Form(self_2.oTable, row);
-                    self_2.formElement = newForm.getForm();
+                    DB.replaceDomElement(self_2.formElement, newForm.getForm());
                 });
             });
             crElem = SB.getElement();
@@ -1635,24 +1633,20 @@ var Form = (function () {
             resWrapper.appendChild(crElem);
         return resWrapper;
     };
-    Form.prototype.getFooter = function () {
-        var _this = this;
+    Form.prototype.getFrmFooter = function () {
         var self = this;
-        var tblSaved = this.oTable;
         var wrapper = document.createElement('div');
         wrapper.classList.add('col-12', 'my-3');
         if (!self.oRowData) {
             var createBtn = document.createElement('button');
-            createBtn.innerText = gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias());
+            createBtn.innerText = gText[setLang].Create.replace('{alias}', self.oTable.getTableAlias());
             createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1');
             wrapper.appendChild(createBtn);
             createBtn.addEventListener('click', function (e) {
                 e.preventDefault();
-                var superTable = self.oTable;
-                var subTable = self.oldTable;
                 var data = self.getValues();
                 var newRowID = null;
-                tblSaved.importData(data, function (resp) {
+                self.oTable.importData(data, function (resp) {
                     var importWasSuccessful = true;
                     resp.forEach(function (answer) {
                         var counter = 0;
@@ -1667,14 +1661,14 @@ var Form = (function () {
                         if (answer[0]['_entry-point-state']) {
                             var targetStateID = answer[0]['_entry-point-state'].id;
                             btnTo = new StateButton({ state_id: targetStateID });
-                            btnTo.setTable(subTable || superTable);
+                            btnTo.setTable(self.oTable);
                             btnTo.setReadOnly(true);
                         }
                         for (var _i = 0, messages_2 = messages; _i < messages_2.length; _i++) {
                             var msg = messages_2[_i];
                             var title = '';
                             if (msg.type == 0)
-                                title += gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias()) + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
+                                title += gText[setLang].Create.replace('{alias}', self.oTable.getTableAlias()) + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
                             document.getElementById('myModalTitle').innerHTML = title;
                             document.getElementById('myModalContent').innerHTML = msg.text;
                             $('#myModal').modal({});
@@ -1685,8 +1679,22 @@ var Form = (function () {
                             newRowID = parseInt(answer[1]['element_id']);
                     });
                     if (importWasSuccessful) {
-                        var reloadStuff_1 = function (newRowID) {
-                            self.oTable.setSearch('');
+                        if (self.superTable) {
+                            if (self.superTable.getSelectType() === 1) {
+                                self.oTable.loadRow(newRowID, function (row) {
+                                    var superTableRowID = row[self.superTable.getPrimaryColname()][self.superTable.getPrimaryColname()];
+                                    self.superTable.loadRow(superTableRowID, function (row) {
+                                        self.superTable.setRows([row]);
+                                        self.superTable.addSelectedRow(row);
+                                        self.superTable.renderHTML(self.formElement);
+                                    });
+                                });
+                            }
+                            else {
+                                self.superTable.loadRows(function (rows) { self.superTable.renderHTML(self.formElement); });
+                            }
+                        }
+                        else {
                             if (self.oTable.getSelectType() === 1) {
                                 self.oTable.loadRow(newRowID, function (row) {
                                     self.oTable.setRows([row]);
@@ -1697,54 +1705,39 @@ var Form = (function () {
                             else {
                                 self.oTable.loadRows(function (rows) { self.oTable.renderHTML(self.formElement); });
                             }
-                        };
-                        if (tblSaved.getSubTables() && tblSaved.getSubTables().length > 0) {
-                            var subTablename = Object.keys(self.getValues())[0];
-                            var subRowID = newRowID;
-                            var tmpTable = new Table(subTablename);
-                            tmpTable.loadRow(subRowID, function (row) {
-                                newRowID = row[tblSaved.getPrimaryColname()][tblSaved.getPrimaryColname()];
-                                reloadStuff_1(newRowID);
-                            });
-                        }
-                        else {
-                            reloadStuff_1(newRowID);
                         }
                     }
                 });
             });
         }
         else {
-            if (tblSaved.hasStateMachine()) {
+            if (self.oTable.hasStateMachine()) {
                 var S = new StateButton(self.oRowData);
-                S.setTable(tblSaved);
+                S.setTable(self.oTable);
                 S.setForm(self);
                 var nextStateBtns = S.getTransButtons();
                 S.setOnSuccess(function () {
-                    var RowID = self.oRowData[tblSaved.getPrimaryColname()];
-                    tblSaved.loadRow(RowID, function (row) {
-                        var F = new Form(tblSaved, row);
-                        self.formElement = F.getForm();
+                    var RowID = self.oRowData[self.oTable.getPrimaryColname()];
+                    self.oTable.loadRow(RowID, function (row) {
+                        var F = new Form(self.oTable, row);
+                        F.setSuperTable(self.superTable);
+                        DB.replaceDomElement(self.formElement, F.getForm());
                     });
                 });
                 wrapper.appendChild(nextStateBtns);
             }
             else {
                 var saveBtn = document.createElement('button');
-                saveBtn.innerText = gText[setLang].Save.replace('{alias}', tblSaved.getTableAlias());
+                saveBtn.innerText = gText[setLang].Save.replace('{alias}', self.oTable.getTableAlias());
                 saveBtn.classList.add('btn', 'btn-primary', 'mr-1');
                 wrapper.appendChild(saveBtn);
                 saveBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     var data = self.getValues(true);
-                    var newRowData = data[tblSaved.getTablename()][0];
-                    newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
-                    tblSaved.updateRow(newRowData, function () {
-                        if (_this.oTable)
-                            _this.oTable.loadRows(function () { _this.oTable.renderHTML(self.formElement); });
-                        else {
-                            document.location.reload();
-                        }
+                    var newRowData = data[self.oTable.getTablename()][0];
+                    newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
+                    self.oTable.updateRow(newRowData, function () {
+                        self.oTable.loadRows(function () { self.oTable.renderHTML(self.formElement); });
                     });
                 });
             }
@@ -1755,8 +1748,9 @@ var Form = (function () {
         wrapper.appendChild(cancelBtn);
         cancelBtn.addEventListener('click', function (e) {
             e.preventDefault();
-            self.oTable.loadRows(function () {
-                self.oTable.renderHTML(self.formElement);
+            var returnTable = self.superTable || self.oTable;
+            returnTable.loadRows(function () {
+                returnTable.renderHTML(self.formElement);
             });
         });
         return wrapper;
@@ -1817,13 +1811,11 @@ var Form = (function () {
         }
         return res;
     };
-    Form.prototype.setNewOriginTable = function (newTable) {
-        this.oldTable = this.oTable;
-        this.oTable = newTable;
+    Form.prototype.setSuperTable = function (superTable) {
+        this.superTable = superTable;
     };
     Form.prototype.getForm = function () {
         var self = this;
-        var table = self.oldTable || self.oTable;
         var sortedKeys = Object.keys(self.formConf).sort(function (x, y) {
             return DB.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0));
         });
@@ -1835,7 +1827,7 @@ var Form = (function () {
             frm.classList.add('frm-create');
             var titleElement = document.createElement('p');
             titleElement.classList.add('text-success', 'font-weight-bold', 'col-12', 'm-0', 'pt-2');
-            titleElement.innerText = gText[setLang].titleCreate.replace('{alias}', table.getTableAlias());
+            titleElement.innerText = gText[setLang].titleCreate.replace('{alias}', self.oTable.getTableAlias());
             frm.appendChild(titleElement);
         }
         else {
@@ -1843,8 +1835,8 @@ var Form = (function () {
             var titleElement = document.createElement('p');
             titleElement.classList.add('text-primary', 'font-weight-bold', 'col-12', 'm-0', 'pt-2');
             titleElement.innerText = gText[setLang].titleModify
-                .replace('{alias}', table.getTableAlias())
-                .replace('{id}', self.oRowData[table.getPrimaryColname()]);
+                .replace('{alias}', self.oTable.getTableAlias())
+                .replace('{id}', self.oRowData[self.oTable.getPrimaryColname()]);
             frm.appendChild(titleElement);
         }
         var cols = [];
@@ -1870,7 +1862,7 @@ var Form = (function () {
             }
         });
         if (self.showFooter)
-            frm.appendChild(self.getFooter());
+            frm.appendChild(self.getFrmFooter());
         frmwrapper.appendChild(frm);
         self.formElement = frmwrapper;
         return frmwrapper;

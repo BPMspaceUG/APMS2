@@ -178,8 +178,6 @@ abstract class DB {
     isFinite(value) && 
     Math.floor(value) === value;
   }
-  // TODO: Remove the random ID generation because of Selenium!!! and use DOM-Create-Element instead!
-  public static getID = ()=>{ const c4 = ()=>{ return Math.random().toString(16).slice(-4); }; return 'i'+c4()+c4()+c4()+c4()+c4()+c4()+c4()+c4(); };
 }
 //==============================================================
 // Class: Statemachine
@@ -746,17 +744,18 @@ class Table {
   //------------------------------------------------ Components (Create, Workflow, Searchbar, Statustext)
   private getCreateButton(subTable: Table = null): HTMLElement {
     const self = this;
-    const table = subTable ? subTable : self;
+    const subTableOrSelf = subTable || self;
     // Create Element
     const createBtnElement = document.createElement('button');
-    createBtnElement.innerText = '+ ' + table.getTableAlias();
+    createBtnElement.innerText = '+ ' + subTableOrSelf.getTableAlias();
     createBtnElement.classList.add('btn', 'btn-success'); // Bootstrap custom classes
     createBtnElement.addEventListener('click', e => {
       e.preventDefault();
-      table.setSearch('');
+      subTableOrSelf.setSearch('');
       // On Create click
-      const createForm = new Form(table);
-      createForm.setNewOriginTable(self);
+      const createForm = new Form(subTableOrSelf);
+      if (subTable)
+        createForm.setSuperTable(self);
       // Place Form
       DB.replaceDomElement(self.DOMContainer, createForm.getForm());
       createForm.focusFirst();
@@ -804,7 +803,7 @@ class Table {
       gText[setLang].noEntries;
     return statusTextElement;
   }
-  private getFooter(): HTMLElement {
+  private getTblFooter(): HTMLElement {
     const t = this;
     // Create default Footer
     const footerElement = document.createElement('div');
@@ -1139,8 +1138,8 @@ class Table {
                 tmpTable.loadRows(rows => {
                   if (rows.count > 0) {
                     const modForm = new Form(tmpTable, rows.records[0]);
+                    modForm.setSuperTable(self);
                     DB.replaceDomElement(wrapper.parentElement.parentElement, modForm.getForm());
-                    modForm.setNewOriginTable(self);
                   }
                 })
               })
@@ -1202,7 +1201,7 @@ class Table {
             createBtn.addEventListener('click', e => {
               e.preventDefault();
               const createForm = new Form(subType);
-              createForm.setNewOriginTable(self);
+              createForm.setSuperTable(self);
               DB.replaceDomElement(container, createForm.getForm());
               createForm.focusFirst();
             })
@@ -1220,7 +1219,7 @@ class Table {
     tbl.classList.add('tablecontent', 'row');
     tbl.appendChild(self.getHeader());
     tbl.appendChild(self.getTable());
-    tbl.appendChild(self.getFooter());
+    tbl.appendChild(self.getTblFooter());
     comp.appendChild(tbl);
 
     // Replace Element
@@ -1230,7 +1229,7 @@ class Table {
   private reRenderRows() {
     const self = this;
     DB.replaceDomElement(<HTMLElement>self.DOMContainer.getElementsByClassName('tbl_content')[0], self.getTable());
-    DB.replaceDomElement(<HTMLElement>self.DOMContainer.getElementsByClassName('tbl_footer')[0], self.getFooter());
+    DB.replaceDomElement(<HTMLElement>self.DOMContainer.getElementsByClassName('tbl_footer')[0], self.getTblFooter());
   }
 }
 //==============================================================
@@ -1240,7 +1239,7 @@ class Form {
   private formConf: any;
   private oTable: Table;
   private oRowData: any;
-  private oldTable: Table = null; // TODO: --> change to superTable
+  private superTable: Table = null;
   private _path: string;
   private formElement: HTMLElement;
   private showFooter: boolean = false;
@@ -1645,9 +1644,7 @@ class Form {
       crElem = document.createElement('div');
       crElem.classList.add('htmleditor');
       // container
-      const newID = DB.getID();
       const cont = this.getNewFormElement('div', key, path);
-      cont.setAttribute('id', newID); // override
       cont.setAttribute('class', 'rwInput');
       crElem.appendChild(cont);
       // Quill
@@ -1658,7 +1655,7 @@ class Form {
       }
       setTimeout(() => {
         // Initialize Quill Editor
-        const editor = new Quill('#'+newID, options);
+        const editor = new Quill(cont, options);
         editor.root.innerHTML = v || '';
       }, 10);
     }
@@ -1679,7 +1676,7 @@ class Form {
         const RowID = self.oRowData[pcol];
         self.oTable.loadRow(RowID, row => {
           const newForm = new Form(self.oTable, row);
-          self.formElement = newForm.getForm();
+          DB.replaceDomElement(self.formElement, newForm.getForm());
         })
       });
       crElem = SB.getElement();
@@ -1791,29 +1788,26 @@ class Form {
       resWrapper.appendChild(crElem);
     return resWrapper;
   }
-  private getFooter(): HTMLElement {
+  private getFrmFooter(): HTMLElement {
     const self = this;
-    const tblSaved = this.oTable;
-    //console.log('x', self.oTable.getTablename(), '->', self.oldTable.getTablename());
     // Wrapper (Footer)
     const wrapper = document.createElement('div');
     wrapper.classList.add('col-12', 'my-3');
     //--- Add create Button (if CreateForm)
     if (!self.oRowData) {
+      //================================//
+      //         C R E A T E            //
+      //================================//
       const createBtn = document.createElement('button');
-      createBtn.innerText = gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias());
+      createBtn.innerText = gText[setLang].Create.replace('{alias}', self.oTable.getTableAlias());
       createBtn.classList.add('btn', 'btn-success', 'mr-1', 'mb-1'); // Bootstrap custom classes
       wrapper.appendChild(createBtn);
       createBtn.addEventListener('click', e => {
+        // clicked Create
         e.preventDefault();
-        const superTable = self.oTable;
-        const subTable = self.oldTable;
-        //============================================
-        // [CREATE] Command
-        //============================================
         const data = self.getValues();
         let newRowID = null;
-        tblSaved.importData(data, resp => {
+        self.oTable.importData(data, resp => {
           //setFormState(false);
           let importWasSuccessful = true;
           //------------------------------------------------------------- Handle Transition Feedback
@@ -1832,18 +1826,12 @@ class Form {
             if (answer[0]['_entry-point-state']) {
               const targetStateID = answer[0]['_entry-point-state'].id;
               btnTo = new StateButton({state_id: targetStateID});
-              /*
-              console.log(1, self.oTable.getTablename());
-              console.log(2, tblSaved.getTablename());
-              console.log(3, superTable.getTablename());
-              console.log(4, subTable.getTablename());
-              */
-              btnTo.setTable(subTable || superTable);
+              btnTo.setTable(self.oTable);
               btnTo.setReadOnly(true);
             }
             for (const msg of messages) {
               let title = '';
-              if (msg.type == 0) title += gText[setLang].Create.replace('{alias}', tblSaved.getTableAlias()) + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
+              if (msg.type == 0) title += gText[setLang].Create.replace('{alias}', self.oTable.getTableAlias()) + (btnTo ? ' &rarr; ' + btnTo.getElement().outerHTML : '');
               // Render a Modal
               document.getElementById('myModalTitle').innerHTML = title;
               document.getElementById('myModalContent').innerHTML = msg.text;
@@ -1858,56 +1846,69 @@ class Form {
           //-------------------------------------------------------------
           // After creating
           if (importWasSuccessful) {
-            // if Table is selectType 1 or 2 then add to selectedRows
-            //console.log('1-->[', newRowID,']', tblSaved.getTableAlias(), tblSaved.getSubTables());
-            const reloadStuff = newRowID => {
-              self.oTable.setSearch('');
+            //-- ELEMENT WAS IMPORTED
+            if (self.superTable) {
+              //---> Go Back to SuperTable
+              //console.log('[', self.superTable.getTablename(), ' -> ', self.oTable.getTablename(), ']');
+              //console.log(self.superTable.getSelectType(), self.oTable.getSelectType());
+              //----------
+              if (self.superTable.getSelectType() === 1) {
+                // Created inside another Table (via Foreign Key)
+                self.oTable.loadRow(newRowID, row => {
+                  // MUST: The Convention is to use the [PrimaryColname] of the SuperTable as FKColname at the Sub-Tables
+                  const superTableRowID = row[self.superTable.getPrimaryColname()][self.superTable.getPrimaryColname()];
+                  self.superTable.loadRow(superTableRowID, row => {
+                    self.superTable.setRows([row]);
+                    self.superTable.addSelectedRow(row);
+                    self.superTable.renderHTML(self.formElement);
+                  });
+                });
+              }
+              // TODO: SelectType == 2 ?
+              else {
+                self.superTable.loadRows(rows => { self.superTable.renderHTML(self.formElement); });
+              } 
+            }
+            else {
+              //---> Go back to SameTable
+              //console.log('[', self.oTable.getTablename(), ']');
+              //console.log(self.oTable.getSelectType());
+              //----------
               if (self.oTable.getSelectType() === 1) {
-                // Foreign Key
+                // Created inside another Table (via Foreign Key)
                 self.oTable.loadRow(newRowID, row => {
                   self.oTable.setRows([row]);
                   self.oTable.addSelectedRow(row);
                   self.oTable.renderHTML(self.formElement);
                 });
               }
+              // TODO: SelectType == 2 ?
               else {
-                // Normal Table
                 self.oTable.loadRows(rows => { self.oTable.renderHTML(self.formElement); });
-              }
+              }              
             }
-
-            if (tblSaved.getSubTables() && tblSaved.getSubTables().length > 0) {
-              // SubTables
-              const subTablename = Object.keys(self.getValues())[0];
-              const subRowID = newRowID;
-              const tmpTable = new Table(subTablename);              
-              tmpTable.loadRow(subRowID, row => {
-                // PrimaryColnames have to be the Same! subTable === superTable
-                newRowID = row[tblSaved.getPrimaryColname()][tblSaved.getPrimaryColname()];
-                reloadStuff(newRowID);                
-              });
-            }
-            else {
-              // Normal Table
-              reloadStuff(newRowID);
-            }
-
+            //--
           }
         });
       });         
     }
     else {
+      //================================//
+      // S A V E || T R A N S I T I O N //
+      //================================//
       // Has Statemachine or not?
-      if (tblSaved.hasStateMachine()) {
+      if (self.oTable.hasStateMachine()) {
         const S = new StateButton(self.oRowData);
-        S.setTable(tblSaved);
+        S.setTable(self.oTable);
         S.setForm(self);
         const nextStateBtns = S.getTransButtons();
         S.setOnSuccess(()=>{
-          const RowID = self.oRowData[tblSaved.getPrimaryColname()];
-          tblSaved.loadRow(RowID, row => {
-            const F = new Form(tblSaved, row);
-            self.formElement = F.getForm();
+          // transition was Successful
+          const RowID = self.oRowData[self.oTable.getPrimaryColname()];
+          self.oTable.loadRow(RowID, row => {
+            const F = new Form(self.oTable, row);
+            F.setSuperTable(self.superTable); // Chain
+            DB.replaceDomElement(self.formElement, F.getForm());
           });
         });
         wrapper.appendChild(nextStateBtns);
@@ -1915,20 +1916,18 @@ class Form {
       else {
         // Save Button
         const saveBtn = document.createElement('button');
-        saveBtn.innerText = gText[setLang].Save.replace('{alias}', tblSaved.getTableAlias());
+        saveBtn.innerText = gText[setLang].Save.replace('{alias}', self.oTable.getTableAlias());
         saveBtn.classList.add('btn', 'btn-primary', 'mr-1'); // Bootstrap custom classes
         wrapper.appendChild(saveBtn);
         saveBtn.addEventListener('click', e => {
+          // clicked Save
           e.preventDefault();
           const data = self.getValues(true);
-          const newRowData = data[tblSaved.getTablename()][0];
-          newRowData[tblSaved.getPrimaryColname()] = self.oRowData[tblSaved.getPrimaryColname()];
-          tblSaved.updateRow(newRowData, () => {
+          const newRowData = data[self.oTable.getTablename()][0];
+          newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
+          self.oTable.updateRow(newRowData, () => {
             // Updated!
-            if (this.oTable) this.oTable.loadRows(()=>{ this.oTable.renderHTML(self.formElement); });
-            else {
-              document.location.reload();
-            }
+            self.oTable.loadRows(()=>{ self.oTable.renderHTML(self.formElement); });
           })
         });
       }
@@ -1939,9 +1938,11 @@ class Form {
     cancelBtn.classList.add('btn', 'btn-light', 'mr-1', 'mb-1'); // Bootstrap custom classes
     wrapper.appendChild(cancelBtn);
     cancelBtn.addEventListener('click', e => {
+      // clicked Cancel
       e.preventDefault();
-      self.oTable.loadRows(()=>{
-        self.oTable.renderHTML(self.formElement);
+      const returnTable = self.superTable || self.oTable;
+      returnTable.loadRows(()=>{
+        returnTable.renderHTML(self.formElement);
       });
     })
     //=====> Output
@@ -2013,13 +2014,11 @@ class Form {
     //===> Output
     return res; // result
   }
-  public setNewOriginTable(newTable: Table) {
-    this.oldTable = this.oTable;
-    this.oTable = newTable;
+  public setSuperTable(superTable: Table) {
+    this.superTable = superTable;
   }
   public getForm(): HTMLElement {
     const self = this;
-    const table = self.oldTable || self.oTable;
     // Order by config[key].orderF
     const sortedKeys = Object.keys(self.formConf).sort((x,y) => 
       DB.sign(parseInt(self.formConf[x].orderF || 0) - parseInt(self.formConf[y].orderF || 0)
@@ -2034,7 +2033,7 @@ class Form {
       frm.classList.add('frm-create');
       const titleElement = document.createElement('p');
       titleElement.classList.add('text-success', 'font-weight-bold', 'col-12', 'm-0', 'pt-2'); // classes
-      titleElement.innerText = gText[setLang].titleCreate.replace('{alias}', table.getTableAlias());
+      titleElement.innerText = gText[setLang].titleCreate.replace('{alias}', self.oTable.getTableAlias());
       frm.appendChild(titleElement);
     }
     else {
@@ -2042,8 +2041,8 @@ class Form {
       const titleElement = document.createElement('p');
       titleElement.classList.add('text-primary', 'font-weight-bold', 'col-12', 'm-0', 'pt-2'); // classes
       titleElement.innerText = gText[setLang].titleModify
-        .replace('{alias}', table.getTableAlias())
-        .replace('{id}', self.oRowData[table.getPrimaryColname()])
+        .replace('{alias}', self.oTable.getTableAlias())
+        .replace('{id}', self.oRowData[self.oTable.getPrimaryColname()]) // TODO:  SuperTable ?
       frm.appendChild(titleElement);
     }
     const cols = [];
@@ -2073,7 +2072,7 @@ class Form {
     });
     // Footer
     if (self.showFooter)
-      frm.appendChild(self.getFooter());
+      frm.appendChild(self.getFrmFooter());
     frmwrapper.appendChild(frm);
     // Save
     self.formElement = frmwrapper;
