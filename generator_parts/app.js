@@ -13,6 +13,18 @@ const routes = [
 
 //=== Init Application
 document.addEventListener('DOMContentLoaded', () => {
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js', { scope: "./" })
+    .then(function(){
+      console.log('SW registered');
+    })
+    .catch(function(error) {
+      console.log('SW failed', error);
+    })
+  }
+  
   // Load Configuration
   DB.loadConfig(config => {
     //==========================================================

@@ -556,7 +556,6 @@ class Table {
     allowReading: true,
     allowEditing: true,
     allowCreating: true,
-    //smallestTimeUnitMins: true,
     showControlColumn: true,
     showWorkflowButton: false,
     showSearch: true,
@@ -1062,7 +1061,6 @@ class Table {
     self.Rows.map(row => {
       const tr = document.createElement('tr');
       // custom table-row classes
-      //console.log(row);
       if (row.customclass)
         tr.classList.add(row.customclass);
       expandedCols.map((colname, index) => {
@@ -1078,10 +1076,13 @@ class Table {
           const changeCheckbox = () => {
             if (cb.checked) {
               // Unselect all checkboxes
-              const allCheckboxes = cb.parentElement.parentElement.parentElement.querySelectorAll('input[type=checkbox]');
+              const allCheckboxes: NodeListOf<HTMLInputElement> = cb.parentElement.parentElement.parentElement.querySelectorAll('input[type=checkbox]');
               // Selected -> add Row || @ Single-Select (0..1) clear
               if (self.selType === SelectType.Single) {
-                allCheckboxes.forEach((c: HTMLInputElement) => c.checked = false);
+                for (let i= 0;i<allCheckboxes.length;i++) {
+                  allCheckboxes[i].checked = false;                  
+                }
+                //allCheckboxes.map(c => c.checked = false);
                 self.selectedRows = [];
               }
               cb.checked = true;
@@ -1909,6 +1910,8 @@ class Form {
             const F = new Form(self.oTable, row);
             F.setSuperTable(self.superTable); // Chain
             DB.replaceDomElement(self.formElement, F.getForm());
+            // Element saved!
+            $('.toast').toast('show');
           });
         });
         wrapper.appendChild(nextStateBtns);
@@ -1927,7 +1930,11 @@ class Form {
           newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
           self.oTable.updateRow(newRowData, () => {
             // Updated!
-            self.oTable.loadRows(()=>{ self.oTable.renderHTML(self.formElement); });
+            self.oTable.loadRows(()=>{
+              // Element saved!
+              $('.toast').toast('show');
+              self.oTable.renderHTML(self.formElement);
+            });
           })
         });
       }

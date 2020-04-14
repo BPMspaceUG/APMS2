@@ -1001,7 +1001,9 @@ var Table = (function () {
                         if (cb_1.checked) {
                             var allCheckboxes = cb_1.parentElement.parentElement.parentElement.querySelectorAll('input[type=checkbox]');
                             if (self.selType === SelectType.Single) {
-                                allCheckboxes.forEach(function (c) { return c.checked = false; });
+                                for (var i = 0; i < allCheckboxes.length; i++) {
+                                    allCheckboxes[i].checked = false;
+                                }
                                 self.selectedRows = [];
                             }
                             cb_1.checked = true;
@@ -1722,6 +1724,7 @@ var Form = (function () {
                         var F = new Form(self.oTable, row);
                         F.setSuperTable(self.superTable);
                         DB.replaceDomElement(self.formElement, F.getForm());
+                        $('.toast').toast('show');
                     });
                 });
                 wrapper.appendChild(nextStateBtns);
@@ -1737,7 +1740,10 @@ var Form = (function () {
                     var newRowData = data[self.oTable.getTablename()][0];
                     newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
                     self.oTable.updateRow(newRowData, function () {
-                        self.oTable.loadRows(function () { self.oTable.renderHTML(self.formElement); });
+                        self.oTable.loadRows(function () {
+                            $('.toast').toast('show');
+                            self.oTable.renderHTML(self.formElement);
+                        });
                     });
                 });
             }

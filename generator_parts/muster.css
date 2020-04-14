@@ -9,7 +9,7 @@ body {overflow-x: hidden;}
 }
 #sidebar-wrapper .sidebar-heading {padding: 0.875rem 1.25rem; font-size: 1.2rem;}
 #sidebar-wrapper .list-group {width: 15rem;}
-#page-content-wrapper {min-width: 100vw;}
+#page-content-wrapper {min-width: 96vw;}
 #wrapper.toggled #sidebar-wrapper {margin-left: 0;}
 @media (min-width: 768px) {
   #sidebar-wrapper {margin-left: 0;}
@@ -27,7 +27,7 @@ body {overflow-x: hidden;}
 .datatbl thead tr {font-size: .8em;}
 .datatbl thead th {height: 30px; font-weight: normal; border: none !important;}
 .datatbl td {color: #333; height: 34px; vertical-align: middle;}
-.col-sel, .col-edit {text-align: center; min-width: 40px; width: 40px; max-width: 40px; vertical-align: middle;}
+.col-sel, .col-edit {text-align: center; min-width: 30px; width: 30px; max-width: 30px; vertical-align: middle;}
 .datacell {white-space: nowrap;}
 .datacell p {overflow: hidden; text-overflow: ellipsis; max-width: 500px;}
 .htmleditor {background-color: white;}

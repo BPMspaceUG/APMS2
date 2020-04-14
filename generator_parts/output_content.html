@@ -31,6 +31,9 @@
   <link rel="stylesheet" href="css/custom.css"/>
 </head>
 <body>
+
+  <!--<small class="p-1 bg-danger d-block text-white text-center" style="position: fixed; z-index: 2000; left:0; right: 0;">No Internet Connection!</small>-->
+
   <!-- Content -->
   <main class="d-flex" id="wrapper">
     <!-- Sidebar -->
@@ -62,9 +65,12 @@
             </div>
           </li>
         </ul>
-      </nav>    
+      </nav>
+
       <!-- App -->
-      <div id="app" class="container-fluid p-1"></div>
+      <div id="app" class="container-fluid p-1">
+      </div>
+
     </div>
     <!--  Footer -->
     <!--
@@ -79,6 +85,7 @@
       </div>
     </div>
     -->
+
   </main>
 
   <!-- Modal -->
@@ -95,6 +102,32 @@
       </div>
     </div>
   </div>
+
+
+
+  <!-- Toast -->
+  <div aria-live="polite" aria-atomic="true">
+    <!-- Position it -->
+    <div style="position: fixed; top: 4em; right: .25em;">  
+      <!--<div style="padding: 1em; background-color: red;">XXX</div>-->
+      <!-- Then put toasts within -->
+      <div class="toast" role="alert" aria-live="assertive" style="width: 250px;" aria-atomic="true">
+        <div class="toast-header">
+          <!--<img src="..." class="rounded mr-2" alt="...">-->
+          <strong class="mr-auto text-primary">Element changed</strong>
+          <!--<small class="text-muted">just now</small>-->
+          <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="toast-body">
+          Successfully changed the actual Element!
+        </div>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- JS -->
   <script>const accessToken = '%accessToken%';</script>
