@@ -141,6 +141,8 @@ var DB = (function () {
                         loginForm_1.remove();
                     });
                     window.document.addEventListener('my_loggedOut_event', function (e) {
+                        accessToken = '';
+                        document.getElementById('wrapper').innerHTML = '';
                         document.location.assign('.');
                     });
                 }
@@ -1792,7 +1794,6 @@ var Form = (function () {
                         var F = new Form(self.oTable, row);
                         F.setSuperTable(self.superTable);
                         DB.replaceDomElement(self.formElement, F.getForm());
-                        $('.toast').toast('show');
                     });
                 });
                 wrapper.appendChild(nextStateBtns);
@@ -1809,7 +1810,6 @@ var Form = (function () {
                     newRowData[self.oTable.getPrimaryColname()] = self.oRowData[self.oTable.getPrimaryColname()];
                     self.oTable.updateRow(newRowData, function () {
                         self.oTable.loadRows(function () {
-                            $('.toast').toast('show');
                             self.oTable.renderHTML(self.formElement);
                         });
                     });

@@ -179,6 +179,9 @@ abstract class DB {
           });
           // Logged OUT
           window.document.addEventListener('my_loggedOut_event', e => {
+            // Clear everything
+            accessToken = '';
+            document.getElementById('wrapper').innerHTML = '';
             // Refresh Page
             document.location.assign('.');
           });
@@ -2018,7 +2021,7 @@ class Form {
             F.setSuperTable(self.superTable); // Chain
             DB.replaceDomElement(self.formElement, F.getForm());
             // Element saved!
-            $('.toast').toast('show');
+            //$('.toast').toast('show');
           });
         });
         wrapper.appendChild(nextStateBtns);
@@ -2039,7 +2042,7 @@ class Form {
             // Updated!
             self.oTable.loadRows(()=>{
               // Element saved!
-              $('.toast').toast('show');
+              //$('.toast').toast('show');
               self.oTable.renderHTML(self.formElement);
             });
           })
