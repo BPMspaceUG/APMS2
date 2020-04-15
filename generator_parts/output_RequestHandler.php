@@ -433,7 +433,9 @@
     // [GET] Reading
     public function init() {
       $config = $this->getConfigByRoleID($this->token->uid);
-      $res = ["user" => $this->token, "tables" => $config];
+      $userData = $this->token;
+      $userData->url_authservice = API_URL_LIAM;
+      $res = ["user" => $userData, "tables" => $config];
       return json_encode($res);
     }
     public function read($param) {

@@ -49,32 +49,8 @@ var gText = {
     }
 };
 var setLang = 'en';
-window.addEventListener("load", function () {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js', { scope: "./" })
-            .then(function () {
-            console.log('ServiceWorker registered');
-        })
-            .catch(function (error) {
-            console.error('ServiceWorker failed', error);
-        });
-    }
-    function handleNetworkChange(event) {
-        if (navigator.onLine) {
-            document.getElementById('networkIsOffline').classList.add('invisible');
-        }
-        else {
-            document.getElementById('networkIsOffline').classList.remove('invisible');
-        }
-    }
-    window.addEventListener("online", handleNetworkChange);
-    window.addEventListener("offline", handleNetworkChange);
-});
 function gInitApp() {
     DB.loadConfig(function (config) {
-        var elemUser = document.getElementById('username');
-        elemUser.innerText = (config.user.firstname || '') + ' ' + (config.user.lastname || '');
-        elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
         var firstBtn = null;
         Object.keys(config.tables).forEach(function (tname) {
             if (config.tables[tname].in_menu) {
@@ -101,7 +77,6 @@ function gInitApp() {
                     }
                     else {
                         t.options.showSearch = true;
-                        t.options.showWorkflowButton = true;
                         t.options.allowCreating = true;
                         t.loadRows(function () {
                             var container = document.createElement('div');
@@ -154,17 +129,20 @@ var DB = (function () {
         fetch(url, settings).then(function (r) { return r.json(); }).then(function (res) {
             if (res.error) {
                 if (res.error.url) {
-                    var loginForm = document.createElement('iframe');
-                    loginForm.src = res.error.url;
-                    loginForm.width = '100%';
-                    loginForm.style.height = '500px';
-                    loginForm.setAttribute('frameborder', '0');
-                    loginForm.setAttribute('scrolling', 'no');
-                    document.getElementById('app').appendChild(loginForm);
+                    var loginForm_1 = document.createElement('iframe');
+                    loginForm_1.src = res.error.url;
+                    loginForm_1.setAttribute('style', 'width:100%;height:100%;background-color:white;position:fixed;left:0;top:0;right:0;bottom:0;');
+                    loginForm_1.setAttribute('frameborder', '0');
+                    loginForm_1.setAttribute('scrolling', 'no');
+                    document.getElementById('wrapper').appendChild(loginForm_1);
                     window.document.addEventListener('my_loggedIn_event', function (e) {
                         accessToken = e['detail'].accessToken;
                         gInitApp();
-                    }, false);
+                        loginForm_1.remove();
+                    });
+                    window.document.addEventListener('my_loggedOut_event', function (e) {
+                        document.location.assign('.');
+                    });
                 }
             }
             else
@@ -177,6 +155,16 @@ var DB = (function () {
             _this.Config = config;
             callback(config);
         });
+    };
+    DB.displayProfile = function () {
+        var tmp = document.createElement('iframe');
+        var url = DB.Config.user.url_authservice + 'profile.php';
+        tmp.src = url;
+        tmp.setAttribute('frameborder', '0');
+        tmp.setAttribute('scrolling', 'no');
+        tmp.setAttribute('style', 'width:100%;min-height:600px;height:100%;');
+        document.getElementById('app').innerHTML = '';
+        document.getElementById('app').appendChild(tmp);
     };
     DB.escapeHtml = function (string) {
         var entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' };
@@ -1955,3 +1943,24 @@ var Form = (function () {
     };
     return Form;
 }());
+window.addEventListener("load", function () {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js', { scope: "./" })
+            .then(function () {
+            console.log('ServiceWorker registered');
+        })
+            .catch(function (error) {
+            console.error('ServiceWorker failed', error);
+        });
+    }
+    function handleNetworkChange(event) {
+        if (navigator.onLine) {
+            document.getElementById('networkIsOffline').classList.add('invisible');
+        }
+        else {
+            document.getElementById('networkIsOffline').classList.remove('invisible');
+        }
+    }
+    window.addEventListener("online", handleNetworkChange);
+    window.addEventListener("offline", handleNetworkChange);
+});

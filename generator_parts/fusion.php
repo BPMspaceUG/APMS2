@@ -298,7 +298,7 @@
   //========================= FRONTEND
   // JavaScript
   file_put_contents($project_dir."/js/main.js", file_get_contents("./muster.js"));
-  file_put_contents($project_dir."/js/app.js", file_get_contents("./app.js"));
+  //file_put_contents($project_dir."/js/app.js", file_get_contents("./app.js"));
   if (!file_exists($project_dir."/js/custom.js"))
     file_put_contents($project_dir."/js/custom.js", "/* Custom Scripts */\nsetLang = 'en';");
   // Router

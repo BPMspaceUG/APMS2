@@ -44,43 +44,15 @@ const gText = {
 
 let setLang = 'en'; // default Language
 
-
-//-------------------------------------------------- LOAD
-window.addEventListener("load", () => {
-
-  //--- Service Worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js', { scope: "./" })
-    .then(function(){
-      console.log('ServiceWorker registered');
-    })
-    .catch(function(error) {
-      console.error('ServiceWorker failed', error);
-    })
-  }
-  
-  //--- Offline / Online
-  function handleNetworkChange(event) {
-    if (navigator.onLine) {
-      // Online
-      document.getElementById('networkIsOffline').classList.add('invisible');
-    }
-    else {
-      // Offline
-      document.getElementById('networkIsOffline').classList.remove('invisible');
-    }
-  }
-  window.addEventListener("online", handleNetworkChange);
-  window.addEventListener("offline", handleNetworkChange);
-});
-
 function gInitApp() {
   DB.loadConfig(config => {
     //==========================================================
     // Set actual User (TODO: Ask userdata from Auth-System)
+    /*
     const elemUser = document.getElementById('username');
     elemUser.innerText = (config.user.firstname || '') + ' ' + (config.user.lastname || '');
     elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
+    */
     // Set Table Links
     let firstBtn = null;
     Object.keys(config.tables).forEach(tname => {
@@ -120,7 +92,7 @@ function gInitApp() {
           else {
             //--- Table (Settings + Load Rows)
             t.options.showSearch = true;
-            t.options.showWorkflowButton = true; // TODO: Really?
+            //t.options.showWorkflowButton = true; // TODO: Really?
             t.options.allowCreating = true;
             t.loadRows(()=>{
               const container = document.createElement('div');
@@ -188,21 +160,29 @@ abstract class DB {
         // Goto URL (Login)
         if (res.error.url) {
           //console.log(res);
+
+          // Login Form Overlay
           const loginForm = document.createElement('iframe');
           loginForm.src = res.error.url;
-          loginForm.width = '100%';
-          loginForm.style.height = '500px';
+          loginForm.setAttribute('style', 'width:100%;height:100%;background-color:white;position:fixed;left:0;top:0;right:0;bottom:0;');
           loginForm.setAttribute('frameborder','0');
           loginForm.setAttribute('scrolling','no');
-          document.getElementById('app').appendChild(loginForm);
-          // Get Login Event from IFrame with Token
-          window.document.addEventListener('my_loggedIn_event', function(e) {
-            // TODO: Transfer Access Token hehe
+          document.getElementById('wrapper').appendChild(loginForm);
+
+          // Logged IN - Get Login Event from IFrame with Token
+          window.document.addEventListener('my_loggedIn_event', e => {
+            //console.log("Successfully logged in!", e['detail'].accessToken);
             accessToken = e['detail'].accessToken; // save
-            //console.log("Successfully logged in!", accessToken);
             gInitApp();
+            loginForm.remove();
             //console.log('MEssage from Child =>', e.detail.accessToken);
-          }, false);
+          });
+          // Logged OUT
+          window.document.addEventListener('my_loggedOut_event', e => {
+            // Refresh Page
+            document.location.assign('.');
+          });
+
           //console.error('Logged out!');
           //document.location.assign(res.error.url);
           //document.location.assign('?logout');
@@ -217,6 +197,16 @@ abstract class DB {
       this.Config = config;
       callback(config);
     });
+  }
+  public static displayProfile() {
+    const tmp = document.createElement('iframe');
+    const url = DB.Config.user.url_authservice + 'profile.php'
+    tmp.src = url;
+    tmp.setAttribute('frameborder','0');
+    tmp.setAttribute('scrolling','no');
+    tmp.setAttribute('style', 'width:100%;min-height:600px;height:100%;');
+    document.getElementById('app').innerHTML = '';
+    document.getElementById('app').appendChild(tmp);
   }
   public static escapeHtml(string: string): string {
     const entityMap = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '/':'&#x2F;', '`':'&#x60;', '=':'&#x3D;'};
@@ -289,7 +279,8 @@ abstract class DB {
   }
 }
 
-// Init
+
+//==============================> Init
 DB.request('ping', {}, ()=>{});
 
 
@@ -2203,3 +2194,33 @@ class Form {
     return frmwrapper;
   }
 }
+
+
+
+
+//-------------------------------------------------- LOAD
+window.addEventListener("load", () => {
+  //--- Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js', { scope: "./" })
+    .then(function(){
+      console.log('ServiceWorker registered');
+    })
+    .catch(function(error) {
+      console.error('ServiceWorker failed', error);
+    })
+  }  
+  //--- Offline / Online
+  function handleNetworkChange(event) {
+    if (navigator.onLine) {
+      // Online
+      document.getElementById('networkIsOffline').classList.add('invisible');
+    }
+    else {
+      // Offline
+      document.getElementById('networkIsOffline').classList.remove('invisible');
+    }
+  }
+  window.addEventListener("online", handleNetworkChange);
+  window.addEventListener("offline", handleNetworkChange);
+});
