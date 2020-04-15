@@ -44,7 +44,7 @@ td.controllcoulm {text-align: center; min-width: 50px; width: 50px; max-width:50
 .formcontent.frm-create { background-color: #42f74530; border: 1px solid #72df91; }
 .formcontent.frm-edit {background-color: hsla(200, 92%, 61%, 0.188); border: 1px solid hsl(200, 63%, 66%);}
 .tablecontent {background-color: hsla(0, 100%, 100%, 1); border: 1px solid hsl(200, 63%, 66%);}
-.formcontent label:first-child {font-size: .85em; margin-top: .75em; margin-right: 1em; }
+.formcontent label:first-child {font-size: .85em; margin-top: .75em; margin-right: 1em; margin-bottom: .15em; }
 /* StateEngine */
 .btnState {cursor: pointer; color: white !important; white-space: nowrap; }
 .btnGrid {padding: .25em .5em; margin-top: -.5em; font-size: .75em; min-width: 100px; max-width: 180px;}

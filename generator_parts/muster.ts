@@ -44,6 +44,101 @@ const gText = {
 
 let setLang = 'en'; // default Language
 
+
+//-------------------------------------------------- LOAD
+window.addEventListener("load", () => {
+
+  //--- Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js', { scope: "./" })
+    .then(function(){
+      console.log('ServiceWorker registered');
+    })
+    .catch(function(error) {
+      console.error('ServiceWorker failed', error);
+    })
+  }
+  
+  //--- Offline / Online
+  function handleNetworkChange(event) {
+    if (navigator.onLine) {
+      // Online
+      document.getElementById('networkIsOffline').classList.add('invisible');
+    }
+    else {
+      // Offline
+      document.getElementById('networkIsOffline').classList.remove('invisible');
+    }
+  }
+  window.addEventListener("online", handleNetworkChange);
+  window.addEventListener("offline", handleNetworkChange);
+});
+
+function gInitApp() {
+  DB.loadConfig(config => {
+    //==========================================================
+    // Set actual User (TODO: Ask userdata from Auth-System)
+    const elemUser = document.getElementById('username');
+    elemUser.innerText = (config.user.firstname || '') + ' ' + (config.user.lastname || '');
+    elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
+    // Set Table Links
+    let firstBtn = null;
+    Object.keys(config.tables).forEach(tname => {
+      // Render only if in Menu
+      if (config.tables[tname].in_menu) {
+        //--> Create Link
+        const tmpBtn = document.createElement('a');
+        document.getElementById('sidebar-links').appendChild(tmpBtn);
+        tmpBtn.setAttribute('href', '#/' + tname);
+        tmpBtn.classList.add('list-group-item', 'list-group-item-action', 'link-'+tname); // bootstrap
+        tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
+        tmpBtn.addEventListener('click', e => {
+          // Menu Item Click
+          // Reset all Styles
+          document.getElementById('wrapper').classList.remove('toggled'); // Close Menu
+          const allBtns = document.querySelectorAll('.list-group-item-action');
+          for (let i=0; i<allBtns.length; i++)
+            allBtns[i].classList.remove('active');
+          // Set current to active
+          tmpBtn.classList.add('active');
+          // Set Menu Title
+          document.getElementById('actTitle').innerHTML = tmpBtn.innerHTML;
+          // Load Content
+          document.getElementById('app').innerHTML = '';
+          //============================================================
+          const t = new Table(tname)
+          //--- Set Title
+          window.document.title = t.getTableAlias();
+
+          // Execute Javascript if its a virtual Page (i.e. Dashboard)
+          if (t.isVirtual()) {
+            const html = eval('(function() {' + t.getVirtualContent() + '}())') || '';
+            const container = document.createElement('div');
+            container.innerHTML = html; // TODO: Optimize, connect directly Dom-Objects (because of Events)
+            document.getElementById('app').appendChild(container);
+          }
+          else {
+            //--- Table (Settings + Load Rows)
+            t.options.showSearch = true;
+            t.options.showWorkflowButton = true; // TODO: Really?
+            t.options.allowCreating = true;
+            t.loadRows(()=>{
+              const container = document.createElement('div');
+              container.classList.add('tablecontent');
+              document.getElementById('app').appendChild(container);
+              t.renderHTML(container);
+            });
+          }
+          //============================================================
+        })
+        if (!firstBtn) firstBtn = tmpBtn;
+      }
+    });
+    firstBtn.click();
+  });
+  setInterval(()=>{ DB.request('ping', {}, ()=>{}); }, 60000); // ping every 1 min
+}
+
 //==============================================================
 // Database (Communication via API)
 //==============================================================
@@ -59,7 +154,6 @@ abstract class DB {
 
     // append Parameter to DataObject
     if (params) data['param'] = params;
-    //if (token) settings['headers'] = {'Authorization': 'Bearer ' + token};
  
     // Set Request Settings
     if (command === 'init') {
@@ -90,12 +184,27 @@ abstract class DB {
       // <===== Response
       // Check for Error
       if (res.error) {
-        console.error(res.error.msg);
+        //console.error('You are not logged in!', res.error.msg);
         // Goto URL (Login)
         if (res.error.url) {
-          console.log(res);
-          console.error('Logged out!');
-          document.location.assign(res.error.url);
+          //console.log(res);
+          const loginForm = document.createElement('iframe');
+          loginForm.src = res.error.url;
+          loginForm.width = '100%';
+          loginForm.style.height = '500px';
+          loginForm.setAttribute('frameborder','0');
+          loginForm.setAttribute('scrolling','no');
+          document.getElementById('app').appendChild(loginForm);
+          // Get Login Event from IFrame with Token
+          window.document.addEventListener('my_loggedIn_event', function(e) {
+            // TODO: Transfer Access Token hehe
+            accessToken = e['detail'].accessToken; // save
+            //console.log("Successfully logged in!", accessToken);
+            gInitApp();
+            //console.log('MEssage from Child =>', e.detail.accessToken);
+          }, false);
+          //console.error('Logged out!');
+          //document.location.assign(res.error.url);
           //document.location.assign('?logout');
         }
       }
@@ -179,6 +288,11 @@ abstract class DB {
     Math.floor(value) === value;
   }
 }
+
+// Init
+DB.request('ping', {}, ()=>{});
+
+
 //==============================================================
 // Class: Statemachine
 //==============================================================
@@ -600,6 +714,8 @@ class Table {
   }
   public setSuperTypeOf(...tablenames) { this.superTypeOf = tablenames; }
   public getSubTables() { return this.superTypeOf; }
+  public isVirtual() {return this.Config.is_virtual; }
+  public getVirtualContent() {return this.Config.virtualcontent; }
   //=====================================
   public createRow(data: any, callback) {
     DB.request('create', {table: this.tablename, row: data}, r => { callback(r); });

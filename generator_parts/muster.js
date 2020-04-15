@@ -49,6 +49,76 @@ var gText = {
     }
 };
 var setLang = 'en';
+window.addEventListener("load", function () {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js', { scope: "./" })
+            .then(function () {
+            console.log('ServiceWorker registered');
+        })
+            .catch(function (error) {
+            console.error('ServiceWorker failed', error);
+        });
+    }
+    function handleNetworkChange(event) {
+        if (navigator.onLine) {
+            document.getElementById('networkIsOffline').classList.add('invisible');
+        }
+        else {
+            document.getElementById('networkIsOffline').classList.remove('invisible');
+        }
+    }
+    window.addEventListener("online", handleNetworkChange);
+    window.addEventListener("offline", handleNetworkChange);
+});
+function gInitApp() {
+    DB.loadConfig(function (config) {
+        var elemUser = document.getElementById('username');
+        elemUser.innerText = (config.user.firstname || '') + ' ' + (config.user.lastname || '');
+        elemUser.setAttribute('title', 'UserID: ' + config.user.uid);
+        var firstBtn = null;
+        Object.keys(config.tables).forEach(function (tname) {
+            if (config.tables[tname].in_menu) {
+                var tmpBtn_1 = document.createElement('a');
+                document.getElementById('sidebar-links').appendChild(tmpBtn_1);
+                tmpBtn_1.setAttribute('href', '#/' + tname);
+                tmpBtn_1.classList.add('list-group-item', 'list-group-item-action', 'link-' + tname);
+                tmpBtn_1.innerHTML = config.tables[tname].table_icon + ("<span class=\"ml-2\">" + config.tables[tname].table_alias + "</span>");
+                tmpBtn_1.addEventListener('click', function (e) {
+                    document.getElementById('wrapper').classList.remove('toggled');
+                    var allBtns = document.querySelectorAll('.list-group-item-action');
+                    for (var i = 0; i < allBtns.length; i++)
+                        allBtns[i].classList.remove('active');
+                    tmpBtn_1.classList.add('active');
+                    document.getElementById('actTitle').innerHTML = tmpBtn_1.innerHTML;
+                    document.getElementById('app').innerHTML = '';
+                    var t = new Table(tname);
+                    window.document.title = t.getTableAlias();
+                    if (t.isVirtual()) {
+                        var html = eval('(function() {' + t.getVirtualContent() + '}())') || '';
+                        var container = document.createElement('div');
+                        container.innerHTML = html;
+                        document.getElementById('app').appendChild(container);
+                    }
+                    else {
+                        t.options.showSearch = true;
+                        t.options.showWorkflowButton = true;
+                        t.options.allowCreating = true;
+                        t.loadRows(function () {
+                            var container = document.createElement('div');
+                            container.classList.add('tablecontent');
+                            document.getElementById('app').appendChild(container);
+                            t.renderHTML(container);
+                        });
+                    }
+                });
+                if (!firstBtn)
+                    firstBtn = tmpBtn_1;
+            }
+        });
+        firstBtn.click();
+    });
+    setInterval(function () { DB.request('ping', {}, function () { }); }, 60000);
+}
 var DB = (function () {
     function DB() {
     }
@@ -83,11 +153,18 @@ var DB = (function () {
         }
         fetch(url, settings).then(function (r) { return r.json(); }).then(function (res) {
             if (res.error) {
-                console.error(res.error.msg);
                 if (res.error.url) {
-                    console.log(res);
-                    console.error('Logged out!');
-                    document.location.assign(res.error.url);
+                    var loginForm = document.createElement('iframe');
+                    loginForm.src = res.error.url;
+                    loginForm.width = '100%';
+                    loginForm.style.height = '500px';
+                    loginForm.setAttribute('frameborder', '0');
+                    loginForm.setAttribute('scrolling', 'no');
+                    document.getElementById('app').appendChild(loginForm);
+                    window.document.addEventListener('my_loggedIn_event', function (e) {
+                        accessToken = e['detail'].accessToken;
+                        gInitApp();
+                    }, false);
                 }
             }
             else
@@ -183,6 +260,7 @@ var DB = (function () {
     };
     return DB;
 }());
+DB.request('ping', {}, function () { });
 var StateMachine = (function () {
     function StateMachine(states, links) {
         this.myStates = states;
@@ -565,6 +643,8 @@ var Table = (function () {
         this.superTypeOf = tablenames;
     };
     Table.prototype.getSubTables = function () { return this.superTypeOf; };
+    Table.prototype.isVirtual = function () { return this.Config.is_virtual; };
+    Table.prototype.getVirtualContent = function () { return this.Config.virtualcontent; };
     Table.prototype.createRow = function (data, callback) {
         DB.request('create', { table: this.tablename, row: data }, function (r) { callback(r); });
     };

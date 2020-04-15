@@ -302,13 +302,13 @@
   if (!file_exists($project_dir."/js/custom.js"))
     file_put_contents($project_dir."/js/custom.js", "/* Custom Scripts */\nsetLang = 'en';");
   // Router
-  createSubDirIfNotExists($project_dir."/js/router/");
-  file_put_contents($project_dir."/js/router/Route.js", file_get_contents("./Route.js"));
-  file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
+  //createSubDirIfNotExists($project_dir."/js/router/");
+  //file_put_contents($project_dir."/js/router/Route.js", file_get_contents("./Route.js"));
+  //file_put_contents($project_dir."/js/router/Router.js", file_get_contents("./Router.js"));
   // Views
-  createSubDirIfNotExists($project_dir."/js/views/");
-  file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
-  file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
+  //createSubDirIfNotExists($project_dir."/js/views/");
+  //file_put_contents($project_dir."/js/views/read.js", file_get_contents("./viewRead.js"));
+  //file_put_contents($project_dir."/js/views/workflow.js", file_get_contents("./viewWorkflow.js"));
   // Styles
   file_put_contents($project_dir."/css/main.css", $output_css);
   if (!file_exists($project_dir."/css/custom.css"))
@@ -322,8 +322,8 @@
   file_put_contents($project_dir."/src/ReadQuery.inc.php", file_get_contents("./output_ReadQuery.php"));
   // Main Directory
   file_put_contents($project_dir."/api.php", file_get_contents("./output_API.php"));
-  file_put_contents($project_dir."/index.php", file_get_contents("./output_index.php"));
-  file_put_contents($project_dir."/content.inc.html", $output_content);
+  //file_put_contents($project_dir."/index.php", file_get_contents("./output_index.php"));
+  file_put_contents($project_dir."/index.html", $output_content);
   // Configuration
   // If file exists, load config
   if (file_exists($project_dir."/config.SECRET.inc.php"))

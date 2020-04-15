@@ -5,23 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <!-- Title -->
   <title>replaceDBName</title>
-
-  <meta name="theme-color" content="#027389">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <!--
-  <meta name="application-name" content="DTA">
-  <meta name="apple-mobile-web-app-title" content="Daniels Test App">
-  -->
-  <meta name="msapplication-navbutton-color" content="#027389">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <!--
-  <meta name="msapplication-starturl" content="https://testing.wuda.io/pwa-wuda/">
-  <link rel="icon" sizes="200x200" href="wuda.png">
-  <link rel="apple-touch-icon" sizes="200x200" href="wuda.png">
-  -->
+  <!-- PWA -->
   <link rel="manifest" href="./manifest.json">
-
   <!-- CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" crossorigin="anonymous">
@@ -32,7 +17,7 @@
 </head>
 <body>
 
-  <!--<small class="p-1 bg-danger d-block text-white text-center" style="position: fixed; z-index: 2000; left:0; right: 0;">No Internet Connection!</small>-->
+  <small id="networkIsOffline" class="p-1 bg-danger d-block text-white text-center invisible" style="position: fixed; z-index: 2000; left:0; right: 0;">No Internet Connection!</small>
 
   <!-- Content -->
   <main class="d-flex" id="wrapper">
@@ -55,7 +40,7 @@
         <ul class="nav ml-auto">
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle text-muted" href="#" id="navbarDropdown" role="button" data-target="#dropdown-menu-user" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-              <i class="fas fa-user mr-1"></i><span class="d-none d-md-inline" id="username">Account</span>
+              <i class="fas fa-user mr-1"></i><span id="username"></span>
             </a>
             <div id="dropdown-menu-user" class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
               <a class="dropdown-item" href="?emails">Manage Profile</a>
@@ -85,7 +70,6 @@
       </div>
     </div>
     -->
-
   </main>
 
   <!-- Modal -->
@@ -102,8 +86,6 @@
       </div>
     </div>
   </div>
-
-
 
   <!-- Toast -->
   <div aria-live="polite" aria-atomic="true">
@@ -127,18 +109,16 @@
     </div>
   </div>
 
-
-
   <!-- JS -->
-  <script>const accessToken = '%accessToken%';</script>
+  <script>let accessToken = '%accessToken%';</script>
   <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/vis-network/dist/vis-network.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+  <!--<script src="js/app.js" type="module"></script>-->
   <script src="js/main.js"></script>
-  <script src="js/app.js" type="module"></script>
   <script src="js/custom.js"></script>
   <script>
     $("#menu-toggle").click(e => {
