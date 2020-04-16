@@ -692,6 +692,8 @@
         $strVals = implode(",", array_fill(0, count($vals), '?'));
         $stmt = $pdo->prepare("INSERT INTO $tablename ($strKeys) VALUES ($strVals)");
         $stmt->execute($vals);
+
+        // Get Last ID
         $newElementID = $pdo->lastInsertId();
 
         // INSERT successful

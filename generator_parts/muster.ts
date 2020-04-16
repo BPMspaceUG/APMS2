@@ -1243,14 +1243,16 @@ class Table {
             else {
               // SuperType Edit (jump to the relevant entry)
               const SuperTableRowID = row[self.getPrimaryColname()];
+              //console.log(SuperTableRowID);
               self.superTypeOf.map(subTableName => {
                 const tmpTable = new Table(subTableName);
-                tmpTable.setFilter('{"=":["`'+ tmpTable.getTablename() +'`.'+ self.tablename +'_id",'+ SuperTableRowID +']}');
+                tmpTable.setFilter('{"=":["'+ tmpTable.getPrimaryColname() +'",'+ SuperTableRowID +']}');
                 tmpTable.loadRows(rows => {
                   if (rows.count > 0) {
                     const modForm = new Form(tmpTable, rows.records[0]);
                     modForm.setSuperTable(self);
                     DB.replaceDomElement(wrapper.parentElement.parentElement, modForm.getForm());
+                    return;
                   }
                 })
               })
@@ -1960,19 +1962,14 @@ class Form {
             //-- ELEMENT WAS IMPORTED
             if (self.superTable) {
               //---> Go Back to SuperTable
-              //console.log('[', self.superTable.getTablename(), ' -> ', self.oTable.getTablename(), ']');
-              //console.log(self.superTable.getSelectType(), self.oTable.getSelectType());
-              //----------
               if (self.superTable.getSelectType() === 1) {
                 // Created inside another Table (via Foreign Key)
                 self.oTable.loadRow(newRowID, row => {
                   // MUST: The Convention is to use the [PrimaryColname] of the SuperTable as FKColname at the Sub-Tables
-                  const superTableRowID = row[self.superTable.getPrimaryColname()][self.superTable.getPrimaryColname()];
-                  self.superTable.loadRow(superTableRowID, row => {
-                    self.superTable.setRows([row]);
-                    self.superTable.addSelectedRow(row);
-                    self.superTable.renderHTML(self.formElement);
-                  });
+                  const newRow = row[self.oTable.getPrimaryColname()];
+                  self.superTable.setRows([newRow]);
+                  self.superTable.addSelectedRow(newRow);
+                  self.superTable.renderHTML(self.formElement);
                 });
               }
               // TODO: SelectType == 2 ?
@@ -2155,11 +2152,13 @@ class Form {
     }
     else {
       frm.classList.add('frm-edit');
+      const pcol =  self.oRowData[self.oTable.getPrimaryColname()];
+      const RowID = DB.isObject(pcol) ? pcol[Object.keys(pcol)[0]] : pcol;
       const titleElement = document.createElement('p');
       titleElement.classList.add('text-primary', 'font-weight-bold', 'col-12', 'm-0', 'pt-2'); // classes
       titleElement.innerText = gText[setLang].titleModify
         .replace('{alias}', self.oTable.getTableAlias())
-        .replace('{id}', self.oRowData[self.oTable.getPrimaryColname()]) // TODO:  SuperTable ?
+        .replace('{id}', RowID)
       frm.appendChild(titleElement);
     }
     const cols = [];

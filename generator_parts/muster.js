@@ -1119,12 +1119,13 @@ var Table = (function () {
                             var SuperTableRowID_1 = row[self.getPrimaryColname()];
                             self.superTypeOf.map(function (subTableName) {
                                 var tmpTable = new Table(subTableName);
-                                tmpTable.setFilter('{"=":["`' + tmpTable.getTablename() + '`.' + self.tablename + '_id",' + SuperTableRowID_1 + ']}');
+                                tmpTable.setFilter('{"=":["' + tmpTable.getPrimaryColname() + '",' + SuperTableRowID_1 + ']}');
                                 tmpTable.loadRows(function (rows) {
                                     if (rows.count > 0) {
                                         var modForm = new Form(tmpTable, rows.records[0]);
                                         modForm.setSuperTable(self);
                                         DB.replaceDomElement(wrapper.parentElement.parentElement, modForm.getForm());
+                                        return;
                                     }
                                 });
                             });
@@ -1754,12 +1755,10 @@ var Form = (function () {
                         if (self.superTable) {
                             if (self.superTable.getSelectType() === 1) {
                                 self.oTable.loadRow(newRowID, function (row) {
-                                    var superTableRowID = row[self.superTable.getPrimaryColname()][self.superTable.getPrimaryColname()];
-                                    self.superTable.loadRow(superTableRowID, function (row) {
-                                        self.superTable.setRows([row]);
-                                        self.superTable.addSelectedRow(row);
-                                        self.superTable.renderHTML(self.formElement);
-                                    });
+                                    var newRow = row[self.oTable.getPrimaryColname()];
+                                    self.superTable.setRows([newRow]);
+                                    self.superTable.addSelectedRow(newRow);
+                                    self.superTable.renderHTML(self.formElement);
                                 });
                             }
                             else {
@@ -1906,11 +1905,13 @@ var Form = (function () {
         }
         else {
             frm.classList.add('frm-edit');
+            var pcol = self.oRowData[self.oTable.getPrimaryColname()];
+            var RowID = DB.isObject(pcol) ? pcol[Object.keys(pcol)[0]] : pcol;
             var titleElement = document.createElement('p');
             titleElement.classList.add('text-primary', 'font-weight-bold', 'col-12', 'm-0', 'pt-2');
             titleElement.innerText = gText[setLang].titleModify
                 .replace('{alias}', self.oTable.getTableAlias())
-                .replace('{id}', self.oRowData[self.oTable.getPrimaryColname()]);
+                .replace('{id}', RowID);
             frm.appendChild(titleElement);
         }
         var cols = [];
