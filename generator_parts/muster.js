@@ -49,45 +49,57 @@ var gText = {
     }
 };
 var setLang = 'en';
+function navigateTo(tname) {
+    document.getElementById('wrapper').classList.remove('toggled');
+    var allBtns = document.querySelectorAll('.list-group-item-action');
+    for (var i = 0; i < allBtns.length; i++)
+        allBtns[i].classList.remove('active');
+    var btns = document.getElementsByClassName('list-group-item-action');
+    var btn = null;
+    for (var i = 0; i < btns.length; i++) {
+        if (btns[i].getAttribute('href') === '#/' + tname) {
+            btn = btns[i];
+            break;
+        }
+    }
+    btn.classList.add('active');
+    document.getElementById('actTitle').innerHTML = btn.innerHTML;
+    document.getElementById('app').innerHTML = '';
+    var t = new Table(tname);
+    window.document.title = t.getTableAlias();
+    if (t.isVirtual()) {
+        var html = eval('(function() {' + t.getVirtualContent() + '}())') || '';
+        var container = document.createElement('div');
+        container.innerHTML = html;
+        document.getElementById('app').appendChild(container);
+    }
+    else {
+        t.options.showSearch = true;
+        t.options.allowCreating = true;
+        t.loadRows(function () {
+            var container = document.createElement('div');
+            container.classList.add('tablecontent');
+            document.getElementById('app').appendChild(container);
+            t.renderHTML(container);
+        });
+    }
+}
 function gInitApp() {
     DB.loadConfig(function (config) {
         var firstBtn = null;
+        document.getElementById('sidebar-links').innerHTML = "";
         Object.keys(config.tables).forEach(function (tname) {
             if (config.tables[tname].in_menu) {
-                var tmpBtn_1 = document.createElement('a');
-                document.getElementById('sidebar-links').appendChild(tmpBtn_1);
-                tmpBtn_1.setAttribute('href', '#/' + tname);
-                tmpBtn_1.classList.add('list-group-item', 'list-group-item-action', 'link-' + tname);
-                tmpBtn_1.innerHTML = config.tables[tname].table_icon + ("<span class=\"ml-2\">" + config.tables[tname].table_alias + "</span>");
-                tmpBtn_1.addEventListener('click', function (e) {
-                    document.getElementById('wrapper').classList.remove('toggled');
-                    var allBtns = document.querySelectorAll('.list-group-item-action');
-                    for (var i = 0; i < allBtns.length; i++)
-                        allBtns[i].classList.remove('active');
-                    tmpBtn_1.classList.add('active');
-                    document.getElementById('actTitle').innerHTML = tmpBtn_1.innerHTML;
-                    document.getElementById('app').innerHTML = '';
-                    var t = new Table(tname);
-                    window.document.title = t.getTableAlias();
-                    if (t.isVirtual()) {
-                        var html = eval('(function() {' + t.getVirtualContent() + '}())') || '';
-                        var container = document.createElement('div');
-                        container.innerHTML = html;
-                        document.getElementById('app').appendChild(container);
-                    }
-                    else {
-                        t.options.showSearch = true;
-                        t.options.allowCreating = true;
-                        t.loadRows(function () {
-                            var container = document.createElement('div');
-                            container.classList.add('tablecontent');
-                            document.getElementById('app').appendChild(container);
-                            t.renderHTML(container);
-                        });
-                    }
+                var tmpBtn = document.createElement('a');
+                document.getElementById('sidebar-links').appendChild(tmpBtn);
+                tmpBtn.setAttribute('href', '#/' + tname);
+                tmpBtn.classList.add('list-group-item', 'list-group-item-action', 'link-' + tname);
+                tmpBtn.innerHTML = config.tables[tname].table_icon + ("<span class=\"ml-2\">" + config.tables[tname].table_alias + "</span>");
+                tmpBtn.addEventListener('click', function (e) {
+                    navigateTo(tname);
                 });
                 if (!firstBtn)
-                    firstBtn = tmpBtn_1;
+                    firstBtn = tmpBtn;
             }
         });
         firstBtn.click();
@@ -145,6 +157,10 @@ var DB = (function () {
                         document.getElementById('wrapper').innerHTML = '';
                         document.location.assign('.');
                     });
+                }
+                else {
+                    alert(res.error.msg);
+                    console.error(res.error.msg);
                 }
             }
             else
@@ -462,8 +478,10 @@ var StateButton = (function () {
             }
             data.row[self.stateCol] = targetStateID;
             DB.request('makeTransition', data, function (resp) {
-                if (resp.length === 3)
+                if (resp.length === 3) {
                     self.onSuccess();
+                    elementChanged();
+                }
                 var counter = 0;
                 var messages = [];
                 resp.forEach(function (msg) {
@@ -1783,6 +1801,11 @@ var Form = (function () {
         }
         else {
             if (self.oTable.hasStateMachine()) {
+                if (self.superTable) {
+                    var pc = self.oRowData[self.oTable.getPrimaryColname()];
+                    var RowID = DB.isObject(pc) ? pc[Object.keys(pc)[0]] : pc;
+                    self.oRowData[self.oTable.getPrimaryColname()] = RowID;
+                }
                 var S = new StateButton(self.oRowData);
                 S.setTable(self.oTable);
                 S.setForm(self);
@@ -1810,6 +1833,7 @@ var Form = (function () {
                     self.oTable.updateRow(newRowData, function () {
                         self.oTable.loadRows(function () {
                             self.oTable.renderHTML(self.formElement);
+                            elementChanged();
                         });
                     });
                 });
@@ -1965,3 +1989,9 @@ window.addEventListener("load", function () {
     window.addEventListener("online", handleNetworkChange);
     window.addEventListener("offline", handleNetworkChange);
 });
+function elementChanged() {
+    document.getElementById('entrySaved').classList.remove('invisible');
+    setTimeout(function () {
+        document.getElementById('entrySaved').classList.add('invisible');
+    }, 1000);
+}

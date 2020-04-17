@@ -44,6 +44,54 @@ const gText = {
 
 let setLang = 'en'; // default Language
 
+function navigateTo(tname: string) {
+  //console.log('->', tname);
+  // Menu Item Click
+  // Reset all Styles
+  document.getElementById('wrapper').classList.remove('toggled'); // Close Menu
+  const allBtns = document.querySelectorAll('.list-group-item-action');
+  for (let i=0; i<allBtns.length; i++)
+    allBtns[i].classList.remove('active');
+  // Set current to active
+  const btns = document.getElementsByClassName('list-group-item-action');
+  let btn = null;
+  for (let i=0; i<btns.length; i++) {
+    if (btns[i].getAttribute('href') === '#/'+tname) {
+      btn = btns[i];
+      break;    
+    }
+  }
+  btn.classList.add('active');
+  // Set Menu Title
+  document.getElementById('actTitle').innerHTML = btn.innerHTML;
+  // Load Content
+  document.getElementById('app').innerHTML = '';
+
+  const t = new Table(tname)
+  //--- Set Title
+  window.document.title = t.getTableAlias();
+  // Execute Javascript if its a virtual Page (i.e. Dashboard)
+  if (t.isVirtual()) {
+    const html = eval('(function() {' + t.getVirtualContent() + '}())') || '';
+    const container = document.createElement('div');
+    container.innerHTML = html; // TODO: Optimize, connect directly Dom-Objects (because of Events)
+    document.getElementById('app').appendChild(container);
+  }
+  else {
+    //--- Table (Settings + Load Rows)
+    t.options.showSearch = true;
+    //t.options.showWorkflowButton = true; // TODO: Really?
+    t.options.allowCreating = true;
+    t.loadRows(()=>{
+      const container = document.createElement('div');
+      container.classList.add('tablecontent');
+      document.getElementById('app').appendChild(container);
+      t.renderHTML(container);
+    });
+  }
+}
+
+
 function gInitApp() {
   DB.loadConfig(config => {
     //==========================================================
@@ -55,6 +103,7 @@ function gInitApp() {
     */
     // Set Table Links
     let firstBtn = null;
+    document.getElementById('sidebar-links').innerHTML = ""; // clear menu
     Object.keys(config.tables).forEach(tname => {
       // Render only if in Menu
       if (config.tables[tname].in_menu) {
@@ -65,43 +114,7 @@ function gInitApp() {
         tmpBtn.classList.add('list-group-item', 'list-group-item-action', 'link-'+tname); // bootstrap
         tmpBtn.innerHTML = config.tables[tname].table_icon + `<span class="ml-2">${config.tables[tname].table_alias}</span>`;
         tmpBtn.addEventListener('click', e => {
-          // Menu Item Click
-          // Reset all Styles
-          document.getElementById('wrapper').classList.remove('toggled'); // Close Menu
-          const allBtns = document.querySelectorAll('.list-group-item-action');
-          for (let i=0; i<allBtns.length; i++)
-            allBtns[i].classList.remove('active');
-          // Set current to active
-          tmpBtn.classList.add('active');
-          // Set Menu Title
-          document.getElementById('actTitle').innerHTML = tmpBtn.innerHTML;
-          // Load Content
-          document.getElementById('app').innerHTML = '';
-          //============================================================
-          const t = new Table(tname)
-          //--- Set Title
-          window.document.title = t.getTableAlias();
-
-          // Execute Javascript if its a virtual Page (i.e. Dashboard)
-          if (t.isVirtual()) {
-            const html = eval('(function() {' + t.getVirtualContent() + '}())') || '';
-            const container = document.createElement('div');
-            container.innerHTML = html; // TODO: Optimize, connect directly Dom-Objects (because of Events)
-            document.getElementById('app').appendChild(container);
-          }
-          else {
-            //--- Table (Settings + Load Rows)
-            t.options.showSearch = true;
-            //t.options.showWorkflowButton = true; // TODO: Really?
-            t.options.allowCreating = true;
-            t.loadRows(()=>{
-              const container = document.createElement('div');
-              container.classList.add('tablecontent');
-              document.getElementById('app').appendChild(container);
-              t.renderHTML(container);
-            });
-          }
-          //============================================================
+          navigateTo(tname);
         })
         if (!firstBtn) firstBtn = tmpBtn;
       }
@@ -189,6 +202,9 @@ abstract class DB {
           //console.error('Logged out!');
           //document.location.assign(res.error.url);
           //document.location.assign('?logout');
+        } else {
+          alert(res.error.msg);
+          console.error(res.error.msg);
         }
       }
       else
@@ -529,8 +545,10 @@ class StateButton {
     //------------> SEND
     DB.request('makeTransition', data, resp => {
       // on Success
-      if (resp.length === 3)
+      if (resp.length === 3) {
         self.onSuccess();
+        elementChanged();
+      }
       //----------------------------------------
       // Handle Transition Feedback
       let counter: number = 0;
@@ -2006,6 +2024,12 @@ class Form {
       //================================//
       // Has Statemachine or not?
       if (self.oTable.hasStateMachine()) {
+        //  Check if SuperTable and primaray ID = object
+        if (self.superTable) {
+          const pc = self.oRowData[self.oTable.getPrimaryColname()];
+          const RowID = DB.isObject(pc) ? pc[Object.keys(pc)[0]] : pc;
+          self.oRowData[self.oTable.getPrimaryColname()] = RowID;
+        }        
         const S = new StateButton(self.oRowData);
         S.setTable(self.oTable);
         S.setForm(self);
@@ -2017,8 +2041,6 @@ class Form {
             const F = new Form(self.oTable, row);
             F.setSuperTable(self.superTable); // Chain
             DB.replaceDomElement(self.formElement, F.getForm());
-            // Element saved!
-            //$('.toast').toast('show');
           });
         });
         wrapper.appendChild(nextStateBtns);
@@ -2039,8 +2061,8 @@ class Form {
             // Updated!
             self.oTable.loadRows(()=>{
               // Element saved!
-              //$('.toast').toast('show');
               self.oTable.renderHTML(self.formElement);
+              elementChanged();
             });
           })
         });
@@ -2226,3 +2248,11 @@ window.addEventListener("load", () => {
   window.addEventListener("online", handleNetworkChange);
   window.addEventListener("offline", handleNetworkChange);
 });
+
+function elementChanged(){
+  // Element saved!
+  document.getElementById('entrySaved').classList.remove('invisible');
+  setTimeout(() => {
+    document.getElementById('entrySaved').classList.add('invisible');
+  }, 1000);
+}

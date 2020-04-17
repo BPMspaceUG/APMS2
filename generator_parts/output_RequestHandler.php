@@ -784,7 +784,7 @@
       }
       else {
         // ErrorHandling
-        die(fmtError($stmt->errorInfo()[2]));
+        die(fmtError('Update-Error: '.$stmt->errorInfo()[2]));
       }
       // Log History
       if ($success) {
